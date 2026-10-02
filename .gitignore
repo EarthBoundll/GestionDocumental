@@ -1,0 +1,13 @@
+node_modules/
+dist/
+# Archivos subidos en desarrollo (ALMACENAMIENTO=disco).
+backend/archivos/
+# Base y archivos de «npm run local».
+backend/.local/
+coverage/
+*.log
+
+# Secretos: solo se versiona la plantilla.
+.env
+.env.*
+!.env.example

@@ -1,0 +1,270 @@
+import type pg from 'pg';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
+import {
+  crearCategoria, crearDocumento, crearEscenario, crearOrganizacion, crearSolicitud, crearUsuario,
+} from '../apoyo/datos.js';
+
+// Códigos de error de PostgreSQL.
+const CLAVE_FORANEA = '23503';
+const UNICIDAD = '23505';
+const COMPROBACION = '23514';
+
+const ACCIONES_DEL_CATALOGO = [
+  'ORGANIZACION_REGISTRADA', 'SESION_INICIADA', 'SESION_FALLIDA', 'SESION_CERRADA', 'CLAVE_CAMBIADA',
+  'USUARIO_CREADO', 'USUARIO_EDITADO', 'USUARIO_DESACTIVADO', 'USUARIO_REACTIVADO', 'CATEGORIA_CREADA',
+  'CATEGORIA_EDITADA', 'DOCUMENTO_SUBIDO', 'DOCUMENTO_EDITADO', 'DOCUMENTO_ELIMINADO',
+  'DOCUMENTO_VISUALIZADO', 'DOCUMENTO_DESCARGADO', 'BUSQUEDA_REALIZADA', 'SOLICITUD_CREADA',
+  'SOLICITUD_APROBADA', 'SOLICITUD_RECHAZADA', 'ACCESO_DENEGADO', 'HISTORIAL_EXPORTADO',
+];
+
+describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () => {
+  let base: BaseDePruebas;
+  let db: pg.Pool;
+
+  beforeAll(async () => {
+    base = await crearBaseDePruebas();
+    db = base.pool;
+  });
+  afterAll(() => base.cerrar());
+
+  describe('aislamiento entre organizaciones (RN01, M2)', () => {
+    it('un documento no puede usar la categoría de otra organización', async () => {
+      const a = await crearEscenario(db);
+      const categoriaAjena = await crearCategoria(db, await crearOrganizacion(db));
+
+      await expect(
+        crearDocumento(db, { organizacionId: a.organizacionId, categoriaId: categoriaAjena, subidoPor: a.usuarioId }),
+      ).rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'documentos_categoria_de_su_organizacion' });
+    });
+
+    it('un documento no puede tener como propietario a alguien de otra organización', async () => {
+      const a = await crearEscenario(db);
+      const ajeno = await crearUsuario(db, await crearOrganizacion(db));
+
+      await expect(
+        crearDocumento(db, { organizacionId: a.organizacionId, categoriaId: a.categoriaId, subidoPor: ajeno }),
+      ).rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'documentos_propietario_de_su_organizacion' });
+    });
+
+    it('una solicitud no la puede resolver un administrador de otra organización', async () => {
+      const a = await crearEscenario(db);
+      const solicitudId = await crearSolicitud(db, {
+        organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
+      });
+      const administradorAjeno = await crearUsuario(db, await crearOrganizacion(db), 'administrador');
+
+      await expect(resolver(db, solicitudId, 'aprobada', administradorAjeno))
+        .rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'solicitudes_revisor_de_su_organizacion' });
+    });
+
+    it('el historial no puede atribuir a una organización la acción de alguien de otra', async () => {
+      const a = await crearEscenario(db);
+      const ajeno = await crearUsuario(db, await crearOrganizacion(db));
+
+      await expect(registrar(db, { organizacionId: a.organizacionId, usuarioId: ajeno, rol: 'usuario' }))
+        .rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'historial_usuario_de_su_organizacion' });
+    });
+  });
+
+  it('el correo se guarda en minúsculas y es único en todo el sistema (RN02)', async () => {
+    const primera = await crearOrganizacion(db);
+    const segunda = await crearOrganizacion(db);
+    const insertarCorreo = (organizacionId: string, email: string) => db.query(
+      `INSERT INTO usuarios (organizacion_id, nombre, email, clave_hash, rol)
+       VALUES ($1, 'Ana', $2, repeat('x', 60), 'usuario')`,
+      [organizacionId, email],
+    );
+
+    await expect(insertarCorreo(primera, 'Ana@Ejemplo.pe'))
+      .rejects.toMatchObject({ code: COMPROBACION, constraint: 'usuarios_email_en_minusculas' });
+    await insertarCorreo(primera, 'ana@ejemplo.pe');
+    await expect(insertarCorreo(segunda, 'ana@ejemplo.pe'))
+      .rejects.toMatchObject({ code: UNICIDAD, constraint: 'usuarios_email_unico' });
+  });
+
+  it('una categoría no repite nombre en su organización, sin distinguir mayúsculas (RN08)', async () => {
+    const organizacionId = await crearOrganizacion(db);
+    await crearCategoria(db, organizacionId, 'Contratos');
+
+    await expect(crearCategoria(db, organizacionId, 'CONTRATOS'))
+      .rejects.toMatchObject({ code: UNICIDAD, constraint: 'categorias_nombre_unico' });
+    // lower() también debe entender las letras con tilde, no solo las del alfabeto inglés.
+    await crearCategoria(db, organizacionId, 'Área legal');
+    await expect(crearCategoria(db, organizacionId, 'ÁREA LEGAL'))
+      .rejects.toMatchObject({ code: UNICIDAD, constraint: 'categorias_nombre_unico' });
+    await expect(crearCategoria(db, await crearOrganizacion(db), 'Contratos')).resolves.toBeTypeOf('string');
+  });
+
+  it('un archivo pesa como máximo 10 MB (RN09)', async () => {
+    const a = await crearEscenario(db);
+    const subir = (pesoBytes: number) => crearDocumento(db, {
+      organizacionId: a.organizacionId, categoriaId: a.categoriaId, subidoPor: a.usuarioId, pesoBytes,
+    });
+
+    await expect(subir(10 * 1024 * 1024)).resolves.toBeTypeOf('string');
+    await expect(subir(10 * 1024 * 1024 + 1))
+      .rejects.toMatchObject({ code: COMPROBACION, constraint: 'documentos_peso_maximo' });
+  });
+
+  describe('solicitudes de aprobación', () => {
+    it('solo puede haber una pendiente por documento, y tras resolverla se puede pedir otra (RN12, RN14)', async () => {
+      const a = await crearEscenario(db);
+      const datos = { organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.usuarioId };
+      const primera = await crearSolicitud(db, datos);
+
+      await expect(crearSolicitud(db, datos))
+        .rejects.toMatchObject({ code: UNICIDAD, constraint: 'solicitudes_una_pendiente_por_documento' });
+      await resolver(db, primera, 'rechazada', a.administradorId, 'Falta la firma');
+      await expect(crearSolicitud(db, datos)).resolves.toBeTypeOf('string');
+    });
+
+    it('nadie resuelve su propia solicitud (RN13)', async () => {
+      const a = await crearEscenario(db);
+      const solicitudId = await crearSolicitud(db, {
+        organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.administradorId,
+      });
+
+      await expect(resolver(db, solicitudId, 'aprobada', a.administradorId))
+        .rejects.toMatchObject({ code: COMPROBACION, constraint: 'solicitudes_sin_autoaprobacion' });
+    });
+
+    it('rechazar exige un motivo que no esté en blanco (RN14)', async () => {
+      const a = await crearEscenario(db);
+      const solicitudId = await crearSolicitud(db, {
+        organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
+      });
+
+      for (const motivo of [null, '   ']) {
+        await expect(resolver(db, solicitudId, 'rechazada', a.administradorId, motivo))
+          .rejects.toMatchObject({ code: COMPROBACION, constraint: 'solicitudes_rechazo_con_motivo' });
+      }
+      await expect(resolver(db, solicitudId, 'rechazada', a.administradorId, 'Ilegible')).resolves.toBeDefined();
+    });
+
+    it('una resuelta tiene revisor y fecha de resolución, y una pendiente no', async () => {
+      const a = await crearEscenario(db);
+      const solicitudId = await crearSolicitud(db, {
+        organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
+      });
+
+      await expect(db.query("UPDATE solicitudes SET estado = 'aprobada' WHERE id = $1", [solicitudId]))
+        .rejects.toMatchObject({ code: COMPROBACION, constraint: 'solicitudes_resolucion_coherente' });
+      await expect(db.query('UPDATE solicitudes SET revisor_id = $2 WHERE id = $1', [solicitudId, a.administradorId]))
+        .rejects.toMatchObject({ code: COMPROBACION, constraint: 'solicitudes_resolucion_coherente' });
+    });
+  });
+
+  describe('historial', () => {
+    it('solo admite inserciones: rechaza UPDATE, DELETE y TRUNCATE (RN17, M4)', async () => {
+      const a = await crearEscenario(db);
+      const id = await registrar(db, { organizacionId: a.organizacionId, usuarioId: a.usuarioId, rol: 'usuario' });
+
+      await expect(db.query("UPDATE historial SET detalle = '{\"x\":1}' WHERE id = $1", [id]))
+        .rejects.toThrow('UPDATE no está permitido');
+      await expect(db.query('DELETE FROM historial WHERE id = $1', [id])).rejects.toThrow('DELETE no está permitido');
+      await expect(db.query('TRUNCATE historial')).rejects.toThrow('TRUNCATE no está permitido');
+
+      const { rows } = await db.query('SELECT detalle FROM historial WHERE id = $1', [id]);
+      expect(rows).toEqual([{ detalle: {} }]);
+    });
+
+    it('solo acepta las 22 acciones del catálogo (docs/01-analisis.md §7)', async () => {
+      const a = await crearEscenario(db);
+      const autor = { organizacionId: a.organizacionId, usuarioId: a.usuarioId, rol: 'usuario' as const };
+
+      for (const accion of ACCIONES_DEL_CATALOGO) {
+        await expect(registrar(db, { ...autor, accion })).resolves.toBeTypeOf('string');
+      }
+      await expect(registrar(db, { ...autor, accion: 'DOCUMENTO_BORRADO' }))
+        .rejects.toMatchObject({ code: COMPROBACION, constraint: 'historial_accion_del_catalogo' });
+    });
+
+    it('toda acción con autor guarda el rol con el que actuó (indicador 6)', async () => {
+      const a = await crearEscenario(db);
+
+      await expect(registrar(db, { organizacionId: a.organizacionId, usuarioId: a.usuarioId, rol: null }))
+        .rejects.toMatchObject({ code: COMPROBACION, constraint: 'historial_usuario_con_rol' });
+      // Un inicio de sesión fallido con un correo inexistente no tiene autor ni organización.
+      await expect(registrar(db, { organizacionId: null, usuarioId: null, rol: null, accion: 'SESION_FALLIDA' }))
+        .resolves.toBeTypeOf('string');
+    });
+  });
+
+  it('la búsqueda por nombre ignora mayúsculas y tildes, y usa el índice de trigramas (M8)', async () => {
+    const a = await crearEscenario(db);
+    await crearDocumento(db, {
+      organizacionId: a.organizacionId, categoriaId: a.categoriaId, subidoPor: a.usuarioId, nombre: 'Cotización de útiles',
+    });
+    const buscar = `SELECT nombre FROM documentos
+      WHERE organizacion_id = $1 AND eliminado_en IS NULL
+        AND normalizar(nombre) LIKE '%' || normalizar($2) || '%'`;
+
+    const { rows } = await db.query(buscar, [a.organizacionId, 'COTIZACION de UTILES']);
+    expect(rows).toEqual([{ nombre: 'Cotización de útiles' }]);
+
+    // Un índice que el planificador nunca elige no sirve de nada. Con un volumen realista y sin
+    // forzarlo, debe escogerlo por sí mismo: eso prueba que la expresión indexada y la buscada coinciden.
+    await db.query(
+      `INSERT INTO documentos (organizacion_id, categoria_id, subido_por, nombre, fecha_documento,
+         archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
+       SELECT $1, $2, $3, 'Factura número ' || n, '2026-01-01', 'f.pdf', 'masivo/' || n, 'application/pdf', 1000
+       FROM generate_series(1, 3000) AS n`,
+      [a.organizacionId, a.categoriaId, a.usuarioId],
+    );
+    await db.query('ANALYZE documentos');
+    const plan = await db.query(`EXPLAIN ${buscar}`, [a.organizacionId, 'cotizacion']);
+    expect(plan.rows.map((fila) => fila['QUERY PLAN']).join('\n')).toContain('documentos_nombre_trigramas');
+  });
+
+  it('actualizado_en se renueva en cada UPDATE sin que la aplicación lo pida', async () => {
+    const organizacionId = await crearOrganizacion(db);
+    const { rows: [categoria] } = await db.query<{ id: string }>(
+      "INSERT INTO categorias (organizacion_id, nombre, actualizado_en) VALUES ($1, 'Vieja', '2020-01-01') RETURNING id",
+      [organizacionId],
+    );
+
+    const { rows } = await db.query<{ actualizado_en: Date }>(
+      "UPDATE categorias SET nombre = 'Nueva' WHERE id = $1 RETURNING actualizado_en",
+      [categoria?.id],
+    );
+    expect(rows[0]?.actualizado_en.getFullYear()).toBeGreaterThanOrEqual(2026);
+  });
+
+  it('nada se borra en cascada: una organización con usuarios no se puede borrar', async () => {
+    const a = await crearEscenario(db);
+
+    await expect(db.query('DELETE FROM organizaciones WHERE id = $1', [a.organizacionId]))
+      .rejects.toMatchObject({ code: CLAVE_FORANEA });
+  });
+
+  it('RLS está activo en todas las tablas, también en la de migraciones (D14)', async () => {
+    const { rows } = await db.query<{ tabla: string; rls: boolean }>(`
+      SELECT c.relname AS tabla, c.relrowsecurity AS rls
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r'
+      ORDER BY 1`);
+
+    expect(rows).toHaveLength(10);
+    expect(rows.filter((fila) => !fila.rls)).toEqual([]);
+  });
+});
+
+function resolver(db: pg.Pool, solicitudId: string, estado: 'aprobada' | 'rechazada', revisorId: string, motivo: string | null = null) {
+  return db.query(
+    `UPDATE solicitudes SET estado = $2, revisor_id = $3, resuelta_en = now(), comentario_resolucion = $4
+     WHERE id = $1`,
+    [solicitudId, estado, revisorId, motivo],
+  );
+}
+
+async function registrar(
+  db: pg.Pool,
+  datos: { organizacionId: string | null; usuarioId: string | null; rol: 'administrador' | 'usuario' | null; accion?: string },
+): Promise<string> {
+  const { rows } = await db.query<{ id: string }>(
+    'INSERT INTO historial (organizacion_id, usuario_id, rol_usuario, accion) VALUES ($1, $2, $3, $4) RETURNING id',
+    [datos.organizacionId, datos.usuarioId, datos.rol, datos.accion ?? 'DOCUMENTO_SUBIDO'],
+  );
+  return String(rows[0]?.id);
+}

@@ -1,0 +1,45 @@
+# Blueprint de Render: crea la API tal como la describe docs/02-arquitectura.md §5.
+# Los valores secretos (sync: false) se introducen en el panel de Render al crear el servicio, nunca aquí.
+services:
+  - type: web
+    name: gestion-documental-api
+    runtime: node
+    plan: free
+    region: virginia
+    rootDir: backend
+    # Las migraciones se aplican al compilar. Si fallan, el despliegue se detiene y sigue en línea la
+    # versión anterior, en lugar de arrancar una API nueva contra un esquema a medio aplicar.
+    # --include=dev: compilar necesita TypeScript, y NODE_ENV=production lo dejaría fuera.
+    buildCommand: npm ci --include=dev && npm run build && npm run migrar
+    startCommand: npm start
+    healthCheckPath: /api/v1/salud
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_CA
+        sync: false
+      # Render genera un valor aleatorio de 256 bits al crear el servicio. Cambiarlo cierra todas las sesiones.
+      - key: JWT_SECRETO
+        generateValue: true
+      # La URL del frontend en Vercel, cuando exista.
+      - key: CORS_ORIGEN
+        sync: false
+      - key: REGISTRO_ABIERTO
+        value: "true"
+      # Valor provisional: confirmarlo en el primer despliegue con DIAGNOSTICO_RED (backend/README.md).
+      - key: PROXIES_DE_CONFIANZA
+        value: "1"
+      - key: DIAGNOSTICO_RED
+        value: "true"
+      # Archivos en Supabase Storage (D9): bucket privado «documentos».
+      - key: ALMACENAMIENTO
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_CLAVE_SECRETA
+        sync: false
+      - key: STORAGE_BUCKET
+        value: documentos
