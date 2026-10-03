@@ -6,7 +6,7 @@ import { Aviso } from '../../componentes/Avisos';
 import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
 import { useSesion } from '../../sesion/SesionContext';
-import { inicioDe } from '../../utilidades/roles';
+import { destinoTrasEntrar } from '../../utilidades/roles';
 import { PantallaDeAcceso } from './PantallaDeAcceso';
 
 export function IniciarSesion() {
@@ -27,7 +27,7 @@ export function IniciarSesion() {
       const sesion = await auth.iniciarSesion(email, clave);
       iniciar(sesion);
       const desde = (ubicacion.state as { desde?: string } | null)?.desde;
-      navegar(desde ?? inicioDe(sesion.usuario.rol), { replace: true });
+      navegar(destinoTrasEntrar(sesion.usuario.rol, desde), { replace: true });
     } catch (causa) {
       setError(causa as ErrorApi);
       setEnviando(false);

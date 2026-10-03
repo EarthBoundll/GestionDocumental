@@ -102,5 +102,6 @@ export async function descargar(ruta: string, consulta: Consulta, nombrePorDefec
   enlace.href = URL.createObjectURL(await respuesta.blob());
   enlace.download = nombre;
   enlace.click();
-  URL.revokeObjectURL(enlace.href);
+  // Safari y Firefox cancelan la descarga si el enlace se revoca en el mismo instante del clic.
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 10_000);
 }

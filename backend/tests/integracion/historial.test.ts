@@ -91,6 +91,9 @@ describe('Historial: consulta y exportación (RF19, RF20)', () => {
     expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
       accion: 'HISTORIAL_EXPORTADO', detalle: { filtros: { accion: 'BUSQUEDA_REALIZADA' }, filas: 1 },
     });
+    // La SPA está en otro origen: si CORS no expone la cabecera, el archivo se guarda sin su nombre.
+    const desdeLaSpa = await exportar(token).set('Origin', 'http://localhost:5173');
+    expect(desdeLaSpa.headers['access-control-expose-headers']).toBe('Content-Disposition');
   });
 
   it('un usuario no consulta ni exporta: 403 registrado (indicador 6)', async () => {

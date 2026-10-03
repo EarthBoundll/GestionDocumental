@@ -10,6 +10,7 @@ import { Insignia } from '../../componentes/Insignia';
 import { Modal } from '../../componentes/Modal';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
+import { contar } from '../../utilidades/formato';
 
 export function Categorias() {
   const consulta = useConsulta((senal) => categorias.listar(true, senal), []);
@@ -52,7 +53,7 @@ export function Categorias() {
                   {categoria.descripcion && <p className="text-sm text-slate-500">{categoria.descripcion}</p>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-slate-500">{categoria.documentos} {categoria.documentos === 1 ? 'documento' : 'documentos'}</span>
+                  <span className="text-sm text-slate-500">{contar(categoria.documentos, 'documento')}</span>
                   {!categoria.activa && <Insignia tono="neutro">Desactivada</Insignia>}
                   <Boton variante="fantasma" tamano="pequeno" icono={Pencil} onClick={() => setEditando(categoria)}>Editar</Boton>
                   <Boton variante="secundario" tamano="pequeno" onClick={() => void alternar(categoria)}>{categoria.activa ? 'Desactivar' : 'Reactivar'}</Boton>

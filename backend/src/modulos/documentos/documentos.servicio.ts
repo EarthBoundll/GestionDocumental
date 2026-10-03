@@ -215,6 +215,8 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
         autor: autorDe(actor.autenticacion.usuario),
         contexto: actor.contexto,
         entidad: { tipo: 'documento', id },
+        // El nombre de ese momento: el documento puede renombrarse después, y el indicador 3 se lee del CSV.
+        detalle: { nombre: documento.nombre },
       }));
       return { url, expiraEn: new Date(Date.now() + VIGENCIA_ENLACE_SEGUNDOS * 1000).toISOString() };
     },

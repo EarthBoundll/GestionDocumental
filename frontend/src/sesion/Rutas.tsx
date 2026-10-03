@@ -7,9 +7,11 @@ import { useSesion } from './SesionContext';
  * la API responde 403 y lo registra (D8). Bloquearlo aquí lo ocultaría al indicador 6.
  */
 export function RutaConSesion() {
-  const { sesion } = useSesion();
+  const { sesion, caducada } = useSesion();
   const ubicacion = useLocation();
-  if (!sesion) return <Navigate to="/login" replace state={{ desde: ubicacion.pathname + ubicacion.search }} />;
+  if (!sesion) {
+    return <Navigate to={caducada ? '/login?motivo=sesion' : '/login'} replace state={{ desde: ubicacion.pathname + ubicacion.search }} />;
+  }
   return <Outlet />;
 }
 

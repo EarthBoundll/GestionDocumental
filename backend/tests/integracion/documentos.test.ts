@@ -364,7 +364,10 @@ describe('Documentos (RF07–RF12)', () => {
       expect(descarga.body.url.startsWith(`${URL_PUBLICA_DE_PRUEBAS}/api/v1/archivos/`)).toBe(true);
       expect(new Date(descarga.body.expiraEn).getTime() - Date.now()).toBeGreaterThan(290_000);
       const historial = await historialDe(pool, empresa.id);
-      expect(historial.slice(-2).map((fila) => fila.accion)).toEqual(['DOCUMENTO_DESCARGADO', 'DOCUMENTO_VISUALIZADO']);
+      expect(historial.slice(-2)).toMatchObject([
+        { accion: 'DOCUMENTO_DESCARGADO', entidad_id: documento.id, detalle: { nombre: 'Factura' } },
+        { accion: 'DOCUMENTO_VISUALIZADO', entidad_id: documento.id, detalle: { nombre: 'Factura' } },
+      ]);
 
       const archivo = await request(app).get(descarga.body.url.replace(URL_PUBLICA_DE_PRUEBAS, '')).buffer(true);
       expect(archivo.status).toBe(200);

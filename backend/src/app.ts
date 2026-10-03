@@ -53,6 +53,8 @@ export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias
     origin: entorno.CORS_ORIGEN,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    // Sin esto, el navegador oculta la cabecera a la SPA (otro origen) y el CSV no llega con su nombre.
+    exposedHeaders: ['Content-Disposition'],
     maxAge: 600,
   }));
   app.use(express.json({ limit: '100kb' }));

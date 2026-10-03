@@ -58,11 +58,19 @@ export const solicitudes = {
     api<Solicitud>(`/solicitudes/${id}/resolucion`, { metodo: 'POST', cuerpo: { decision, comentario } }),
 };
 
+/** Se emite al marcar notificaciones como leídas: la campana, en otra parte de la pantalla, actualiza su contador. */
+export const NOTIFICACIONES_LEIDAS = 'notificaciones-leidas';
+
+async function avisandoALaCampana(peticion: Promise<void>): Promise<void> {
+  await peticion;
+  window.dispatchEvent(new Event(NOTIFICACIONES_LEIDAS));
+}
+
 export const notificaciones = {
   listar: (filtros: { soloNoLeidas?: boolean; pagina?: number; porPagina?: number }, senal?: AbortSignal) =>
     api<Pagina<Notificacion> & { noLeidas: number }>('/notificaciones', { consulta: { ...filtros }, senal }),
-  marcarLeida: (id: string) => api<void>(`/notificaciones/${id}/leida`, { metodo: 'PATCH' }),
-  marcarTodas: () => api<void>('/notificaciones/leidas', { metodo: 'PATCH' }),
+  marcarLeida: (id: string) => avisandoALaCampana(api<void>(`/notificaciones/${id}/leida`, { metodo: 'PATCH' })),
+  marcarTodas: () => avisandoALaCampana(api<void>('/notificaciones/leidas', { metodo: 'PATCH' })),
 };
 
 export const usuarios = {

@@ -1,13 +1,14 @@
 import { Bell } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { notificaciones } from '../api/recursos';
+import { notificaciones, NOTIFICACIONES_LEIDAS } from '../api/recursos';
 import { useConsulta } from '../hooks/useConsulta';
 import { formatearFechaHora } from '../utilidades/formato';
 
 /**
- * Las notificaciones se piden al cambiar de pantalla y al volver a la pestaña, no cada pocos segundos:
- * el alcance excluye el tiempo real (D15), y así no se gasta la cuota del plan gratuito.
+ * Las notificaciones se piden al cambiar de pantalla, al volver a la pestaña y al marcar alguna como
+ * leída, no cada pocos segundos: el alcance excluye el tiempo real (D15), y así no se gasta la cuota
+ * del plan gratuito.
  */
 export function Campana() {
   const ubicacion = useLocation();
@@ -18,7 +19,11 @@ export function Campana() {
 
   useEffect(() => {
     window.addEventListener('focus', recargar);
-    return () => window.removeEventListener('focus', recargar);
+    window.addEventListener(NOTIFICACIONES_LEIDAS, recargar);
+    return () => {
+      window.removeEventListener('focus', recargar);
+      window.removeEventListener(NOTIFICACIONES_LEIDAS, recargar);
+    };
   }, [recargar]);
 
   useEffect(() => {
