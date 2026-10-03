@@ -7,6 +7,7 @@ import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
 import { EncabezadoDePagina, Tarjeta } from '../../componentes/Pagina';
 import { useSesion } from '../../sesion/SesionContext';
+import { NOMBRES_DE_ROLES } from '../../utilidades/roles';
 
 export function MiCuenta() {
   const { sesion } = useSesion();
@@ -39,7 +40,8 @@ export function MiCuenta() {
   }
 
   const errores = error?.porCampo() ?? {};
-  const { usuario, organizacion } = sesion;
+  const { usuario, empresa } = sesion;
+  const esMaster = usuario.rol === 'master';
   return (
     <>
       <EncabezadoDePagina titulo="Mi cuenta" />
@@ -49,10 +51,11 @@ export function MiCuenta() {
           <dl className="space-y-3 text-sm">
             <div><dt className="text-slate-500">Nombre</dt><dd className="font-medium text-slate-900">{usuario.nombre}</dd></div>
             <div><dt className="text-slate-500">Correo</dt><dd className="font-medium text-slate-900">{usuario.email}</dd></div>
-            <div><dt className="text-slate-500">Rol</dt><dd className="font-medium text-slate-900">{usuario.rol === 'administrador' ? 'Administrador' : 'Usuario'}</dd></div>
-            <div><dt className="text-slate-500">Organización</dt><dd className="font-medium text-slate-900">{organizacion.nombre}</dd></div>
+            <div><dt className="text-slate-500">Rol</dt><dd className="font-medium text-slate-900">{NOMBRES_DE_ROLES[usuario.rol]}</dd></div>
+            {usuario.dni && <div><dt className="text-slate-500">DNI</dt><dd className="font-medium text-slate-900">{usuario.dni}</dd></div>}
+            {empresa && <div><dt className="text-slate-500">Empresa</dt><dd className="font-medium text-slate-900">{empresa.nombre}</dd></div>}
           </dl>
-          <p className="mt-4 text-xs text-slate-500">Para cambiar tu nombre o tu rol, pídeselo a un administrador.</p>
+          {!esMaster && <p className="mt-4 text-xs text-slate-500">Para cambiar tu nombre o tu rol, pídeselo a un administrador.</p>}
         </Tarjeta>
 
         <Tarjeta className="p-4 sm:p-6">
@@ -62,7 +65,7 @@ export function MiCuenta() {
             {hecho && <Aviso tipo="exito">Tu contraseña se cambió.</Aviso>}
             {error && !error.detalles.length && <Aviso tipo="error">{error.mensaje}</Aviso>}
             <Campo etiqueta="Contraseña actual" type="password" autoComplete="current-password" value={claves.actual} onChange={cambiar('actual')} error={errores.claveActual} />
-            <Campo etiqueta="Contraseña nueva" type="password" autoComplete="new-password" ayuda="Al menos 8 caracteres" value={claves.nueva} onChange={cambiar('nueva')} error={errores.claveNueva} />
+            <Campo etiqueta="Contraseña nueva" type="password" autoComplete="new-password" ayuda={esMaster ? 'Al menos 12 caracteres, sin tu DNI, tu correo ni solo números' : 'Al menos 8 caracteres'} value={claves.nueva} onChange={cambiar('nueva')} error={errores.claveNueva} />
             <Campo etiqueta="Repite la contraseña nueva" type="password" autoComplete="new-password" value={claves.confirmacion} onChange={cambiar('confirmacion')} error={errores.confirmacion} />
             <Boton type="submit" icono={KeyRound} cargando={enviando}>Cambiar contraseña</Boton>
           </form>

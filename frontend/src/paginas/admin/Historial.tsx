@@ -12,6 +12,7 @@ import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../com
 import { useConsulta } from '../../hooks/useConsulta';
 import { NOMBRES_DE_ACCIONES } from '../../utilidades/acciones';
 import { formatearFechaHora } from '../../utilidades/formato';
+import { NOMBRES_DE_ROLES } from '../../utilidades/roles';
 
 export function Historial() {
   const [parametros, setParametros] = useSearchParams();
@@ -86,6 +87,12 @@ export function Historial() {
   );
 }
 
+/** El Master no es de la empresa y su cuenta no se ve desde ella: sus acciones salen como de la plataforma. */
+function autorDe(asiento: Asiento): string {
+  if (asiento.rolUsuario === 'master') return 'Administración de la plataforma';
+  return asiento.usuario?.nombre ?? String(asiento.detalle.email ?? 'Correo desconocido');
+}
+
 function FilaDeHistorial({ asiento }: { asiento: Asiento }) {
   const denegado = asiento.accion === 'ACCESO_DENEGADO' || asiento.accion === 'SESION_FALLIDA';
   const Dispositivo = asiento.esMovil ? Smartphone : Monitor;
@@ -95,8 +102,8 @@ function FilaDeHistorial({ asiento }: { asiento: Asiento }) {
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2">
           <Insignia tono={denegado ? 'peligro' : 'neutro'}>{NOMBRES_DE_ACCIONES[asiento.accion] ?? asiento.accion}</Insignia>
-          <span className="font-medium text-slate-900">{asiento.usuario?.nombre ?? String(asiento.detalle.email ?? 'Correo desconocido')}</span>
-          {asiento.rolUsuario && <span className="text-xs text-slate-500">{asiento.rolUsuario}</span>}
+          <span className="font-medium text-slate-900">{autorDe(asiento)}</span>
+          {asiento.rolUsuario && <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[asiento.rolUsuario]}</span>}
         </p>
         <Resumen asiento={asiento} />
       </div>

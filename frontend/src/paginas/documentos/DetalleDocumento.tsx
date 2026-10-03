@@ -101,7 +101,7 @@ export function DetalleDocumento() {
       {dialogo === 'eliminar' && <DialogoEliminar documento={documento} alCerrar={() => setDialogo(null)} />}
       {dialogo === 'solicitar' && <DialogoComentario
         titulo="Solicitar aprobación"
-        explicacion="Los administradores de tu organización recibirán un aviso para aprobarlo o rechazarlo."
+        explicacion="Los administradores de tu empresa recibirán un aviso para aprobarlo o rechazarlo."
         etiqueta="Comentario para quien lo revise"
         boton="Enviar solicitud"
         alCerrar={() => setDialogo(null)}

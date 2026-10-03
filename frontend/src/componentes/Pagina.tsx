@@ -28,7 +28,7 @@ export function ErrorDeCarga({ error, alReintentar }: { error: ErrorApi; alReint
   if (error.estado === 403) {
     return (
       <EstadoVacio icono={ShieldX} titulo="No tienes permiso para ver esto">
-        Esta sección es solo para administradores. Si crees que deberías poder entrar, consúltalo con el administrador de tu organización.
+        Tu rol no permite entrar en esta sección, y el intento quedó registrado. Si crees que deberías poder, consúltalo con un administrador.
       </EstadoVacio>
     );
   }

@@ -1,18 +1,19 @@
 import { api, descargar } from './cliente';
 import type {
-  Asiento, Categoria, Documento, DocumentoResumen, EstadoSolicitud, Notificacion, Pagina, Perfil, Rol, SesionIniciada,
-  Solicitud, Usuario,
+  Administrador, Asiento, Categoria, Documento, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
+  Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Usuario,
 } from './tipos';
 
 // Una función por endpoint de docs/04-api.md, agrupadas por recurso.
 
 export const auth = {
-  registrar: (datos: { organizacion: { nombre: string; ruc?: string }; administrador: { nombre: string; email: string; clave: string } }) =>
-    api<SesionIniciada>('/auth/registro', { metodo: 'POST', cuerpo: datos }),
   iniciarSesion: (email: string, clave: string) => api<SesionIniciada>('/auth/login', { metodo: 'POST', cuerpo: { email, clave } }),
   cerrarSesion: () => api<void>('/auth/logout', { metodo: 'POST' }),
   perfil: (senal?: AbortSignal) => api<Perfil>('/auth/yo', { senal }),
   cambiarClave: (claveActual: string, claveNueva: string) => api<void>('/auth/clave', { metodo: 'PUT', cuerpo: { claveActual, claveNueva } }),
+  solicitarRecuperacion: (email: string) => api<{ mensaje: string }>('/auth/recuperacion', { metodo: 'POST', cuerpo: { email } }),
+  confirmarRecuperacion: (token: string, claveNueva: string) =>
+    api<void>('/auth/recuperacion/confirmar', { metodo: 'POST', cuerpo: { token, claveNueva } }),
 };
 
 export interface FiltrosDocumentos {
@@ -65,10 +66,11 @@ export const notificaciones = {
 };
 
 export const usuarios = {
-  listar: (filtros: { q?: string; rol?: Rol; activo?: boolean; pagina?: number; porPagina?: number }, senal?: AbortSignal) =>
+  listar: (filtros: { q?: string; rol?: RolDeEmpresa; activo?: boolean; pagina?: number; porPagina?: number }, senal?: AbortSignal) =>
     api<Pagina<Usuario>>('/usuarios', { consulta: { ...filtros }, senal }),
-  crear: (datos: { nombre: string; email: string; clave: string; rol: Rol }) => api<Usuario>('/usuarios', { metodo: 'POST', cuerpo: datos }),
-  editar: (id: string, cambios: Partial<{ nombre: string; rol: Rol; clave: string }>) =>
+  crear: (datos: { nombre: string; email: string; dni: string; clave: string; rol: RolDeEmpresa }) =>
+    api<Usuario>('/usuarios', { metodo: 'POST', cuerpo: datos }),
+  editar: (id: string, cambios: Partial<{ nombre: string; dni: string; rol: RolDeEmpresa; clave: string }>) =>
     api<Usuario>(`/usuarios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   cambiarEstado: (id: string, activo: boolean) => api<Usuario>(`/usuarios/${id}/estado`, { metodo: 'PATCH', cuerpo: { activo } }),
 };
@@ -84,4 +86,31 @@ export interface FiltrosHistorial {
 export const historial = {
   listar: (filtros: FiltrosHistorial, senal?: AbortSignal) => api<Pagina<Asiento>>('/historial', { consulta: { ...filtros }, senal }),
   exportar: (filtros: Omit<FiltrosHistorial, 'pagina'>) => descargar('/historial/exportar', { ...filtros }, 'historial.csv'),
+};
+
+interface DatosDeAdministrador {
+  nombre: string;
+  email: string;
+  dni: string;
+  clave: string;
+}
+
+/** El área del Master (decisión B): crea empresas con su primer administrador y ve sus cifras. */
+export const plataforma = {
+  metricas: (senal?: AbortSignal) => api<MetricasDePlataforma>('/plataforma/metricas', { senal }),
+  empresas: (senal?: AbortSignal) => api<{ datos: EmpresaConMetricas[] }>('/plataforma/empresas', { senal }),
+  empresa: (id: string, senal?: AbortSignal) =>
+    api<EmpresaConMetricas & { administradores: Administrador[] }>(`/plataforma/empresas/${id}`, { senal }),
+  crearEmpresa: (datos: { empresa: { nombre: string; ruc: string }; administrador: DatosDeAdministrador }) =>
+    api<{ empresa: Empresa; administrador: Administrador }>('/plataforma/empresas', { metodo: 'POST', cuerpo: datos }),
+  editarEmpresa: (id: string, cambios: Partial<{ nombre: string; ruc: string }>) =>
+    api<Empresa>(`/plataforma/empresas/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+  cambiarEstadoEmpresa: (id: string, activa: boolean) =>
+    api<Empresa>(`/plataforma/empresas/${id}/estado`, { metodo: 'PATCH', cuerpo: { activa } }),
+  crearAdministrador: (empresaId: string, datos: DatosDeAdministrador) =>
+    api<Administrador>(`/plataforma/empresas/${empresaId}/administradores`, { metodo: 'POST', cuerpo: datos }),
+  editarAdministrador: (id: string, cambios: Partial<Omit<DatosDeAdministrador, 'email'> & { email: string }>) =>
+    api<Administrador>(`/plataforma/administradores/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+  cambiarEstadoAdministrador: (id: string, activo: boolean) =>
+    api<Administrador>(`/plataforma/administradores/${id}/estado`, { metodo: 'PATCH', cuerpo: { activo } }),
 };

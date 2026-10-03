@@ -2,7 +2,7 @@ import { Pencil, Search, UserPlus, Users as IconoUsuarios } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { ErrorApi } from '../../api/cliente';
 import { usuarios } from '../../api/recursos';
-import type { Rol, Usuario } from '../../api/tipos';
+import type { RolDeEmpresa, Usuario } from '../../api/tipos';
 import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton } from '../../componentes/Boton';
 import { Campo, Selector } from '../../componentes/Campos';
@@ -43,7 +43,7 @@ export function Usuarios() {
     <>
       <EncabezadoDePagina
         titulo="Usuarios"
-        descripcion="Las personas de tu organización que pueden entrar al sistema."
+        descripcion="Las personas de tu empresa que pueden entrar al sistema."
         acciones={<Boton icono={UserPlus} onClick={() => setEditando('nuevo')}>Nuevo usuario</Boton>}
       />
       {aviso && <div className="mb-4"><Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso></div>}
@@ -70,7 +70,7 @@ export function Usuarios() {
                       <p className={`font-medium ${usuario.activo ? 'text-slate-900' : 'text-slate-400 line-through'}`}>
                         {usuario.nombre}{esUnoMismo && <span className="font-normal text-slate-500"> (tú)</span>}
                       </p>
-                      <p className="truncate text-sm text-slate-500">{usuario.email}</p>
+                      <p className="truncate text-sm text-slate-500">{usuario.email}{usuario.dni && ` · DNI ${usuario.dni}`}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Insignia tono={usuario.rol === 'administrador' ? 'marca' : 'neutro'}>{usuario.rol === 'administrador' ? 'Administrador' : 'Usuario'}</Insignia>
@@ -105,7 +105,9 @@ export function Usuarios() {
 }
 
 function DialogoUsuario({ usuario, esUnoMismo, alCerrar, alGuardar }: { usuario: Usuario | null; esUnoMismo: boolean; alCerrar(): void; alGuardar(texto: string): void }) {
-  const [valores, setValores] = useState({ nombre: usuario?.nombre ?? '', email: usuario?.email ?? '', rol: usuario?.rol ?? 'usuario' as Rol, clave: '' });
+  const [valores, setValores] = useState({
+    nombre: usuario?.nombre ?? '', email: usuario?.email ?? '', dni: usuario?.dni ?? '', rol: usuario?.rol ?? 'usuario' as RolDeEmpresa, clave: '',
+  });
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
   const cambiar = (campo: keyof typeof valores) => (evento: { target: { value: string } }) =>
@@ -118,6 +120,7 @@ function DialogoUsuario({ usuario, esUnoMismo, alCerrar, alGuardar }: { usuario:
       if (usuario) {
         await usuarios.editar(usuario.id, {
           nombre: valores.nombre,
+          dni: valores.dni,
           ...(!esUnoMismo && { rol: valores.rol }),
           ...(valores.clave && { clave: valores.clave }),
         });
@@ -148,6 +151,8 @@ function DialogoUsuario({ usuario, esUnoMismo, alCerrar, alGuardar }: { usuario:
         <Campo etiqueta="Nombre" value={valores.nombre} onChange={cambiar('nombre')} error={errores.nombre} />
         <Campo etiqueta="Correo" type="email" disabled={Boolean(usuario)} value={valores.email} onChange={cambiar('email')} error={errores.email}
           ayuda={usuario ? 'El correo es su usuario de acceso y no se cambia.' : undefined} />
+        <Campo etiqueta="DNI" opcional inputMode="numeric" maxLength={8} value={valores.dni} onChange={cambiar('dni')} error={errores.dni}
+          ayuda="Es un dato de su perfil; no sirve para entrar." />
         <Selector etiqueta="Rol" disabled={esUnoMismo} value={valores.rol} onChange={cambiar('rol')} error={errores.rol}
           ayuda={esUnoMismo ? 'Tu propio rol lo cambia otro administrador.' : 'El administrador gestiona usuarios y categorías, resuelve solicitudes y consulta el historial.'}>
           <option value="usuario">Usuario</option>

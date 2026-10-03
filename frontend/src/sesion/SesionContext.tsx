@@ -9,6 +9,8 @@ const CLAVE = 'gestion-documental.sesion';
 interface ValorSesion {
   sesion: SesionIniciada | null;
   esAdministrador: boolean;
+  /** El Master no pertenece a ninguna empresa: su área es la plataforma. */
+  esMaster: boolean;
   iniciar(sesion: SesionIniciada): void;
   cerrar(): Promise<void>;
 }
@@ -75,6 +77,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const valor = useMemo<ValorSesion>(() => ({
     sesion,
     esAdministrador: sesion?.usuario.rol === 'administrador',
+    esMaster: sesion?.usuario.rol === 'master',
     iniciar(nueva) {
       guardar(nueva);
       setSesion(nueva);

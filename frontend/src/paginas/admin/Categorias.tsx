@@ -34,7 +34,7 @@ export function Categorias() {
     <>
       <EncabezadoDePagina
         titulo="Categorías"
-        descripcion="Cómo se clasifican los documentos de tu organización. No se borran: se desactivan, y los documentos conservan la suya."
+        descripcion="Cómo se clasifican los documentos de tu empresa. No se borran: se desactivan, y los documentos conservan la suya."
         acciones={<Boton icono={Plus} onClick={() => setEditando('nueva')}>Nueva categoría</Boton>}
       />
       {aviso && <div className="mb-4"><Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso></div>}

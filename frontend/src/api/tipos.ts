@@ -1,6 +1,8 @@
 // La forma de las respuestas de la API (docs/04-api.md). Las fechas llegan como texto ISO.
 
-export type Rol = 'administrador' | 'usuario';
+export type Rol = 'master' | 'administrador' | 'usuario';
+/** Los roles que existen dentro de una empresa. El Master no es uno de ellos. */
+export type RolDeEmpresa = Exclude<Rol, 'master'>;
 export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada';
 
 export interface Referencia {
@@ -18,11 +20,13 @@ export interface UsuarioDeSesion {
   nombre: string;
   email: string;
   rol: Rol;
+  dni: string | null;
 }
 
 export interface Perfil {
   usuario: UsuarioDeSesion;
-  organizacion: Referencia;
+  /** Null solo para el Master, que no pertenece a ninguna empresa. */
+  empresa: Referencia | null;
 }
 
 export interface SesionIniciada extends Perfil {
@@ -93,7 +97,8 @@ export interface Usuario {
   id: string;
   nombre: string;
   email: string;
-  rol: Rol;
+  rol: RolDeEmpresa;
+  dni: string | null;
   activo: boolean;
   creadoEn: string;
 }
@@ -108,4 +113,41 @@ export interface Asiento {
   userAgent: string | null;
   esMovil: boolean | null;
   creadoEn: string;
+}
+
+// La plataforma: lo que ve el Administrador Master. Cifras de cada empresa, nunca su contenido.
+
+export interface Metricas {
+  usuarios: number;
+  usuariosActivos: number;
+  documentos: number;
+  almacenamientoBytes: number;
+  ultimoAcceso: string | null;
+}
+
+export interface Empresa {
+  id: string;
+  nombre: string;
+  ruc: string | null;
+  activa: boolean;
+  creadoEn: string;
+}
+
+export interface EmpresaConMetricas extends Empresa {
+  metricas: Metricas;
+}
+
+export interface Administrador {
+  id: string;
+  empresaId: string;
+  nombre: string;
+  email: string;
+  dni: string | null;
+  activo: boolean;
+  creadoEn: string;
+}
+
+export interface MetricasDePlataforma extends Metricas {
+  empresas: number;
+  empresasActivas: number;
 }

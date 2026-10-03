@@ -28,7 +28,7 @@ export function Solicitudes() {
       <EncabezadoDePagina
         titulo={esAdministrador ? 'Solicitudes de aprobación' : 'Mis solicitudes'}
         descripcion={esAdministrador
-          ? 'Las de toda tu organización. Las pendientes, primero: abre una para aprobarla o rechazarla.'
+          ? 'Las de toda tu empresa. Las pendientes, primero: abre una para aprobarla o rechazarla.'
           : 'Las aprobaciones que has pedido y en qué quedaron.'}
       />
 

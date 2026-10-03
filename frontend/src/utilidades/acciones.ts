@@ -1,10 +1,15 @@
 /** Cómo se lee cada acción del historial (docs/01-analisis.md §7). */
 export const NOMBRES_DE_ACCIONES: Record<string, string> = {
-  ORGANIZACION_REGISTRADA: 'Organización registrada',
   SESION_INICIADA: 'Inicio de sesión',
   SESION_FALLIDA: 'Inicio de sesión fallido',
   SESION_CERRADA: 'Cierre de sesión',
   CLAVE_CAMBIADA: 'Contraseña cambiada',
+  RECUPERACION_SOLICITADA: 'Recuperación de contraseña solicitada',
+  CLAVE_RESTABLECIDA: 'Contraseña restablecida por correo',
+  EMPRESA_CREADA: 'Empresa registrada',
+  EMPRESA_EDITADA: 'Datos de la empresa editados',
+  EMPRESA_DESACTIVADA: 'Empresa desactivada',
+  EMPRESA_REACTIVADA: 'Empresa reactivada',
   USUARIO_CREADO: 'Usuario creado',
   USUARIO_EDITADO: 'Usuario editado',
   USUARIO_DESACTIVADO: 'Usuario desactivado',

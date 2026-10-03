@@ -2,17 +2,18 @@ import { CircleUser, LogOut, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useSesion } from '../sesion/SesionContext';
+import { inicioDe, NOMBRES_DE_ROLES } from '../utilidades/roles';
 import { Campana } from './Campana';
 import { Navegacion } from './Navegacion';
 
 function Marca() {
   const { sesion } = useSesion();
   return (
-    <Link to="/documentos" className="flex items-center gap-3 rounded-lg px-1">
+    <Link to={sesion ? inicioDe(sesion.usuario.rol) : '/'} className="flex items-center gap-3 rounded-lg px-1">
       <img src="/icono.svg" alt="" className="size-9" />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-slate-900">Gestión documental</p>
-        <p className="truncate text-xs text-slate-500">{sesion?.organizacion.nombre}</p>
+        <p className="truncate text-xs text-slate-500">{sesion?.empresa?.nombre ?? 'Administración de la plataforma'}</p>
       </div>
     </Link>
   );
@@ -26,7 +27,7 @@ function MenuDeUsuario() {
       <Link to="/cuenta" className="hidden items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-100 sm:flex">
         <CircleUser aria-hidden className="size-5 text-slate-500" />
         <span className="max-w-40 truncate font-medium text-slate-700">{sesion.usuario.nombre}</span>
-        <span className="text-xs text-slate-500">{sesion.usuario.rol === 'administrador' ? 'Administrador' : 'Usuario'}</span>
+        <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[sesion.usuario.rol]}</span>
       </Link>
       <button type="button" onClick={() => void cerrar()} className="rounded-lg p-2.5 text-slate-600 hover:bg-slate-100" aria-label="Cerrar sesión" title="Cerrar sesión">
         <LogOut aria-hidden className="size-5" />
@@ -37,6 +38,7 @@ function MenuDeUsuario() {
 
 /** El marco de todas las pantallas con sesión: barra lateral en escritorio, menú desplegable en el celular. */
 export function Layout() {
+  const { esMaster } = useSesion();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const ubicacion = useLocation();
 
@@ -79,7 +81,8 @@ export function Layout() {
           <Marca />
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <Campana />
+          {/* El Master no tiene notificaciones: son de las solicitudes de una empresa. */}
+          {!esMaster && <Campana />}
           <MenuDeUsuario />
         </div>
       </header>

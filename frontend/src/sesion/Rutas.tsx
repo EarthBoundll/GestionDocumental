@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
+import { inicioDe } from '../utilidades/roles';
 import { useSesion } from './SesionContext';
 
 /**
@@ -12,8 +13,14 @@ export function RutaConSesion() {
   return <Outlet />;
 }
 
-/** Iniciar sesión o registrarse no tiene sentido con una sesión abierta. */
+/** Iniciar sesión o recuperar la contraseña no tiene sentido con una sesión abierta. */
 export function RutaSinSesion() {
   const { sesion } = useSesion();
-  return sesion ? <Navigate to="/documentos" replace /> : <Outlet />;
+  return sesion ? <Navigate to={inicioDe(sesion.usuario.rol)} replace /> : <Outlet />;
+}
+
+/** La raíz lleva a la primera pantalla de cada rol. */
+export function Inicio() {
+  const { sesion } = useSesion();
+  return <Navigate to={sesion ? inicioDe(sesion.usuario.rol) : '/login'} replace />;
 }
