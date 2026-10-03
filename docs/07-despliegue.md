@@ -8,10 +8,9 @@ Estado: **desplegado el 3 de octubre de 2026**, todo en capa gratuita.
 | API | https://gestion-documental-api-keuj.onrender.com (servicio `gestion-documental-api` en Render, Virginia) |
 | Base y archivos | Proyecto `gestion-documental` de Supabase (`dpqddwryhoatnqukahiy`, us-east-1), bucket privado `documentos` |
 
-Falta: la clave secreta de Supabase y la de Brevo (hasta entonces subir archivos y recibir el correo de
-recuperación no funcionan; Render tiene valores provisionales que dicen `pendiente`), apagar la Data API,
-el monitor (§7) y los proxies de confianza (§5). Las migraciones, el usuario de la API y la cuenta Master
-ya están en la base.
+Render tiene todas sus variables, y las migraciones, el usuario de la API y la cuenta Master ya están en
+la base. Falta: la prueba de humo (§8), el monitor (§7), los proxies de confianza (§5) y apagar la Data
+API.
 
 Orden para repetirlo desde cero: Supabase → Brevo → Render → Vercel → Master → monitor → comprobación.
 Ningún servicio pide tarjeta (RNF07). Calcula una hora la primera vez.
