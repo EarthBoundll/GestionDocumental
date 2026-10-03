@@ -41,7 +41,8 @@ export function nombreDeTipo(mime: string): string {
   return TIPOS[mime] ?? 'Archivo';
 }
 
-/** «contrato_alquiler-2026.pdf» → «contrato alquiler 2026»: el nombre que se propone al subir. */
+/** «contrato_alquiler-2026.pdf» → «Contrato alquiler 2026»: el nombre que se propone al subir. */
 export function nombreSugerido(nombreArchivo: string): string {
-  return nombreArchivo.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const nombre = nombreArchivo.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return nombre.charAt(0).toLocaleUpperCase('es') + nombre.slice(1);
 }

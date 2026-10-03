@@ -1,5 +1,5 @@
 import { FileUp, Upload } from 'lucide-react';
-import { useRef, useState, type DragEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { ErrorApi } from '../../api/cliente';
 import { categorias, documentos } from '../../api/recursos';
@@ -25,6 +25,17 @@ export function SubirDocumento() {
   const [subido, setSubido] = useState<Documento | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
+  const resultado = useRef<HTMLDivElement>(null);
+
+  // En un celular el botón queda al final del formulario y el aviso arriba: se lleva a la vista y recibe
+  // el foco, para que quien sube sepa qué pasó (y un lector de pantalla lo anuncie).
+  useEffect(() => {
+    if (!subido && !error?.mensaje) return;
+    if (error?.detalles.length) return;
+    const sinAnimaciones = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    resultado.current?.scrollIntoView({ behavior: sinAnimaciones ? 'auto' : 'smooth', block: 'center' });
+    resultado.current?.focus({ preventScroll: true });
+  }, [subido, error]);
 
   function elegir(elegido: File | undefined) {
     if (!elegido) return;
@@ -75,7 +86,7 @@ export function SubirDocumento() {
       <EncabezadoDePagina titulo="Subir documento" descripcion={`PDF, imágenes, Word o Excel, hasta 10 MB.`} />
 
       {subido && (
-        <div className="mb-4">
+        <div ref={resultado} tabIndex={-1} className="mb-4 outline-none">
           <Aviso tipo="exito" accion={<Link to={`/documentos/${subido.id}`} className="font-medium underline">Ver documento</Link>}>
             «{subido.nombre}» se subió correctamente. Puedes subir el siguiente.
           </Aviso>
@@ -84,7 +95,7 @@ export function SubirDocumento() {
 
       <Tarjeta className="p-4 sm:p-6">
         <form onSubmit={(evento) => void enviar(evento)} className="space-y-5" noValidate>
-          {error && !error.detalles.length && <Aviso tipo="error">{error.mensaje}</Aviso>}
+          {error && !error.detalles.length && <div ref={resultado} tabIndex={-1} className="outline-none"><Aviso tipo="error">{error.mensaje}</Aviso></div>}
 
           <div>
             <label
@@ -132,7 +143,7 @@ export function SubirDocumento() {
               <option value="">Elige una categoría</option>
               {lista?.datos.map((categoria) => <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>)}
             </Selector>
-            <Campo etiqueta="Fecha del documento" type="date" required value={fechaDocumento} onChange={(e) => setFechaDocumento(e.target.value)} error={errores.fechaDocumento} ayuda="La de emisión o firma, no la de hoy." />
+            <Campo etiqueta="Fecha del documento" type="date" required value={fechaDocumento} onChange={(e) => setFechaDocumento(e.target.value)} error={errores.fechaDocumento} ayuda="La de emisión o firma. Por defecto, hoy." />
           </div>
           <AreaTexto etiqueta="Descripción" opcional maxLength={1000} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} error={errores.descripcion} />
 
