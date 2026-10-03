@@ -26,6 +26,7 @@ correos de recuperación en `.local/correos`, con el enlace también en la conso
 | `npm run migrar` | Aplica las migraciones pendientes de `migraciones/` |
 | `npm run crear-master` | Crea la cuenta única del Administrador Master con `MASTER_EMAIL`, `MASTER_PASSWORD`, `MASTER_NOMBRE` y `MASTER_DNI`. Si ya existe, no hace nada |
 | `npm run informe:aislamiento` | Ejecuta la batería «la empresa A no alcanza nada de la B» y escribe su informe en `docs/evidencias/` (indicador 6) |
+| `npm run comprobar-despliegue -- <api> <web>` | Revisa desde fuera un despliegue: salud, CORS, CSP, rutas de la SPA y que el frontend llame a esta API ([07 · Despliegue](../docs/07-despliegue.md)) |
 | `npm test` | Ejecuta todas las pruebas. No necesita nada instalado: levanta su propio PostgreSQL 17 |
 | `npm run typecheck` | Comprueba los tipos de todo el proyecto, pruebas incluidas |
 | `npm run build` y `npm start` | Compila a `dist/` y arranca la versión compilada, como en Render |
@@ -45,11 +46,16 @@ Las pruebas de integración corren contra un PostgreSQL 17 real, la misma versi�
 que el paquete `embedded-postgres` arranca en un directorio temporal. Cada archivo de pruebas trabaja
 en su propia base, recién creada y migrada.
 
+PostgreSQL se niega a arrancar como root: en Linux, ejecuta las pruebas con un usuario normal.
+
 El aislamiento entre empresas tiene tres baterías: `rls.test.ts` (la base, con SQL directo y por la
 capa de acceso), `aislamiento.test.ts` (cada endpoint, de la empresa A contra la B) y
 `plataforma.test.ts` (lo que el Master puede y no puede hacer).
 
 ## Primer despliegue en Render
+
+La guía completa, con Supabase, Brevo, Vercel, el Master y el monitor, está en
+[07 · Despliegue](../docs/07-despliegue.md). Aquí, lo que toca a la API:
 
 1. En Supabase, crea el proyecto en la región **East US (North Virginia)**. Copia la URL del
    *Session pooler*, descarga el certificado, crea un bucket **privado** llamado `documentos` y copia la

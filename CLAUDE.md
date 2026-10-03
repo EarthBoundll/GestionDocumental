@@ -224,6 +224,11 @@ datos ajenos.
 administrador. Se descartó el autorregistro: cualquiera crearía empresas en la
 plataforma de la tesis.
 
+**Pruebas funcionales contra la compilación de producción.** Playwright recorre cada requisito en un
+navegador real contra la API con una base desechable y el frontend compilado como en Vercel, y deja su
+informe en `docs/evidencias/`. Se descartó probar contra `npm run dev`, donde StrictMode tapaba un fallo
+que solo existía en producción, y la prueba manual con planilla, que no se repite igual dos veces.
+
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.
 

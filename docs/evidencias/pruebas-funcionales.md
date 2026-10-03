@@ -1,6 +1,6 @@
 # Informe de pruebas funcionales
 
-Generado el 2 de octubre de 2026 a las 9:15 p. m. (hora de Lima) por `npm run pruebas:funcionales` en `frontend/`.
+Generado el 2 de octubre de 2026 a las 9:22 p. m. (hora de Lima) por `npm run pruebas:funcionales` en `frontend/`.
 
 Cada caso recorre un requisito de [01 · Análisis §3](../01-analisis.md) en un navegador Chromium real, como lo haría
 una persona: escribe en los formularios, pulsa los botones y comprueba lo que aparece en pantalla. Del otro lado está el
@@ -15,30 +15,30 @@ Los 24 requisitos funcionales tienen al menos un caso.
 | Requisito | Caso | Escritorio (1280 px) | Celular (360 px) |
 |---|---|---|---|
 | RF01 | El Master da de alta una empresa con su primer administrador, que entra y encuentra cinco categorías | Superado (1.4 s) | — |
-| RF02 | Iniciar sesión con correo y contraseña; si fallan, el mismo mensaje exista o no la cuenta | Superado (1.6 s) | Superado (1.5 s) |
+| RF02 | Iniciar sesión con correo y contraseña; si fallan, el mismo mensaje exista o no la cuenta | Superado (1.5 s) | Superado (1.4 s) |
 | RF02 | Tras entrar, el menú lleva a cada pantalla sin que nada se salga del ancho de la pantalla | Superado (0.8 s) | Superado (0.9 s) |
 | RF03 | Cerrar sesión la revoca en el servidor: el token anterior ya no sirve | Superado (0.9 s) | — |
-| RF04 | Cambiar la propia contraseña: hace falta la actual, y la nueva sirve para entrar | Superado (1.8 s) | — |
-| RF05, RF19 | Cada acción queda en el historial con su autor, y se filtra por persona y acción | Superado (1.8 s) | — |
-| RF06 | El administrador crea, renombra y desactiva categorías; una inactiva no se ofrece al subir | Superado (1.4 s) | — |
+| RF04 | Cambiar la propia contraseña: hace falta la actual, y la nueva sirve para entrar | Superado (1.6 s) | — |
+| RF05, RF19 | Cada acción queda en el historial con su autor, y se filtra por persona y acción | Superado (1.7 s) | — |
+| RF06 | El administrador crea, renombra y desactiva categorías; una inactiva no se ofrece al subir | Superado (1.3 s) | — |
 | RF07 | Subir un documento con nombre, categoría, fecha y descripción; el servidor rechaza lo que no es lo que dice ser | Superado (1.6 s) | Superado (1.8 s) |
 | RF08 | Quien subió un documento lo edita, y otro usuario no puede editar ni eliminar lo ajeno | Superado (1.9 s) | — |
 | RF09 | Eliminar un documento lo saca de las búsquedas, y el administrador puede eliminar lo de otros | Superado (1.3 s) | — |
-| RF10, RF11 | Una empresa no encuentra, no abre y no descarga los documentos de otra, ni con el enlace | Superado (1.4 s) | Superado (1.4 s) |
-| RF10 | Buscar por nombre sin importar tildes ni mayúsculas, y filtrar por categoría y fechas | Superado (1.5 s) | Superado (1.5 s) |
+| RF10, RF11 | Una empresa no encuentra, no abre y no descarga los documentos de otra, ni con el enlace | Superado (1.3 s) | Superado (1.4 s) |
+| RF10 | Buscar por nombre sin importar tildes ni mayúsculas, y filtrar por categoría y fechas | Superado (1.4 s) | Superado (1.5 s) |
 | RF11 | Ver un documento en el navegador y descargarlo con su nombre original | Superado (1.0 s) | Superado (1.0 s) |
 | RF12 | El tiempo de respuesta del listado se mide en el servidor y en el navegador | Superado (1.0 s) | — |
-| RF13 | El administrador crea usuarios, les cambia el nombre y el rol, y restablece su contraseña | Superado (2.2 s) | — |
-| RF14 | Desactivar a un usuario le impide entrar y conserva sus documentos; reactivarlo se lo devuelve | Superado (2.2 s) | — |
+| RF13 | El administrador crea usuarios, les cambia el nombre y el rol, y restablece su contraseña | Superado (2.1 s) | — |
+| RF14 | Desactivar a un usuario le impide entrar y conserva sus documentos; reactivarlo se lo devuelve | Superado (2.0 s) | — |
 | RF15, RF17 | La usuaria pide aprobar su documento y los administradores reciben el aviso | Superado (1.9 s) | — |
-| RF16 | El administrador rechaza con motivo obligatorio y, tras una nueva solicitud, aprueba | Superado (3.1 s) | — |
+| RF16 | El administrador rechaza con motivo obligatorio y, tras una nueva solicitud, aprueba | Superado (3.0 s) | — |
 | RF16 | Nadie aprueba lo suyo: el administrador que pide aprobación no ve los botones; otro administrador sí | Superado (1.6 s) | — |
-| RF17, RF18 | La solicitante recibe la decisión, la consulta en sus solicitudes y marca los avisos como leídos | Superado (2.4 s) | — |
+| RF17, RF18 | La solicitante recibe la decisión, la consulta en sus solicitudes y marca los avisos como leídos | Superado (2.2 s) | — |
 | RF20 | El historial se exporta a CSV con tildes legibles en Excel y su fecha en el nombre | Superado (0.8 s) | — |
-| RF21 | Recuperar la contraseña con un enlace de un solo uso que llega por correo | Superado (1.7 s) | — |
-| RF22 | El Master edita una empresa y al desactivarla nadie de ella puede entrar hasta que la reactiva | Superado (1.9 s) | — |
-| RF23 | El Master añade, edita y desactiva a los administradores de una empresa | Superado (1.5 s) | — |
-| RF24 | El Master ve las cifras de cada empresa, pero nunca sus documentos | Superado (1.2 s) | — |
+| RF21 | Recuperar la contraseña con un enlace de un solo uso que llega por correo | Superado (1.6 s) | — |
+| RF22 | El Master edita una empresa y al desactivarla nadie de ella puede entrar hasta que la reactiva | Superado (1.8 s) | — |
+| RF23 | El Master añade, edita y desactiva a los administradores de una empresa | Superado (1.4 s) | — |
+| RF24 | El Master ve las cifras de cada empresa, pero nunca sus documentos | Superado (1.1 s) | — |
 
 ## Cobertura por requisito
 

@@ -9,7 +9,12 @@ Sistema web de gestión documental para micro y pequeñas empresas de Lima — t
 | 2 · Autenticación y roles | Terminada: inicio y cierre de sesión, cambio de contraseña, permisos por rol e historial |
 | 3 · Documentos | Terminada: categorías, subida, búsqueda sin tildes, ficha con permisos, edición, eliminación lógica, enlaces firmados y tiempos de respuesta |
 | 4 · Aprobación y usuarios | Terminada: flujo de aprobación con notificaciones, gestión de usuarios, consulta y exportación del historial |
+| 5–6 · Frontend | Marco, componentes y pantallas de los tres roles, construidos sin verificarlos en un navegador (se verificaron en la 7) |
 | v2 · Multiempresa | Migración terminada en backend y frontend ([06 · Migración](06-migracion-v2.md)): empresas aisladas con RLS, Administrador Master, recuperación de contraseña por correo y batería de aislamiento con su informe |
+| 7 · Pantallas conectadas a la API | Terminada el 3 de octubre de 2026: cada pantalla recorrida en un navegador con los tres roles, también con la compilación de producción y la CSP de Vercel. Se corrigieron diez fallos; el más grave solo aparecía en producción (las primeras peticiones al recargar salían sin token) |
+| 8 · Responsive, pruebas y despliegue | Terminada salvo el despliegue, que necesita las cuentas: las 21 pantallas sin desbordes a 360 y 768 px; 41 pruebas del frontend; [pruebas funcionales](evidencias/pruebas-funcionales.md) de los 24 requisitos en un navegador real (31 de 31); [guía de despliegue](07-despliegue.md) y comprobador automático |
+
+Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CLAUDE.md` v2, que es la vigente.
 
 | Documento | Qué contiene |
 |---|---|
@@ -19,7 +24,10 @@ Sistema web de gestión documental para micro y pequeñas empresas de Lima — t
 | [04 · API](04-api.md) | Convenciones, formato de errores, los 38 endpoints y qué pantalla usa cada uno |
 | [05 · Estructura](05-estructura.md) | Carpetas de backend y frontend, dependencias y variables de entorno |
 | [06 · Migración a v2](06-migracion-v2.md) | El diagnóstico de la v1 frente a la v2, las decisiones A–G y el plan que se siguió |
-| [Evidencias](evidencias/aislamiento-entre-empresas.md) | Informe de aislamiento entre empresas, generado por `npm run informe:aislamiento` (indicador 6) |
+| [07 · Despliegue](07-despliegue.md) | Supabase, Brevo, Render y Vercel paso a paso, la creación del Master, el monitor, la comprobación y qué hacer durante la evaluación |
+| [08 · Indicadores](08-indicadores.md) | Las consultas que sacan del sistema cada uno de los siete indicadores al cerrar una sesión de evaluación |
+| [Evidencias: aislamiento](evidencias/aislamiento-entre-empresas.md) | Informe de aislamiento entre empresas, generado por `npm run informe:aislamiento` (indicador 6) |
+| [Evidencias: pruebas funcionales](evidencias/pruebas-funcionales.md) | Cada requisito funcional probado en un navegador real, en escritorio y celular, generado por `npm run pruebas:funcionales` |
 
 ## La arquitectura en un párrafo
 
@@ -42,12 +50,12 @@ solo aparecen al desplegar. Con la v2 se aprobaron las decisiones A–G de
 
 ## Pendiente de decidir o de hacer
 
-1. **Cuentas.** Render, Supabase y Brevo, para el primer despliegue (`render.yaml` ya está listo), y un
-   monitor externo gratuito (UptimeRobot o cron-job.org) que llame a `/salud` cada 10 minutos (D13).
-   En Brevo hay que verificar el remitente. Las cuentas las crea el responsable del proyecto, no el
-   asistente.
-2. **Base de desarrollo.** O un segundo proyecto de Supabase (el plan gratuito admite dos activos), o
-   `npm run local`, que levanta todo en la máquina sin instalar nada.
-3. **Crear el Master** en la base de producción con `npm run crear-master`, una sola vez, con sus datos
+1. **Cuentas y despliegue.** Supabase, Brevo, Render, Vercel y un monitor gratuito, en el orden de
+   [07 · Despliegue](07-despliegue.md). Todo lo demás está listo; las cuentas las crea el responsable del
+   proyecto, no el asistente. Al terminar, `npm run comprobar-despliegue` dice si quedó bien configurado.
+2. **Crear el Master** en la base de producción con `npm run crear-master`, una sola vez, con sus datos
    en el `.env` local de quien lo ejecuta.
-4. **Una o varias MYPEs en la evaluación.** No cambia el diseño, pero sí cómo se preparan los datos.
+3. **Una o varias MYPEs en la evaluación.** No cambia el diseño, pero sí cómo se preparan los datos.
+4. **El protocolo de la preprueba y la posprueba:** las tareas cronometradas, la lista de documentos que
+   se pedirán (indicador 3) y el guion de acciones (indicador 4). El sistema mide; qué se le pide a cada
+   persona lo fija el protocolo.
