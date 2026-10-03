@@ -227,7 +227,7 @@ se suspende en vez de cobrar.
 | Recuperación de contraseña como oráculo de cuentas o puerta trasera | Misma respuesta y mismo tiempo exista o no el correo; token de 256 bits, de un solo uso, 60 minutos, guardado como huella SHA-256 y enviado en el fragmento del enlace; límite de peticiones por IP |
 | Inyección SQL | Solo consultas parametrizadas |
 | Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación |
-| Lectura de tablas por la API automática de Supabase | Data API desactivada; RLS activo en todas las tablas, con políticas solo para los roles propios de la API (D14, D17); y la migración 002 quita a `anon` y `authenticated` los permisos que Supabase les concede por defecto, también sobre las funciones, que RLS no cubre |
+| Lectura de tablas por la API automática de Supabase | Data API desactivada; RLS activo en todas las tablas, con políticas solo para los roles propios de la API (D14, D17); y la migración 002 quita a `anon` y `authenticated` los permisos que Supabase les concede por defecto, también sobre las funciones, que RLS no cubre; la 003 quita a todos la ejecución directa de los triggers y fija el `search_path` de cada función |
 | Secretos en el repositorio | Variables de entorno; `.env` ignorado por git; la clave secreta de Supabase y la de Brevo solo existen en Render; los datos del Master solo en el `.env` de quien ejecuta el script |
 | Manipulación del historial | Solo inserción, impuesto por un trigger (M4) |
 | Errores que revelan el interior | Manejador central: en producción, un 500 no lleva trazas ni SQL |
@@ -329,14 +329,17 @@ IPv6, y Render solo sale por IPv4: sin esto, la API no conecta (`ENETUNREACH`). 
 sesión usa IPv4 y se comporta como una conexión normal, transacciones incluidas.
 *Descartado:* el complemento IPv4 de Supabase, que es de pago.
 
-**D13 · Un monitor externo mantiene despierta la API.** Render gratuito duerme la API tras 15 minutos
+**D13 · Un monitor mantiene despierta la API.** Render gratuito duerme la API tras 15 minutos
 sin tráfico y tarda alrededor de un minuto en despertarla: la primera persona de cada sesión de
-evaluación esperaría un minuto (indicador 7) o vería un error (indicador 5). Un monitor gratuito
-llama a `/salud` cada 10 minutos, y las 750 horas mensuales de Render cubren una instancia encendida
-todo el mes, siempre que sea la única gratuita del workspace. Como `/salud` consulta una tabla real,
-mantiene activo también el proyecto de Supabase, que se pausa tras 7 días sin actividad. Y su
-registro de caídas es evidencia externa de disponibilidad.
-*Descartado:* un plan de pago de Render, y «abrir la página un rato antes», que depende de acordarse.
+evaluación esperaría un minuto (indicador 7) o vería un error (indicador 5). Un trabajo de `pg_cron`
+en Supabase llama a `/salud` cada 10 minutos con `pg_net`, y las 750 horas mensuales de Render cubren
+una instancia encendida todo el mes, siempre que sea la única gratuita del workspace. Como `/salud`
+consulta la base desde Render, mantiene activo también el proyecto de Supabase, que se pausa tras 7 días
+sin actividad. No pide ninguna cuenta más; un monitor externo (UptimeRobot) puede sumarse para tener un
+registro de caídas como evidencia de disponibilidad, que el de Supabase no da porque vive dentro del
+sistema que vigila.
+*Descartado:* un plan de pago de Render, «abrir la página un rato antes», que depende de acordarse, y
+depender solo de un monitor externo, que exige una cuenta y una configuración más.
 
 **D14 · Supabase se usa como PostgreSQL y almacén, nada más.** Ni Supabase Auth, ni su API automática,
 ni Realtime. Se desactiva la Data API y, por si se reactivara, RLS está activo en cada tabla con

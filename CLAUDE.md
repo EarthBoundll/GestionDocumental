@@ -228,6 +228,10 @@ plataforma de la tesis.
 ni BYPASSRLS, creado una vez con su contraseña ya cifrada (D21). Se descartó conectar como `postgres`:
 más privilegios de los necesarios, y Supabase solo deja cambiar su contraseña desde el panel.
 
+**El monitor vive en Supabase.** Un trabajo de `pg_cron` llama a `/salud` cada 10 minutos con `pg_net`:
+la API no se duerme y Supabase no pausa el proyecto (D13). Se descartó depender solo de UptimeRobot, que
+exige otra cuenta; queda como opcional para tener un registro de caídas visto desde fuera.
+
 **Pruebas funcionales contra la compilación de producción.** Playwright recorre cada requisito en un
 navegador real contra la API con una base desechable y el frontend compilado como en Vercel, y deja su
 informe en `docs/evidencias/`. Se descartó probar contra `npm run dev`, donde StrictMode tapaba un fallo

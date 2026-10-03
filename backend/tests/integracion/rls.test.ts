@@ -196,12 +196,17 @@ describe('Aislamiento en la base: RLS y roles (D17, indicador 6)', () => {
   });
 
   describe('la API automática de Supabase (D14)', () => {
+    /** Los roles de esa API, que en local no existen. Son de todo el servidor: pueden estar ya creados. */
+    async function crearRolesDeSupabase() {
+      for (const rol of ['anon', 'authenticated']) {
+        await db.query(`DO $$ BEGIN
+          CREATE ROLE ${rol} NOLOGIN; EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; END $$`);
+      }
+    }
+
     it('sus roles no ejecutan las funciones de plataforma ni leen tablas, aunque Supabase se lo conceda por defecto', async () => {
       // Lo que hace Supabase al crear objetos en public: concederlos a anon y authenticated.
-      await db.query(`DO $$ BEGIN
-        CREATE ROLE anon NOLOGIN; EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; END $$`);
-      await db.query(`DO $$ BEGIN
-        CREATE ROLE authenticated NOLOGIN; EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; END $$`);
+      await crearRolesDeSupabase();
       await db.query('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated');
       await db.query('GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated');
       const puede = async (rol: string, sql: string) => (await db.query(`SELECT ${sql} AS si`, [rol])).rows[0].si as boolean;
@@ -219,6 +224,36 @@ describe('Aislamiento en la base: RLS y roles (D17, indicador 6)', () => {
       // Los roles de la API siguen pudiendo lo suyo.
       expect(await puede('app_plataforma', ejecutar('revocar_sesiones_de_empresa(uuid)'))).toBe(true);
       expect(await puede('app_empresa', "has_table_privilege($1, 'documentos', 'SELECT')")).toBe(true);
+    });
+
+    it('tampoco invocan los triggers, que siguen disparándose, y ninguna función depende del search_path (003)', async () => {
+      // Lo que concede Supabase en un proyecto nuevo: todas las funciones de public.
+      await crearRolesDeSupabase();
+      await db.query('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated');
+      // En Supabase se aplican en este orden: la 002 quita lo concedido a ellos y la 003, lo que reciben como public.
+      for (const migracion of ['002_cerrar_api_automatica.sql', '003_endurecer_funciones.sql']) {
+        await db.query(await readFile(join(DIRECTORIO_MIGRACIONES, migracion), 'utf8'));
+      }
+
+      const puede = async (rol: string, sql: string) => (await db.query(`SELECT ${sql} AS si`, [rol])).rows[0].si as boolean;
+      for (const rol of ['anon', 'authenticated']) {
+        for (const disparador of ['comprobar_autor_del_historial()', 'marcar_actualizacion()', 'rechazar_cambios_en_historial()']) {
+          expect(await puede(rol, `has_function_privilege($1, '${disparador}', 'EXECUTE')`)).toBe(false);
+        }
+      }
+
+      const { rows } = await db.query<{ funcion: string }>(`
+        SELECT p.proname AS funcion FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%')`);
+      expect(rows.map((fila) => fila.funcion)).toEqual([]);
+
+      // Sin EXECUTE, el trigger se dispara igual: el autor incoherente sigue rechazado y el coherente entra.
+      await expect(como('app_empresa', empresaA,
+        "INSERT INTO historial (empresa_id, usuario_id, rol_usuario, accion) VALUES ($1, $2, 'administrador', 'SESION_INICIADA')",
+        [empresaA, adminB])).rejects.toMatchObject({ constraint: 'historial_autor_de_su_empresa' });
+      await como('app_empresa', empresaA,
+        "INSERT INTO historial (empresa_id, usuario_id, rol_usuario, accion) VALUES ($1, $2, 'administrador', 'SESION_INICIADA')",
+        [empresaA, adminA]);
     });
   });
 });

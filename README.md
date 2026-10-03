@@ -35,7 +35,7 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 
 | Dónde | Comando | Qué prueba |
 |---|---|---|
-| `backend/` | `npm test` | 247 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS y aislamiento endpoint por endpoint |
+| `backend/` | `npm test` | 249 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS y aislamiento endpoint por endpoint |
 | `backend/` | `npm run informe:aislamiento` | La batería A contra B, con su informe en [`docs/evidencias/`](docs/evidencias/aislamiento-entre-empresas.md) (indicador 6) |
 | `frontend/` | `npm test` | 41 pruebas de pantallas, sesión, roles y cliente HTTP |
 | `frontend/` | `npm run pruebas:funcionales` | Los 24 requisitos en un navegador real, en escritorio y celular, contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md). La primera vez: `npx playwright install chromium` |

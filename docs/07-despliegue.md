@@ -8,9 +8,12 @@ Estado: **desplegado el 3 de octubre de 2026**, todo en capa gratuita.
 | API | https://gestion-documental-api-keuj.onrender.com (servicio `gestion-documental-api` en Render, Virginia) |
 | Base y archivos | Proyecto `gestion-documental` de Supabase (`dpqddwryhoatnqukahiy`, us-east-1), bucket privado `documentos` |
 
-Render tiene todas sus variables, y las migraciones, el usuario de la API y la cuenta Master ya están en
-la base. Falta: la prueba de humo (§8), el monitor (§7), los proxies de confianza (§5) y apagar la Data
-API.
+Render tiene todas sus variables, con los proxies de confianza ajustados (§5); las migraciones, el
+usuario de la API y la cuenta Master ya están en la base, y el monitor corre en Supabase (§7). La
+comprobación desde fuera (§8, hecha con `pg_net` desde Supabase) dio todo en verde: la API y su base
+responden, CORS admite al frontend, el frontend se sirve con su CSP, un enlace interno no da 404 y el
+JavaScript publicado llama a esta API. Falta la prueba de humo con personas (§8) y, opcional, apagar la
+Data API (§1, paso 2): sin ella, `anon` y `authenticated` siguen sin permisos sobre nada (002, 003).
 
 Orden para repetirlo desde cero: Supabase → Brevo → Render → Vercel → Master → monitor → comprobación.
 Ningún servicio pide tarjeta (RNF07). Calcula una hora la primera vez.
@@ -93,6 +96,12 @@ El limitador de intentos cuenta por IP, así que la API tiene que ver la IP real
 el paso 4 de [`backend/README.md`](../backend/README.md): abre `/api/v1/salud/red`, ajusta
 `PROXIES_DE_CONFIANZA` y después pon `DIAGNOSTICO_RED=false`.
 
+En este despliegue el valor es **3**. Una petición a Render atraviesa Cloudflare y dos proxies de Render
+(`X-Forwarded-For: <cliente>, <Cloudflare>, <Render>`, y el último salto es la conexión misma). Con el
+valor provisional, 1, la API veía la IP interna de Render: todas las personas habrían compartido un
+mismo contador de intentos fallidos, y unos pocos errores al escribir la contraseña en una sesión de
+evaluación habrían bloqueado a todo el grupo.
+
 ## 6. Crear el Master
 
 Una sola vez, desde tu máquina, en `backend/`: pon en tu `.env` la `DATABASE_URL` y el `DATABASE_CA`
@@ -108,9 +117,22 @@ inicial fue temporal: se cambia en *Mi cuenta* al primer ingreso.
 
 ## 7. El monitor
 
-En UptimeRobot (o cron-job.org), un monitor HTTP a `https://<servicio>.onrender.com/api/v1/salud`
-cada 5 o 10 minutos. Mantiene despierta la API y activo el proyecto de Supabase (D13), y su registro de
-caídas es evidencia de disponibilidad.
+Un trabajo de `pg_cron` en Supabase llama a `/api/v1/salud` cada 10 minutos (D13). Se crea una vez en
+el *SQL Editor*:
+
+```sql
+create extension if not exists pg_net with schema extensions;
+create extension if not exists pg_cron;
+select cron.schedule('despertar-api', '*/10 * * * *',
+  $$select net.http_get(url := 'https://<servicio>.onrender.com/api/v1/salud', timeout_milliseconds := 90000)$$);
+```
+
+Las respuestas quedan unas horas en `net._http_response` (`status_code` 200 es que la API y la base
+respondieron), y las ejecuciones en `cron.job_run_details`. Para pararlo:
+`select cron.unschedule('despertar-api');`.
+
+Opcional: un monitor de UptimeRobot a la misma dirección deja, además, un registro de caídas visto desde
+fuera, que sirve como evidencia de disponibilidad.
 
 ## 8. Comprobar
 
