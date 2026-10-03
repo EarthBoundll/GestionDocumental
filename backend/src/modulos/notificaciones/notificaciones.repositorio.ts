@@ -22,12 +22,13 @@ export interface NotificacionNueva {
 }
 
 /** Las notificaciones de una acción, en una sola sentencia: se insertan dentro de su transacción. */
-export async function insertarNotificaciones(db: Consultor, notificaciones: NotificacionNueva[]): Promise<void> {
+export async function insertarNotificaciones(db: Consultor, empresaId: string, notificaciones: NotificacionNueva[]): Promise<void> {
   if (notificaciones.length === 0) return;
   await db.query(
-    `INSERT INTO notificaciones (usuario_id, solicitud_id, tipo, mensaje)
-     SELECT * FROM unnest($1::uuid[], $2::uuid[], $3::text[], $4::text[])`,
+    `INSERT INTO notificaciones (empresa_id, usuario_id, solicitud_id, tipo, mensaje)
+     SELECT $1, * FROM unnest($2::uuid[], $3::uuid[], $4::text[], $5::text[])`,
     [
+      empresaId,
       notificaciones.map((n) => n.usuarioId),
       notificaciones.map((n) => n.solicitudId),
       notificaciones.map((n) => n.tipo),

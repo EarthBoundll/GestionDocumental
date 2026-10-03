@@ -11,8 +11,7 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
     const filtros = esquemaBusqueda.parse(req.query);
     const { datos, paginacion, conFiltros } = await servicio.listar(actor, filtros);
     // Indicador 7: desde que llegó la petición hasta que la respuesta está lista para salir.
-    const tiempoRespuestaId = await tiempos.registrar({
-      usuarioId: actor.autenticacion.usuario.id,
+    const tiempoRespuestaId = await tiempos.registrar(actor, {
       conFiltros,
       totalResultados: paginacion.total,
       duracionServidorMs: performance.now() - req.recibidaEn,

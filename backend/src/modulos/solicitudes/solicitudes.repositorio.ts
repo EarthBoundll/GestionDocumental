@@ -57,19 +57,19 @@ function aSolicitud(fila: FilaSolicitud): Solicitud {
   };
 }
 
-export async function buscarSolicitud(db: Consultor, organizacionId: string, id: string): Promise<Solicitud | null> {
-  const { rows } = await db.query<FilaSolicitud>(`${SELECCION} WHERE s.organizacion_id = $1 AND s.id = $2`, [organizacionId, id]);
+export async function buscarSolicitud(db: Consultor, empresaId: string, id: string): Promise<Solicitud | null> {
+  const { rows } = await db.query<FilaSolicitud>(`${SELECCION} WHERE s.empresa_id = $1 AND s.id = $2`, [empresaId, id]);
   return rows[0] ? aSolicitud(rows[0]) : null;
 }
 
-/** Las de la organización, o solo las de un solicitante. Las pendientes primero: son las que esperan a alguien. */
+/** Las de la empresa, o solo las de un solicitante. Las pendientes primero: son las que esperan a alguien. */
 export async function listarSolicitudes(
   db: Consultor,
-  organizacionId: string,
+  empresaId: string,
   { soloDe, ...filtro }: FiltroSolicitudes & { soloDe: string | undefined },
 ): Promise<{ filas: Solicitud[]; total: number }> {
-  const where = `s.organizacion_id = $1 AND ($2::uuid IS NULL OR s.solicitante_id = $2) AND ($3::text IS NULL OR s.estado = $3)`;
-  const parametros = [organizacionId, soloDe ?? null, filtro.estado ?? null];
+  const where = `s.empresa_id = $1 AND ($2::uuid IS NULL OR s.solicitante_id = $2) AND ($3::text IS NULL OR s.estado = $3)`;
+  const parametros = [empresaId, soloDe ?? null, filtro.estado ?? null];
   const { rows: [conteo] } = await db.query<{ total: number }>(`SELECT count(*)::int AS total FROM solicitudes s WHERE ${where}`, parametros);
   const { rows } = await db.query<FilaSolicitud>(
     `${SELECCION} WHERE ${where}
@@ -82,12 +82,12 @@ export async function listarSolicitudes(
 
 export async function insertarSolicitud(
   db: Consultor,
-  datos: { organizacionId: string; documentoId: string; solicitanteId: string; comentario: string | null },
+  datos: { empresaId: string; documentoId: string; solicitanteId: string; comentario: string | null },
 ): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO solicitudes (organizacion_id, documento_id, solicitante_id, comentario_solicitud)
+    `INSERT INTO solicitudes (empresa_id, documento_id, solicitante_id, comentario_solicitud)
      VALUES ($1, $2, $3, $4) RETURNING id`,
-    [datos.organizacionId, datos.documentoId, datos.solicitanteId, datos.comentario],
+    [datos.empresaId, datos.documentoId, datos.solicitanteId, datos.comentario],
   );
   return primeraFila(rows).id;
 }
@@ -98,22 +98,22 @@ export async function insertarSolicitud(
  */
 export async function resolverSiPendiente(
   db: Consultor,
-  datos: { organizacionId: string; id: string; estado: Exclude<EstadoSolicitud, 'pendiente'>; revisorId: string; comentario: string | null },
+  datos: { empresaId: string; id: string; estado: Exclude<EstadoSolicitud, 'pendiente'>; revisorId: string; comentario: string | null },
 ): Promise<boolean> {
   const { rowCount } = await db.query(
     `UPDATE solicitudes SET estado = $3, revisor_id = $4, comentario_resolucion = $5, resuelta_en = now()
-     WHERE organizacion_id = $1 AND id = $2 AND estado = 'pendiente'`,
-    [datos.organizacionId, datos.id, datos.estado, datos.revisorId, datos.comentario],
+     WHERE empresa_id = $1 AND id = $2 AND estado = 'pendiente'`,
+    [datos.empresaId, datos.id, datos.estado, datos.revisorId, datos.comentario],
   );
   return rowCount === 1;
 }
 
 /** Los administradores activos que pueden resolver una solicitud de ese usuario: todos menos él (RN13). */
-export async function revisoresPosibles(db: Consultor, organizacionId: string, solicitanteId: string): Promise<string[]> {
+export async function revisoresPosibles(db: Consultor, empresaId: string, solicitanteId: string): Promise<string[]> {
   const { rows } = await db.query<{ id: string }>(
     `SELECT id FROM usuarios
-     WHERE organizacion_id = $1 AND rol = 'administrador' AND activo AND id <> $2`,
-    [organizacionId, solicitanteId],
+     WHERE empresa_id = $1 AND rol = 'administrador' AND activo AND id <> $2`,
+    [empresaId, solicitanteId],
   );
   return rows.map((fila) => fila.id);
 }

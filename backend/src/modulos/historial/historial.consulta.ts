@@ -1,12 +1,10 @@
 import { Router, type RequestHandler } from 'express';
-import type pg from 'pg';
 import { aCsv } from '../../compartido/csv.js';
 import { desplazamiento, esquemaPaginacion } from '../../compartido/paginacion.js';
-import { actorDe, type Actor } from '../../compartido/peticion.js';
+import { actorDe, empresaDe, type Actor } from '../../compartido/peticion.js';
 import type { Permiso } from '../../compartido/permisos.js';
 import { sinVacios, z } from '../../compartido/validacion.js';
 import type { Consultor } from '../../db/pool.js';
-import { conTransaccion } from '../../db/transaccion.js';
 import { ACCIONES, autorDe, registrarAccion } from './historial.registro.js';
 
 const fecha = z.iso.date('Usa el formato AAAA-MM-DD');
@@ -15,7 +13,7 @@ const esquemaFiltros = z
   .object({
     usuarioId: sinVacios(z.uuid().optional()),
     accion: sinVacios(z.enum(ACCIONES).optional()),
-    entidadTipo: sinVacios(z.enum(['organizacion', 'usuario', 'sesion', 'categoria', 'documento', 'solicitud']).optional()),
+    entidadTipo: sinVacios(z.enum(['empresa', 'usuario', 'sesion', 'categoria', 'documento', 'solicitud']).optional()),
     entidadId: sinVacios(z.uuid().optional()),
     desde: sinVacios(fecha.optional()),
     hasta: sinVacios(fecha.optional()),
@@ -34,9 +32,9 @@ const MAXIMO_EXPORTABLE = 50_000;
  * Las fechas del filtro son días de Lima: «hasta el 2 de octubre» incluye ese día entero en Lima,
  * aunque en UTC ya sea el 3 (M10).
  */
-function condiciones(organizacionId: string, filtros: Filtros) {
-  const lista = ['h.organizacion_id = $1'];
-  const parametros: unknown[] = [organizacionId];
+function condiciones(empresaId: string, filtros: Filtros) {
+  const lista = ['h.empresa_id = $1'];
+  const parametros: unknown[] = [empresaId];
   const agregar = (condicion: (parametro: string) => string, valor: unknown) => {
     parametros.push(valor);
     lista.push(condicion(`$${parametros.length}`));
@@ -84,8 +82,8 @@ const SELECCION = `
          to_char(h.creado_en AT TIME ZONE 'America/Lima', 'YYYY-MM-DD HH24:MI:SS') AS creado_en_lima
   FROM historial h LEFT JOIN usuarios u ON u.id = h.usuario_id`;
 
-async function consultar(db: Consultor, organizacionId: string, filtros: Filtros, limite: number, desde = 0): Promise<FilaAsiento[]> {
-  const { where, parametros } = condiciones(organizacionId, filtros);
+async function consultar(db: Consultor, empresaId: string, filtros: Filtros, limite: number, desde = 0): Promise<FilaAsiento[]> {
+  const { where, parametros } = condiciones(empresaId, filtros);
   const { rows } = await db.query<FilaAsiento>(
     `${SELECCION} WHERE ${where} ORDER BY h.id DESC LIMIT $${parametros.length + 1} OFFSET $${parametros.length + 2}`,
     [...parametros, limite, desde],
@@ -93,11 +91,19 @@ async function consultar(db: Consultor, organizacionId: string, filtros: Filtros
   return rows;
 }
 
+/**
+ * El Master no pertenece a la empresa, así que su cuenta no se ve desde ella (RLS): su asiento sale sin
+ * usuario y con el rol «master», y se muestra como «Administración de la plataforma».
+ */
+const AUTOR_DE_LA_PLATAFORMA = 'Administración de la plataforma';
+
 function aAsiento(fila: FilaAsiento): Asiento {
   return {
     id: fila.id,
     accion: fila.accion,
-    usuario: fila.usuario_id ? { id: fila.usuario_id, nombre: fila.usuario_nombre!, email: fila.usuario_email! } : null,
+    usuario: fila.usuario_id && fila.usuario_nombre !== null
+      ? { id: fila.usuario_id, nombre: fila.usuario_nombre, email: fila.usuario_email! }
+      : null,
     rolUsuario: fila.rol_usuario,
     entidad: fila.entidad_tipo ? { tipo: fila.entidad_tipo, id: fila.entidad_id! } : null,
     detalle: fila.detalle,
@@ -107,13 +113,15 @@ function aAsiento(fila: FilaAsiento): Asiento {
   };
 }
 
-export function crearServicioHistorial(pool: pg.Pool) {
+export function crearServicioHistorial() {
   return {
     async listar(actor: Actor, filtros: Filtros, paginacion: z.infer<typeof esquemaPaginacion>) {
-      const organizacionId = actor.autenticacion.usuario.organizacionId;
-      const { where, parametros } = condiciones(organizacionId, filtros);
-      const { rows: [conteo] } = await pool.query<{ total: number }>(`SELECT count(*)::int AS total FROM historial h WHERE ${where}`, parametros);
-      const filas = await consultar(pool, organizacionId, filtros, paginacion.porPagina, desplazamiento(paginacion));
+      const empresaId = empresaDe(actor);
+      const { where, parametros } = condiciones(empresaId, filtros);
+      const { conteo, filas } = await actor.datos.ejecutar(async (db) => ({
+        conteo: (await db.query<{ total: number }>(`SELECT count(*)::int AS total FROM historial h WHERE ${where}`, parametros)).rows[0],
+        filas: await consultar(db, empresaId, filtros, paginacion.porPagina, desplazamiento(paginacion)),
+      }));
       return { datos: filas.map(aAsiento), paginacion: { ...paginacion, total: conteo?.total ?? 0 } };
     },
 
@@ -123,8 +131,8 @@ export function crearServicioHistorial(pool: pg.Pool) {
      */
     async exportar(actor: Actor, filtros: Filtros): Promise<string> {
       const { usuario } = actor.autenticacion;
-      const filas = await conTransaccion(pool, async (cliente) => {
-        const filas = await consultar(cliente, usuario.organizacionId, filtros, MAXIMO_EXPORTABLE);
+      const filas = await actor.datos.ejecutar(async (cliente) => {
+        const filas = await consultar(cliente, empresaDe(actor), filtros, MAXIMO_EXPORTABLE);
         await registrarAccion(cliente, {
           accion: 'HISTORIAL_EXPORTADO',
           autor: autorDe(usuario),
@@ -136,7 +144,8 @@ export function crearServicioHistorial(pool: pg.Pool) {
       return aCsv(
         ['id', 'fecha_hora_lima', 'fecha_hora_utc', 'accion', 'usuario', 'email', 'rol', 'entidad_tipo', 'entidad_id', 'es_movil', 'user_agent', 'detalle'],
         filas.map((fila) => [
-          fila.id, fila.creado_en_lima, fila.creado_en.toISOString(), fila.accion, fila.usuario_nombre, fila.usuario_email,
+          fila.id, fila.creado_en_lima, fila.creado_en.toISOString(), fila.accion,
+          fila.rol_usuario === 'master' ? AUTOR_DE_LA_PLATAFORMA : fila.usuario_nombre, fila.usuario_email,
           fila.rol_usuario, fila.entidad_tipo, fila.entidad_id, fila.es_movil, fila.user_agent, fila.detalle,
         ]),
       );
@@ -146,11 +155,12 @@ export function crearServicioHistorial(pool: pg.Pool) {
 
 export function crearRutasHistorial(
   servicio: ReturnType<typeof crearServicioHistorial>,
-  autenticar: RequestHandler,
+  /** La puerta de empresa: sesión válida y un rol que pertenece a una empresa. */
+  entrar: RequestHandler,
   exigir: (permiso: Permiso) => RequestHandler,
 ): Router {
   const rutas = Router();
-  rutas.use(autenticar, exigir('CONSULTAR_HISTORIAL'));
+  rutas.use(entrar, exigir('CONSULTAR_HISTORIAL'));
 
   rutas.get('/', async (req, res) => {
     const filtros = esquemaFiltros.parse(req.query);

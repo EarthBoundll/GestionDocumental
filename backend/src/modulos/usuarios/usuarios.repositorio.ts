@@ -10,16 +10,18 @@ export interface Usuario {
   nombre: string;
   email: string;
   rol: Rol;
+  dni: string | null;
   activo: boolean;
   creadoEn: Date;
 }
 
-const COLUMNAS = { nombre: 'nombre', rol: 'rol', claveHash: 'clave_hash', activo: 'activo' };
-const SELECCION = 'SELECT id, nombre, email, rol, activo, creado_en AS "creadoEn" FROM usuarios';
+const COLUMNAS = { nombre: 'nombre', email: 'email', dni: 'dni', rol: 'rol', claveHash: 'clave_hash', activo: 'activo' };
+const DEVUELTAS = 'id, nombre, email, rol, dni, activo, creado_en AS "creadoEn"';
+const SELECCION = `SELECT ${DEVUELTAS} FROM usuarios`;
 
-export async function listarUsuarios(db: Consultor, organizacionId: string, filtro: FiltroUsuarios): Promise<{ filas: Usuario[]; total: number }> {
-  const condiciones = ['organizacion_id = $1'];
-  const parametros: unknown[] = [organizacionId];
+export async function listarUsuarios(db: Consultor, empresaId: string, filtro: FiltroUsuarios): Promise<{ filas: Usuario[]; total: number }> {
+  const condiciones = ['empresa_id = $1'];
+  const parametros: unknown[] = [empresaId];
   const agregar = (condicion: (parametro: string) => string, valor: unknown) => {
     parametros.push(valor);
     condiciones.push(condicion(`$${parametros.length}`));
@@ -38,24 +40,24 @@ export async function listarUsuarios(db: Consultor, organizacionId: string, filt
   return { filas: rows, total: conteo?.total ?? 0 };
 }
 
-export async function buscarUsuario(db: Consultor, organizacionId: string, id: string): Promise<Usuario | null> {
-  const { rows } = await db.query<Usuario>(`${SELECCION} WHERE organizacion_id = $1 AND id = $2`, [organizacionId, id]);
+export async function buscarUsuario(db: Consultor, empresaId: string, id: string): Promise<Usuario | null> {
+  const { rows } = await db.query<Usuario>(`${SELECCION} WHERE empresa_id = $1 AND id = $2`, [empresaId, id]);
   return rows[0] ?? null;
 }
 
 export async function insertarUsuario(
   db: Consultor,
-  datos: { organizacionId: string; nombre: string; email: string; claveHash: string; rol: Rol },
+  datos: { empresaId: string; nombre: string; email: string; dni?: string | null | undefined; claveHash: string; rol: Rol },
 ): Promise<Usuario> {
   const { rows } = await db.query<Usuario>(
-    `INSERT INTO usuarios (organizacion_id, nombre, email, clave_hash, rol) VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, nombre, email, rol, activo, creado_en AS "creadoEn"`,
-    [datos.organizacionId, datos.nombre, datos.email, datos.claveHash, datos.rol],
+    `INSERT INTO usuarios (empresa_id, nombre, email, dni, clave_hash, rol) VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING ${DEVUELTAS}`,
+    [datos.empresaId, datos.nombre, datos.email, datos.dni ?? null, datos.claveHash, datos.rol],
   );
   return primeraFila(rows);
 }
 
-export async function actualizarUsuario(db: Consultor, organizacionId: string, id: string, valores: Record<string, unknown>): Promise<void> {
+export async function actualizarUsuario(db: Consultor, empresaId: string, id: string, valores: Record<string, unknown>): Promise<void> {
   const { sql, parametros } = clausulaSet(valores, COLUMNAS, 3);
-  await db.query(`UPDATE usuarios SET ${sql} WHERE organizacion_id = $1 AND id = $2`, [organizacionId, id, ...parametros]);
+  await db.query(`UPDATE usuarios SET ${sql} WHERE empresa_id = $1 AND id = $2`, [empresaId, id, ...parametros]);
 }

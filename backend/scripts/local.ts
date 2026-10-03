@@ -11,8 +11,10 @@ import EmbeddedPostgres from 'embedded-postgres';
 import { crearAlmacenamiento } from '../src/almacenamiento/crear.js';
 import { crearApp } from '../src/app.js';
 import { leerEntorno } from '../src/config/entorno.js';
+import { crearCorreo } from '../src/correo/crear.js';
 import { aplicarMigraciones } from '../src/db/migraciones.js';
 import { crearPool } from '../src/db/pool.js';
+import { crearMaster, leerDatosDelMaster } from '../src/modulos/auth/master.js';
 
 // No es el 5432, por si hay un PostgreSQL instalado, ni el 3000, que en esta máquina usa el suyo.
 const PUERTO_BASE = 5433;
@@ -43,12 +45,28 @@ const entorno = leerEntorno({
   JWT_SECRETO: (await readFile(archivoSecreto, 'utf8')).trim(),
   ALMACENAMIENTO: 'disco',
   DIRECTORIO_ARCHIVOS: join(DIRECTORIO, 'archivos'),
+  // Los correos de recuperación quedan en una carpeta, y su enlace sale por la consola.
+  CORREO: 'archivo',
+  DIRECTORIO_CORREOS: join(DIRECTORIO, 'correos'),
 });
 const pool = crearPool(entorno);
 const aplicadas = await aplicarMigraciones(pool, resolve('migraciones'));
 if (aplicadas.length > 0) console.log(`Migraciones aplicadas: ${aplicadas.join(', ')}`);
 
-const servidor = crearApp({ pool, entorno, almacenamiento: crearAlmacenamiento(entorno) }).listen(entorno.PORT, () => {
+// El Master, si el .env trae sus datos (CLAUDE.md v2). Sin ellos, el sistema arranca igual.
+if (process.env.MASTER_EMAIL && process.env.MASTER_PASSWORD) {
+  try {
+    const resultado = await crearMaster(pool, leerDatosDelMaster(process.env));
+    if (resultado.creado) console.log('Cuenta del Master creada con los datos del .env.');
+  } catch (error) {
+    // Unos datos inválidos no impiden arrancar: se avisa, y el Master se crea cuando se corrijan.
+    console.error(error instanceof Error ? error.message : error);
+  }
+} else {
+  console.log('Sin MASTER_EMAIL y MASTER_PASSWORD en el .env: no se crea la cuenta del Master (ver .env.example).');
+}
+
+const servidor = crearApp({ pool, entorno, almacenamiento: crearAlmacenamiento(entorno), correo: crearCorreo(entorno) }).listen(entorno.PORT, () => {
   console.log(`API local en http://localhost:${entorno.PORT}/api/v1 (PostgreSQL en el puerto ${PUERTO_BASE}, datos en ${DIRECTORIO})`);
 });
 

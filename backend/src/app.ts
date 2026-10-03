@@ -5,8 +5,9 @@ import type { Almacenamiento } from './almacenamiento/almacenamiento.js';
 import { AlmacenamientoEnDisco } from './almacenamiento/en-disco.js';
 import { crearFirmador } from './compartido/tokens.js';
 import type { Entorno } from './config/entorno.js';
+import type { Correo } from './correo/correo.js';
 import { crearAutenticar } from './middlewares/autenticar.js';
-import { crearExigir } from './middlewares/autorizar.js';
+import { crearPuertas, exigir } from './middlewares/autorizar.js';
 import { contexto } from './middlewares/contexto.js';
 import { crearLimitadores } from './middlewares/limitar-intentos.js';
 import { manejarErrores, rutaNoEncontrada } from './middlewares/manejar-errores.js';
@@ -21,6 +22,8 @@ import { crearRutasDocumentos } from './modulos/documentos/documentos.rutas.js';
 import { crearServicioDocumentos } from './modulos/documentos/documentos.servicio.js';
 import { crearRutasHistorial, crearServicioHistorial } from './modulos/historial/historial.consulta.js';
 import { crearRutasNotificaciones } from './modulos/notificaciones/notificaciones.rutas.js';
+import { crearRutasPlataforma } from './modulos/plataforma/plataforma.rutas.js';
+import { crearServicioPlataforma } from './modulos/plataforma/plataforma.servicio.js';
 import { crearRutasSalud } from './modulos/salud/salud.rutas.js';
 import { crearRutasSolicitudes } from './modulos/solicitudes/solicitudes.rutas.js';
 import { crearServicioSolicitudes } from './modulos/solicitudes/solicitudes.servicio.js';
@@ -34,10 +37,11 @@ export interface Dependencias {
   pool: pg.Pool;
   entorno: Entorno;
   almacenamiento: Almacenamiento;
+  correo: Correo;
 }
 
 /** Ensambla la API sin ponerla a escuchar: así las pruebas la usan con su propia base. */
-export function crearApp({ pool, entorno, almacenamiento }: Dependencias): express.Express {
+export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', entorno.PROXIES_DE_CONFIANZA);
@@ -56,26 +60,29 @@ export function crearApp({ pool, entorno, almacenamiento }: Dependencias): expre
 
   const firmador = crearFirmador(entorno.JWT_SECRETO);
   const autenticar = crearAutenticar(pool, firmador);
-  const exigir = crearExigir(pool);
-  const tiempos = crearServicioTiempos(pool);
+  // Ningún módulo de negocio recibe el pool: solo el acceso que la autenticación crea para cada petición.
+  const { empresa, plataforma } = crearPuertas(autenticar);
+  const tiempos = crearServicioTiempos();
   const servicioAuth = crearServicioAuth({
     pool,
     firmador,
     duracionHoras: entorno.JWT_DURACION_HORAS,
-    registroAbierto: entorno.REGISTRO_ABIERTO,
+    correo,
+    urlFrontend: entorno.URL_FRONTEND,
   });
-  const servicioDocumentos = crearServicioDocumentos({ pool, almacenamiento });
+  const servicioDocumentos = crearServicioDocumentos({ almacenamiento });
 
   app.use('/api/v1/salud', crearRutasSalud(pool, { diagnosticoRed: entorno.DIAGNOSTICO_RED }));
   app.use('/api/v1/auth', crearRutasAuth(crearControladorAuth(servicioAuth), autenticar, crearLimitadores()));
-  app.use('/api/v1/categorias', crearRutasCategorias(crearControladorCategorias(crearServicioCategorias(pool)), autenticar, exigir));
-  app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios(pool)), autenticar, exigir));
+  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma(), plataforma));
+  app.use('/api/v1/categorias', crearRutasCategorias(crearControladorCategorias(crearServicioCategorias()), empresa, exigir));
+  app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios()), empresa, exigir));
   // Antes que /documentos: una de sus rutas es /documentos/:id/solicitudes, y así no se autentica dos veces.
-  app.use('/api/v1', crearRutasSolicitudes(crearServicioSolicitudes(pool), autenticar, exigir));
-  app.use('/api/v1/documentos', crearRutasDocumentos(crearControladorDocumentos(servicioDocumentos, tiempos), autenticar));
-  app.use('/api/v1/notificaciones', crearRutasNotificaciones(pool, autenticar));
-  app.use('/api/v1/historial', crearRutasHistorial(crearServicioHistorial(pool), autenticar, exigir));
-  app.use('/api/v1/tiempos-respuesta', crearRutasTiempos(tiempos, autenticar));
+  app.use('/api/v1', crearRutasSolicitudes(crearServicioSolicitudes(), empresa, exigir));
+  app.use('/api/v1/documentos', crearRutasDocumentos(crearControladorDocumentos(servicioDocumentos, tiempos), empresa));
+  app.use('/api/v1/notificaciones', crearRutasNotificaciones(empresa));
+  app.use('/api/v1/historial', crearRutasHistorial(crearServicioHistorial(), empresa, exigir));
+  app.use('/api/v1/tiempos-respuesta', crearRutasTiempos(tiempos, empresa));
   if (almacenamiento instanceof AlmacenamientoEnDisco) app.use('/api/v1/archivos', almacenamiento.rutas());
 
   app.use(rutaNoEncontrada);

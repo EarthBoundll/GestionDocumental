@@ -4,11 +4,12 @@ import type { crearControladorDocumentos } from './documentos.controlador.js';
 
 export function crearRutasDocumentos(
   controlador: ReturnType<typeof crearControladorDocumentos>,
-  autenticar: RequestHandler,
+  /** La puerta de empresa: sesión válida y un rol que pertenece a una empresa. */
+  entrar: RequestHandler,
 ): Router {
   const rutas = Router();
   // Las reglas de propiedad («solo los suyos») dependen del documento: las aplica el servicio.
-  rutas.use(autenticar);
+  rutas.use(entrar);
   rutas.get('/', controlador.listar);
   rutas.post('/', recibirArchivo, controlador.subir);
   rutas.get('/:id', controlador.obtener);

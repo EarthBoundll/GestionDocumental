@@ -2,6 +2,8 @@ node_modules/
 dist/
 # Archivos subidos en desarrollo (ALMACENAMIENTO=disco).
 backend/archivos/
+# Correos de recuperación en desarrollo (CORREO=archivo): llevan enlaces válidos.
+backend/correos/
 # Base y archivos de «npm run local».
 backend/.local/
 coverage/

@@ -4,12 +4,12 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { crearFirmador } from '../../src/compartido/tokens.js';
 import { crearAutenticar } from '../../src/middlewares/autenticar.js';
-import { crearExigir } from '../../src/middlewares/autorizar.js';
+import { exigir } from '../../src/middlewares/autorizar.js';
 import { contexto } from '../../src/middlewares/contexto.js';
 import { manejarErrores } from '../../src/middlewares/manejar-errores.js';
 import { ACCIONES } from '../../src/modulos/historial/historial.registro.js';
 import {
-  crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarOrganizacion, SECRETO_DE_PRUEBAS, UA_IPHONE,
+  crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa, SECRETO_DE_PRUEBAS, UA_IPHONE,
 } from '../apoyo/api.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 
@@ -24,7 +24,6 @@ describe('Autorización por rol (indicador 6)', () => {
     pool = base.pool;
     app = crearAppDePruebas(pool);
     // Una ruta de administración con los middlewares reales, tal como la montarán las fases siguientes.
-    const exigir = crearExigir(pool);
     protegida = express()
       .use(contexto)
       .get('/api/v1/usuarios', crearAutenticar(pool, crearFirmador(SECRETO_DE_PRUEBAS)), exigir('GESTIONAR_USUARIOS'),
@@ -34,7 +33,7 @@ describe('Autorización por rol (indicador 6)', () => {
   afterAll(() => base.cerrar());
 
   it('deja pasar al administrador', async () => {
-    const { token } = await registrarOrganizacion(app);
+    const { token } = await registrarEmpresa(app);
 
     const respuesta = await request(protegida).get('/api/v1/usuarios').set('Authorization', `Bearer ${token}`);
 
@@ -42,8 +41,8 @@ describe('Autorización por rol (indicador 6)', () => {
   });
 
   it('a un usuario le responde 403 y registra el intento con su rol, el permiso y la ruta', async () => {
-    const { organizacion } = await registrarOrganizacion(app);
-    const empleado = await crearUsuarioEn(pool, organizacion.id, 'usuario');
+    const { empresa } = await registrarEmpresa(app);
+    const empleado = await crearUsuarioEn(pool, empresa.id, 'usuario');
     const token = await iniciarSesion(app, empleado.email);
 
     const respuesta = await request(protegida).get('/api/v1/usuarios?pagina=2')
@@ -51,7 +50,7 @@ describe('Autorización por rol (indicador 6)', () => {
 
     expect(respuesta.status).toBe(403);
     expect(respuesta.body.error.codigo).toBe('SIN_PERMISO');
-    expect((await historialDe(pool, organizacion.id)).at(-1)).toMatchObject({
+    expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
       accion: 'ACCESO_DENEGADO',
       usuario_id: empleado.id,
       rol_usuario: 'usuario',
@@ -61,8 +60,8 @@ describe('Autorización por rol (indicador 6)', () => {
   });
 
   it('si el historial falla, deniega igualmente y deja constancia en el registro del servidor', async () => {
-    const { organizacion } = await registrarOrganizacion(app);
-    const empleado = await crearUsuarioEn(pool, organizacion.id, 'usuario');
+    const { empresa } = await registrarEmpresa(app);
+    const empleado = await crearUsuarioEn(pool, empresa.id, 'usuario');
     const token = await iniciarSesion(app, empleado.email);
     const registro = vi.spyOn(console, 'error').mockImplementation(() => {});
     await pool.query(`

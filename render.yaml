@@ -27,8 +27,6 @@ services:
       # La URL del frontend en Vercel, cuando exista.
       - key: CORS_ORIGEN
         sync: false
-      - key: REGISTRO_ABIERTO
-        value: "true"
       # Valor provisional: confirmarlo en el primer despliegue con DIAGNOSTICO_RED (backend/README.md).
       - key: PROXIES_DE_CONFIANZA
         value: "1"
@@ -43,3 +41,15 @@ services:
         sync: false
       - key: STORAGE_BUCKET
         value: documentos
+      # Correos de recuperación de contraseña por la API de Brevo (D19), con un remitente verificado allí.
+      - key: CORREO
+        value: brevo
+      - key: BREVO_CLAVE_API
+        sync: false
+      - key: CORREO_REMITENTE
+        sync: false
+      - key: CORREO_REMITENTE_NOMBRE
+        value: Gestión Documental
+      # La URL del frontend en Vercel: el enlace del correo de recuperación apunta allí.
+      - key: URL_FRONTEND
+        sync: false

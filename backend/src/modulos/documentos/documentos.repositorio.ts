@@ -52,9 +52,9 @@ function escaparLike(texto: string): string {
 }
 
 /** El WHERE de una búsqueda. Se exporta para comprobar en las pruebas que usa el índice de trigramas. */
-export function condicionesDeBusqueda(organizacionId: string, filtros: Omit<FiltrosBusqueda, 'pagina' | 'porPagina' | 'orden'>) {
-  const condiciones = ['d.organizacion_id = $1', 'd.eliminado_en IS NULL'];
-  const parametros: unknown[] = [organizacionId];
+export function condicionesDeBusqueda(empresaId: string, filtros: Omit<FiltrosBusqueda, 'pagina' | 'porPagina' | 'orden'>) {
+  const condiciones = ['d.empresa_id = $1', 'd.eliminado_en IS NULL'];
+  const parametros: unknown[] = [empresaId];
   const agregar = (condicion: (parametro: string) => string, valor: unknown) => {
     parametros.push(valor);
     condiciones.push(condicion(`$${parametros.length}`));
@@ -100,10 +100,10 @@ function aResumen(fila: FilaResumen): DocumentoResumen {
 
 export async function buscarDocumentos(
   db: Consultor,
-  organizacionId: string,
+  empresaId: string,
   filtros: FiltrosBusqueda,
 ): Promise<{ filas: DocumentoResumen[]; total: number }> {
-  const { where, parametros } = condicionesDeBusqueda(organizacionId, filtros);
+  const { where, parametros } = condicionesDeBusqueda(empresaId, filtros);
   const { rows: [conteo] } = await db.query<{ total: number }>(
     `SELECT count(*)::int AS total FROM documentos d WHERE ${where}`, parametros);
   const { rows } = await db.query<FilaResumen>(
@@ -131,8 +131,8 @@ interface FilaDocumento extends FilaResumen {
   s_resuelta_en: Date | null;
 }
 
-/** Un documento vigente de la organización, con su última solicitud de aprobación (M6). */
-export async function buscarDocumento(db: Consultor, organizacionId: string, id: string): Promise<DocumentoInterno | null> {
+/** Un documento vigente de la empresa, con su última solicitud de aprobación (M6). */
+export async function buscarDocumento(db: Consultor, empresaId: string, id: string): Promise<DocumentoInterno | null> {
   const { rows } = await db.query<FilaDocumento>(
     `SELECT d.id, d.nombre, d.fecha_documento, d.categoria_id, c.nombre AS categoria_nombre, d.subido_por,
             u.nombre AS subido_por_nombre, d.archivo_tipo_mime, d.archivo_peso_bytes, d.creado_en,
@@ -148,8 +148,8 @@ export async function buscarDocumento(db: Consultor, organizacionId: string, id:
      ) s ON true
      LEFT JOIN usuarios sol ON sol.id = s.solicitante_id
      LEFT JOIN usuarios rev ON rev.id = s.revisor_id
-     WHERE d.organizacion_id = $1 AND d.id = $2 AND d.eliminado_en IS NULL`,
-    [organizacionId, id],
+     WHERE d.empresa_id = $1 AND d.id = $2 AND d.eliminado_en IS NULL`,
+    [empresaId, id],
   );
   const fila = rows[0];
   if (!fila) return null;
@@ -172,19 +172,19 @@ export async function buscarDocumento(db: Consultor, organizacionId: string, id:
   };
 }
 
-export async function categoriaDeLaOrganizacion(
+export async function categoriaDeLaEmpresa(
   db: Consultor,
-  organizacionId: string,
+  empresaId: string,
   categoriaId: string,
 ): Promise<{ id: string; nombre: string; activa: boolean } | null> {
   const { rows } = await db.query<{ id: string; nombre: string; activa: boolean }>(
-    'SELECT id, nombre, activa FROM categorias WHERE organizacion_id = $1 AND id = $2', [organizacionId, categoriaId]);
+    'SELECT id, nombre, activa FROM categorias WHERE empresa_id = $1 AND id = $2', [empresaId, categoriaId]);
   return rows[0] ?? null;
 }
 
 export async function insertarDocumento(db: Consultor, datos: {
   id: string;
-  organizacionId: string;
+  empresaId: string;
   categoriaId: string;
   subidoPor: string;
   nombre: string;
@@ -196,25 +196,25 @@ export async function insertarDocumento(db: Consultor, datos: {
   archivoPesoBytes: number;
 }): Promise<void> {
   await db.query(
-    `INSERT INTO documentos (id, organizacion_id, categoria_id, subido_por, nombre, descripcion, fecha_documento,
+    `INSERT INTO documentos (id, empresa_id, categoria_id, subido_por, nombre, descripcion, fecha_documento,
        archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-    [datos.id, datos.organizacionId, datos.categoriaId, datos.subidoPor, datos.nombre, datos.descripcion,
+    [datos.id, datos.empresaId, datos.categoriaId, datos.subidoPor, datos.nombre, datos.descripcion,
       datos.fechaDocumento, datos.archivoNombreOriginal, datos.archivoRuta, datos.archivoTipoMime, datos.archivoPesoBytes],
   );
 }
 
-export async function actualizarDocumento(db: Consultor, organizacionId: string, id: string, valores: Record<string, unknown>): Promise<void> {
+export async function actualizarDocumento(db: Consultor, empresaId: string, id: string, valores: Record<string, unknown>): Promise<void> {
   const { sql, parametros } = clausulaSet(valores, COLUMNAS, 3);
   await db.query(
-    `UPDATE documentos SET ${sql} WHERE organizacion_id = $1 AND id = $2 AND eliminado_en IS NULL`,
-    [organizacionId, id, ...parametros],
+    `UPDATE documentos SET ${sql} WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NULL`,
+    [empresaId, id, ...parametros],
   );
 }
 
-export async function marcarEliminado(db: Consultor, organizacionId: string, id: string): Promise<void> {
+export async function marcarEliminado(db: Consultor, empresaId: string, id: string): Promise<void> {
   await db.query(
-    'UPDATE documentos SET eliminado_en = now() WHERE organizacion_id = $1 AND id = $2 AND eliminado_en IS NULL',
-    [organizacionId, id],
+    'UPDATE documentos SET eliminado_en = now() WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NULL',
+    [empresaId, id],
   );
 }

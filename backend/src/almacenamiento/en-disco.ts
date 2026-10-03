@@ -47,8 +47,8 @@ export class AlmacenamientoEnDisco implements Almacenamiento {
   /** La ruta que sirve los archivos a quien trae un enlace firmado y vigente. */
   rutas(): Router {
     const rutas = Router();
-    rutas.get('/:organizacion/:archivo', async (req, res) => {
-      const ruta = `${req.params.organizacion}/${req.params.archivo}`;
+    rutas.get('/:empresa/:archivo', async (req, res) => {
+      const ruta = `${req.params.empresa}/${req.params.archivo}`;
       const parametros = new URLSearchParams(req.query as Record<string, string>);
       const firma = parametros.get('firma') ?? '';
       parametros.delete('firma');

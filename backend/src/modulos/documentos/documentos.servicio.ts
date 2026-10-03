@@ -1,18 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
-import type pg from 'pg';
 import type { Almacenamiento } from '../../almacenamiento/almacenamiento.js';
 import { calcularCambios, valoresNuevos } from '../../compartido/cambios.js';
 import { ErrorAplicacion, noEncontrado } from '../../compartido/errores.js';
 import type { Pagina } from '../../compartido/paginacion.js';
-import type { Actor, UsuarioAutenticado } from '../../compartido/peticion.js';
+import { empresaDe, type Actor, type UsuarioAutenticado } from '../../compartido/peticion.js';
 import { tienePermiso } from '../../compartido/permisos.js';
 import { identificarTipo } from '../../compartido/tipos-de-archivo.js';
-import { conTransaccion } from '../../db/transaccion.js';
 import { autorDe, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
 import type { CambiosDocumento, FiltrosBusqueda, NuevoDocumento } from './documentos.esquemas.js';
 import {
-  actualizarDocumento, buscarDocumento, buscarDocumentos, categoriaDeLaOrganizacion, insertarDocumento, marcarEliminado,
+  actualizarDocumento, buscarDocumento, buscarDocumentos, categoriaDeLaEmpresa, insertarDocumento, marcarEliminado,
   type Documento, type DocumentoInterno, type DocumentoResumen,
 } from './documentos.repositorio.js';
 
@@ -50,24 +48,25 @@ export interface ArchivoRecibido {
 
 export type ServicioDocumentos = ReturnType<typeof crearServicioDocumentos>;
 
-export function crearServicioDocumentos({ pool, almacenamiento }: { pool: pg.Pool; almacenamiento: Almacenamiento }) {
+/** Todo pasa por el acceso del actor (D17): el filtro por empresa de cada consulta tiene detrás la RLS. */
+export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Almacenamiento }) {
   async function documentoVigente(actor: Actor, id: string): Promise<DocumentoInterno> {
-    const documento = await buscarDocumento(pool, actor.autenticacion.usuario.organizacionId, id);
+    const documento = await actor.datos.ejecutar((db) => buscarDocumento(db, empresaDe(actor), id));
     if (!documento) throw noEncontrado('El documento no existe');
     return documento;
   }
 
   async function exigirGestion(actor: Actor, documento: Documento, operacion: string): Promise<void> {
     if (permisosSobre(actor.autenticacion.usuario, documento).editar) return;
-    throw await denegarAcceso(pool, actor, 'GESTIONAR_CUALQUIER_DOCUMENTO', {
+    throw await denegarAcceso(actor, 'GESTIONAR_CUALQUIER_DOCUMENTO', {
       entidad: { tipo: 'documento', id: documento.id },
       detalle: { operacion },
     });
   }
 
-  /** La categoría tiene que ser de la organización y estar activa (RN08). */
-  async function exigirCategoriaUsable(organizacionId: string, categoriaId: string) {
-    const categoria = await categoriaDeLaOrganizacion(pool, organizacionId, categoriaId);
+  /** La categoría tiene que ser de la empresa y estar activa (RN08). */
+  async function exigirCategoriaUsable(actor: Actor, categoriaId: string) {
+    const categoria = await actor.datos.ejecutar((db) => categoriaDeLaEmpresa(db, empresaDe(actor), categoriaId));
     if (!categoria) {
       throw new ErrorAplicacion(400, 'VALIDACION', 'Revisa los datos enviados', {
         detalles: [{ campo: 'categoriaId', mensaje: 'La categoría no existe' }],
@@ -84,9 +83,9 @@ export function crearServicioDocumentos({ pool, almacenamiento }: { pool: pg.Poo
     async listar(actor: Actor, filtros: FiltrosBusqueda): Promise<Pagina<DocumentoResumen> & { conFiltros: boolean }> {
       const { usuario } = actor.autenticacion;
       const conFiltros = Boolean(filtros.q || filtros.categoriaId || filtros.desde || filtros.hasta);
-      const buscar = (db: pg.Pool | pg.PoolClient) => buscarDocumentos(db, usuario.organizacionId, filtros);
-      const { filas, total } = !conFiltros ? await buscar(pool) : await conTransaccion(pool, async (cliente) => {
-        const resultado = await buscar(cliente);
+      const { filas, total } = await actor.datos.ejecutar(async (cliente) => {
+        const resultado = await buscarDocumentos(cliente, empresaDe(actor), filtros);
+        if (!conFiltros) return resultado;
         await registrarAccion(cliente, {
           accion: 'BUSQUEDA_REALIZADA',
           autor: autorDe(usuario),
@@ -109,18 +108,19 @@ export function crearServicioDocumentos({ pool, almacenamiento }: { pool: pg.Poo
       const { usuario } = actor.autenticacion;
       const nombreOriginal = basename(archivo.nombreOriginal.replaceAll('\\', '/')).slice(-255);
       const tipo = identificarTipo(nombreOriginal, archivo.contenido);
-      const categoria = await exigirCategoriaUsable(usuario.organizacionId, datos.categoriaId);
+      const empresaId = empresaDe(actor);
+      const categoria = await exigirCategoriaUsable(actor, datos.categoriaId);
       const id = randomUUID();
-      const ruta = `${usuario.organizacionId}/${id}.${tipo.extension}`;
+      const ruta = `${empresaId}/${id}.${tipo.extension}`;
 
       // El archivo sube antes que la fila: un fallo después deja, como mucho, un archivo huérfano que se
       // intenta borrar; al revés, dejaría un documento que apunta a un archivo inexistente (§4.2).
       await almacenamiento.subir(ruta, archivo.contenido, tipo.mime);
       try {
-        await conTransaccion(pool, async (cliente) => {
+        await actor.datos.ejecutar(async (cliente) => {
           await insertarDocumento(cliente, {
             id,
-            organizacionId: usuario.organizacionId,
+            empresaId,
             categoriaId: categoria.id,
             subidoPor: usuario.id,
             nombre: datos.nombre,
@@ -165,10 +165,10 @@ export function crearServicioDocumentos({ pool, almacenamiento }: { pool: pg.Poo
       };
       const cambios = calcularCambios(actual, propuesta);
       if (Object.keys(cambios).length === 0) return publico(documento);
-      if (cambios.categoriaId) await exigirCategoriaUsable(usuario.organizacionId, String(cambios.categoriaId.despues));
+      if (cambios.categoriaId) await exigirCategoriaUsable(actor, String(cambios.categoriaId.despues));
 
-      await conTransaccion(pool, async (cliente) => {
-        await actualizarDocumento(cliente, usuario.organizacionId, id, valoresNuevos(cambios));
+      await actor.datos.ejecutar(async (cliente) => {
+        await actualizarDocumento(cliente, empresaDe(actor), id, valoresNuevos(cambios));
         await registrarAccion(cliente, {
           accion: 'DOCUMENTO_EDITADO',
           autor: autorDe(usuario),
@@ -187,8 +187,8 @@ export function crearServicioDocumentos({ pool, almacenamiento }: { pool: pg.Poo
       if (documento.ultimaSolicitud?.estado === 'pendiente') {
         throw new ErrorAplicacion(409, 'DOCUMENTO_EN_REVISION', 'No se puede eliminar mientras tenga una solicitud de aprobación pendiente');
       }
-      await conTransaccion(pool, async (cliente) => {
-        await marcarEliminado(cliente, usuario.organizacionId, id);
+      await actor.datos.ejecutar(async (cliente) => {
+        await marcarEliminado(cliente, empresaDe(actor), id);
         await registrarAccion(cliente, {
           accion: 'DOCUMENTO_ELIMINADO',
           autor: autorDe(usuario),
@@ -210,12 +210,12 @@ export function crearServicioDocumentos({ pool, almacenamiento }: { pool: pg.Poo
         tipoMime: documento.archivo.tipoMime,
         ...(modo === 'descargar' && { descargarComo: documento.archivo.nombreOriginal }),
       });
-      await registrarAccion(pool, {
+      await actor.datos.ejecutar((db) => registrarAccion(db, {
         accion: modo === 'descargar' ? 'DOCUMENTO_DESCARGADO' : 'DOCUMENTO_VISUALIZADO',
         autor: autorDe(actor.autenticacion.usuario),
         contexto: actor.contexto,
         entidad: { tipo: 'documento', id },
-      });
+      }));
       return { url, expiraEn: new Date(Date.now() + VIGENCIA_ENLACE_SEGUNDOS * 1000).toISOString() };
     },
   };

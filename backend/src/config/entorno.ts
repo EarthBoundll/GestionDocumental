@@ -21,7 +21,6 @@ const esquema = z
       .string()
       .min(32, 'Debe tener al menos 32 caracteres; genera uno con: node -e "console.log(crypto.randomBytes(32).toString(\'base64url\'))"'),
     JWT_DURACION_HORAS: opcional(z.coerce.number().int().min(1).max(24).default(8)),
-    REGISTRO_ABIERTO: opcional(z.stringbool().default(true)),
     CORS_ORIGEN: opcional(
       z.string()
         .default('http://localhost:5173')
@@ -38,6 +37,14 @@ const esquema = z
     SUPABASE_URL: opcional(z.url().optional()),
     SUPABASE_CLAVE_SECRETA: opcional(z.string().min(20).optional()),
     STORAGE_BUCKET: opcional(z.string().default('documentos')),
+    // Correos de recuperación de contraseña (D19). En local se guardan en una carpeta; en producción, Brevo.
+    CORREO: opcional(z.enum(['archivo', 'brevo']).default('archivo')),
+    DIRECTORIO_CORREOS: opcional(z.string().default('correos')),
+    BREVO_CLAVE_API: opcional(z.string().min(20).optional()),
+    CORREO_REMITENTE: opcional(z.email().optional()),
+    CORREO_REMITENTE_NOMBRE: opcional(z.string().default('Gestión Documental')),
+    // Dónde abre el navegador el enlace del correo de recuperación.
+    URL_FRONTEND: opcional(z.url().default('http://localhost:5173').transform((url) => url.replace(/\/+$/, ''))),
   })
   .refine((entorno) => entorno.DATABASE_CA !== undefined || esBaseLocal(entorno.DATABASE_URL), {
     path: ['DATABASE_CA'],
@@ -46,6 +53,18 @@ const esquema = z
   .refine((entorno) => entorno.NODE_ENV !== 'production' || entorno.ALMACENAMIENTO === 'supabase', {
     path: ['ALMACENAMIENTO'],
     message: 'En producción debe ser supabase: el disco de Render se borra en cada reinicio',
+  })
+  .refine((entorno) => entorno.NODE_ENV !== 'production' || entorno.CORREO === 'brevo', {
+    path: ['CORREO'],
+    message: 'En producción debe ser brevo: con archivo, los correos de recuperación nunca llegarían',
+  })
+  .refine((entorno) => entorno.CORREO !== 'brevo' || (entorno.BREVO_CLAVE_API && entorno.CORREO_REMITENTE), {
+    path: ['BREVO_CLAVE_API'],
+    message: 'Con CORREO=brevo hacen falta BREVO_CLAVE_API y CORREO_REMITENTE',
+  })
+  .refine((entorno) => entorno.NODE_ENV !== 'production' || !esBaseLocal(entorno.URL_FRONTEND), {
+    path: ['URL_FRONTEND'],
+    message: 'En producción debe ser la dirección pública del frontend: los enlaces de recuperación la usan',
   })
   .refine((entorno) => entorno.ALMACENAMIENTO !== 'supabase' || (entorno.SUPABASE_URL && entorno.SUPABASE_CLAVE_SECRETA), {
     path: ['SUPABASE_CLAVE_SECRETA'],

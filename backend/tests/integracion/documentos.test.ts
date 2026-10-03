@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import type { Almacenamiento } from '../../src/almacenamiento/almacenamiento.js';
 import { condicionesDeBusqueda } from '../../src/modulos/documentos/documentos.repositorio.js';
 import {
-  almacenamientoDePruebas, crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarOrganizacion,
+  almacenamientoDePruebas, crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa,
   UA_IPHONE, URL_PUBLICA_DE_PRUEBAS,
 } from '../apoyo/api.js';
 import { DOCX, EJECUTABLE, PDF, PNG } from '../apoyo/archivos.js';
@@ -26,14 +26,14 @@ describe('Documentos (RF07–RF12)', () => {
     app = crearAppDePruebas(pool);
   });
 
-  /** Una organización con su administrador y un usuario, cada uno con sesión, y sus categorías. */
-  async function crearOrganizacion() {
-    const { token: admin, organizacion } = await registrarOrganizacion(app);
-    const empleado = await crearUsuarioEn(pool, organizacion.id, 'usuario');
+  /** Una empresa con su administrador y un usuario, cada uno con sesión, y sus categorías. */
+  async function crearEmpresa() {
+    const { token: admin, empresa } = await registrarEmpresa(app);
+    const empleado = await crearUsuarioEn(pool, empresa.id, 'usuario');
     const usuario = await iniciarSesion(app, empleado.email);
     const categorias = (await request(app).get('/api/v1/categorias').set('Authorization', `Bearer ${admin}`)).body.datos;
     const categoria = (nombre: string) => categorias.find((c: { nombre: string }) => c.nombre === nombre).id as string;
-    return { admin, usuario, empleadoId: empleado.id, organizacion, categoria };
+    return { admin, usuario, empleadoId: empleado.id, empresa, categoria };
   }
 
   function subir(token: string, campos: Record<string, string>, archivo = PDF, nombreArchivo = 'documento.pdf', userAgent?: string) {
@@ -48,7 +48,7 @@ describe('Documentos (RF07–RF12)', () => {
 
   describe('subir (RF07)', () => {
     it('guarda el documento y su archivo, lo registra y lo devuelve con su nombre original intacto', async () => {
-      const { usuario, organizacion, categoria } = await crearOrganizacion();
+      const { usuario, empresa, categoria } = await crearEmpresa();
 
       const respuesta = await subir(usuario, {
         nombre: '  Cotización de útiles de oficina ', categoriaId: categoria('Cotizaciones'), fechaDocumento: '2026-09-15',
@@ -64,14 +64,14 @@ describe('Documentos (RF07–RF12)', () => {
         ultimaSolicitud: null,
       });
       expect(respuesta.body).not.toHaveProperty('archivoRuta');
-      expect((await historialDe(pool, organizacion.id)).at(-1)).toMatchObject({
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
         accion: 'DOCUMENTO_SUBIDO', entidad_tipo: 'documento', entidad_id: respuesta.body.id, es_movil: true,
         detalle: { nombre: 'Cotización de útiles de oficina', categoria: 'Cotizaciones', tipo: 'application/pdf' },
       });
     });
 
     it('acepta imágenes y Word, y rechaza un ejecutable aunque se llame «.pdf» (RN09)', async () => {
-      const { usuario, categoria } = await crearOrganizacion();
+      const { usuario, categoria } = await crearEmpresa();
       const campos = { nombre: 'Archivo', categoriaId: categoria('Otros'), fechaDocumento: '2026-09-01' };
 
       expect((await subir(usuario, campos, PNG, 'foto.PNG')).status).toBe(201);
@@ -83,7 +83,7 @@ describe('Documentos (RF07–RF12)', () => {
     });
 
     it('rechaza archivos de más de 10 MB con 413', async () => {
-      const { usuario, categoria } = await crearOrganizacion();
+      const { usuario, categoria } = await crearEmpresa();
       const enorme = Buffer.concat([PDF, Buffer.alloc(10 * 1024 * 1024)]);
 
       const respuesta = await subir(usuario, { nombre: 'Enorme', categoriaId: categoria('Otros'), fechaDocumento: '2026-09-01' }, enorme, 'enorme.pdf');
@@ -93,8 +93,8 @@ describe('Documentos (RF07–RF12)', () => {
     });
 
     it('sin archivo, con datos inválidos o con una categoría ajena responde 400', async () => {
-      const { usuario, categoria } = await crearOrganizacion();
-      const otra = await crearOrganizacion();
+      const { usuario, categoria } = await crearEmpresa();
+      const otra = await crearEmpresa();
 
       const sinArchivo = await request(app).post('/api/v1/documentos').set('Authorization', `Bearer ${usuario}`)
         .field('nombre', 'Sin archivo').field('categoriaId', categoria('Otros')).field('fechaDocumento', '2026-09-01');
@@ -110,7 +110,7 @@ describe('Documentos (RF07–RF12)', () => {
     });
 
     it('no admite una categoría desactivada (RN08)', async () => {
-      const { admin, usuario, categoria } = await crearOrganizacion();
+      const { admin, usuario, categoria } = await crearEmpresa();
       await request(app).patch(`/api/v1/categorias/${categoria('Otros')}`).set('Authorization', `Bearer ${admin}`).send({ activa: false });
 
       const respuesta = await subir(usuario, { nombre: 'Algo', categoriaId: categoria('Otros'), fechaDocumento: '2026-09-01' });
@@ -120,7 +120,7 @@ describe('Documentos (RF07–RF12)', () => {
     });
 
     it('si la base falla después de subir el archivo, el archivo se borra: no quedan huérfanos (§4.2)', async () => {
-      const { usuario, categoria } = await crearOrganizacion();
+      const { usuario, categoria } = await crearEmpresa();
       const disco = almacenamientoDePruebas();
       const rutasSubidas: string[] = [];
       const espia: Almacenamiento = {
@@ -150,7 +150,7 @@ describe('Documentos (RF07–RF12)', () => {
 
   describe('buscar (RF10, indicador 2)', () => {
     async function conDocumentos() {
-      const org = await crearOrganizacion();
+      const org = await crearEmpresa();
       const documentos = [
         { nombre: 'Cotización de útiles', categoriaId: org.categoria('Cotizaciones'), fechaDocumento: '2026-03-10' },
         { nombre: 'Contrato de alquiler del local', categoriaId: org.categoria('Contratos'), fechaDocumento: '2026-01-05' },
@@ -163,24 +163,24 @@ describe('Documentos (RF07–RF12)', () => {
     const nombres = (respuesta: request.Response) => respuesta.body.datos.map((d: { nombre: string }) => d.nombre);
 
     it('sin filtros lista lo más reciente primero, sin registrarlo como búsqueda', async () => {
-      const { usuario, organizacion } = await conDocumentos();
-      const antes = (await historialDe(pool, organizacion.id)).length;
+      const { usuario, empresa } = await conDocumentos();
+      const antes = (await historialDe(pool, empresa.id)).length;
 
       const respuesta = await listar(usuario);
 
       expect(respuesta.status).toBe(200);
       expect(nombres(respuesta)).toEqual(['Boleta de compra de tóner', 'Factura 100% pagada', 'Contrato de alquiler del local', 'Cotización de útiles']);
       expect(respuesta.body.paginacion).toEqual({ pagina: 1, porPagina: 20, total: 4 });
-      expect((await historialDe(pool, organizacion.id)).length).toBe(antes);
+      expect((await historialDe(pool, empresa.id)).length).toBe(antes);
     });
 
     it('por nombre, sin importar mayúsculas ni tildes (M8), y lo registra con los filtros y el resultado', async () => {
-      const { usuario, organizacion } = await conDocumentos();
+      const { usuario, empresa } = await conDocumentos();
 
       const respuesta = await listar(usuario, { q: 'COTIZACION de utiles' });
 
       expect(nombres(respuesta)).toEqual(['Cotización de útiles']);
-      expect((await historialDe(pool, organizacion.id)).at(-1)).toMatchObject({
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
         accion: 'BUSQUEDA_REALIZADA', detalle: { filtros: { q: 'COTIZACION de utiles' }, resultados: 1 },
       });
     });
@@ -230,27 +230,27 @@ describe('Documentos (RF07–RF12)', () => {
         .toEqual([{ campo: 'hasta', mensaje: 'Debe ser igual o posterior a la fecha «desde»' }]);
     });
 
-    it('nunca muestra documentos de otra organización (RN01)', async () => {
+    it('nunca muestra documentos de otra empresa (RN01)', async () => {
       await conDocumentos();
-      const ajena = await crearOrganizacion();
+      const ajena = await crearEmpresa();
 
       expect((await listar(ajena.usuario)).body.paginacion.total).toBe(0);
       expect((await listar(ajena.usuario, { q: 'cotizacion' })).body.datos).toEqual([]);
     });
 
     it('la búsqueda que hace la API usa el índice de trigramas, con el escapado incluido', async () => {
-      const { organizacion, categoria, empleadoId } = await conDocumentos();
+      const { empresa, categoria, empleadoId } = await conDocumentos();
       // Con un volumen realista, y sin forzar al planificador, la consulta exacta que arma el repositorio
       // debe elegir el índice. Si alguien cambiara la expresión buscada, dejaría de coincidir con la indexada.
       await pool.query(
-        `INSERT INTO documentos (organizacion_id, categoria_id, subido_por, nombre, fecha_documento,
+        `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento,
            archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
          SELECT $1::uuid, $2::uuid, $3::uuid, 'Factura número ' || n, '2026-01-01', 'f.pdf', $1::text || '/masivo-' || n, 'application/pdf', 1000
          FROM generate_series(1, 3000) AS n`,
-        [organizacion.id, categoria('Otros'), empleadoId],
+        [empresa.id, categoria('Otros'), empleadoId],
       );
       await pool.query('ANALYZE documentos');
-      const { where, parametros } = condicionesDeBusqueda(organizacion.id, { q: 'cotizacion' });
+      const { where, parametros } = condicionesDeBusqueda(empresa.id, { q: 'cotizacion' });
 
       const plan = await pool.query(`EXPLAIN SELECT d.id FROM documentos d WHERE ${where}`, parametros);
 
@@ -260,9 +260,9 @@ describe('Documentos (RF07–RF12)', () => {
 
   describe('ficha, edición y eliminación (RF08, RF09)', () => {
     async function conUnDocumento() {
-      const org = await crearOrganizacion();
+      const org = await crearEmpresa();
       const { body: documento } = await subir(org.usuario, { nombre: 'Contrato', categoriaId: org.categoria('Contratos'), fechaDocumento: '2026-09-15', descripcion: 'Firmado' });
-      const otroEmpleado = await crearUsuarioEn(pool, org.organizacion.id, 'usuario');
+      const otroEmpleado = await crearUsuarioEn(pool, org.empresa.id, 'usuario');
       const otro = await iniciarSesion(app, otroEmpleado.email);
       return { ...org, documento, otro, otroId: otroEmpleado.id };
     }
@@ -279,46 +279,46 @@ describe('Documentos (RF07–RF12)', () => {
     });
 
     it('el propietario edita y queda registrado solo lo que cambió, antes y después', async () => {
-      const { usuario, organizacion, documento, categoria } = await conUnDocumento();
+      const { usuario, empresa, documento, categoria } = await conUnDocumento();
 
       const respuesta = await editar(usuario, documento.id, { nombre: 'Contrato de alquiler', categoriaId: categoria('Otros'), fechaDocumento: '2026-09-15' });
 
       expect(respuesta.status).toBe(200);
       expect(respuesta.body).toMatchObject({ nombre: 'Contrato de alquiler', categoria: { nombre: 'Otros' }, fechaDocumento: '2026-09-15' });
-      expect((await historialDe(pool, organizacion.id)).at(-1)).toMatchObject({
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
         accion: 'DOCUMENTO_EDITADO',
         detalle: { cambios: {
           nombre: { antes: 'Contrato', despues: 'Contrato de alquiler' },
           categoriaId: { antes: categoria('Contratos'), despues: categoria('Otros') },
         } },
       });
-      const { detalle } = (await historialDe(pool, organizacion.id)).at(-1);
+      const { detalle } = (await historialDe(pool, empresa.id)).at(-1);
       expect(Object.keys(detalle.cambios)).toEqual(['nombre', 'categoriaId']);
     });
 
     it('un administrador puede editar el de otro; otro usuario recibe 403 y queda registrado (indicador 6)', async () => {
-      const { admin, otro, otroId, organizacion, documento } = await conUnDocumento();
+      const { admin, otro, otroId, empresa, documento } = await conUnDocumento();
 
       expect((await editar(admin, documento.id, { descripcion: 'Revisado' })).status).toBe(200);
       const denegado = await editar(otro, documento.id, { nombre: 'Intento' });
 
       expect(denegado.status).toBe(403);
-      expect((await historialDe(pool, organizacion.id)).at(-1)).toMatchObject({
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
         accion: 'ACCESO_DENEGADO', usuario_id: otroId, rol_usuario: 'usuario', entidad_id: documento.id,
         detalle: { permiso: 'GESTIONAR_CUALQUIER_DOCUMENTO', operacion: 'EDITAR_DOCUMENTO' },
       });
     });
 
     it('enviar los mismos valores no es un cambio: no se registra nada', async () => {
-      const { usuario, organizacion, documento } = await conUnDocumento();
-      const antes = (await historialDe(pool, organizacion.id)).length;
+      const { usuario, empresa, documento } = await conUnDocumento();
+      const antes = (await historialDe(pool, empresa.id)).length;
 
       expect((await editar(usuario, documento.id, { nombre: 'Contrato' })).status).toBe(200);
-      expect((await historialDe(pool, organizacion.id)).length).toBe(antes);
+      expect((await historialDe(pool, empresa.id)).length).toBe(antes);
     });
 
     it('eliminar es lógico: desaparece de las búsquedas y de la ficha, y queda registrado (RN10)', async () => {
-      const { usuario, organizacion, documento } = await conUnDocumento();
+      const { usuario, empresa, documento } = await conUnDocumento();
 
       const respuesta = await request(app).delete(`/api/v1/documentos/${documento.id}`).set('Authorization', `Bearer ${usuario}`);
 
@@ -327,13 +327,13 @@ describe('Documentos (RF07–RF12)', () => {
       expect((await listar(usuario)).body.paginacion.total).toBe(0);
       const { rows } = await pool.query('SELECT eliminado_en IS NOT NULL AS eliminado FROM documentos WHERE id = $1', [documento.id]);
       expect(rows).toEqual([{ eliminado: true }]);
-      expect((await historialDe(pool, organizacion.id)).at(-1)).toMatchObject({ accion: 'DOCUMENTO_ELIMINADO', entidad_id: documento.id });
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({ accion: 'DOCUMENTO_ELIMINADO', entidad_id: documento.id });
     });
 
     it('no se elimina con una solicitud pendiente (RN11)', async () => {
-      const { usuario, organizacion, documento, empleadoId } = await conUnDocumento();
-      await pool.query('INSERT INTO solicitudes (organizacion_id, documento_id, solicitante_id) VALUES ($1, $2, $3)',
-        [organizacion.id, documento.id, empleadoId]);
+      const { usuario, empresa, documento, empleadoId } = await conUnDocumento();
+      await pool.query('INSERT INTO solicitudes (empresa_id, documento_id, solicitante_id) VALUES ($1, $2, $3)',
+        [empresa.id, documento.id, empleadoId]);
 
       const respuesta = await request(app).delete(`/api/v1/documentos/${documento.id}`).set('Authorization', `Bearer ${usuario}`);
 
@@ -342,9 +342,9 @@ describe('Documentos (RF07–RF12)', () => {
       expect((await ficha(usuario, documento.id)).body.permisos.eliminar).toBe(false);
     });
 
-    it('un documento de otra organización, o un id sin sentido, responden 404', async () => {
+    it('un documento de otra empresa, o un id sin sentido, responden 404', async () => {
       const { documento } = await conUnDocumento();
-      const ajena = await crearOrganizacion();
+      const ajena = await crearEmpresa();
 
       expect((await ficha(ajena.admin, documento.id)).status).toBe(404);
       expect((await editar(ajena.admin, documento.id, { nombre: 'Ajeno' })).status).toBe(404);
@@ -354,7 +354,7 @@ describe('Documentos (RF07–RF12)', () => {
 
   describe('ver y descargar (RF11, indicadores 2 y 3)', () => {
     it('entrega un enlace firmado de 5 minutos, lo registra, y el enlace sirve el archivo', async () => {
-      const { usuario, organizacion, categoria } = await crearOrganizacion();
+      const { usuario, empresa, categoria } = await crearEmpresa();
       const { body: documento } = await subir(usuario, { nombre: 'Factura', categoriaId: categoria('Otros'), fechaDocumento: '2026-09-01' }, PDF, 'factura junio.pdf');
 
       const descarga = await request(app).get(`/api/v1/documentos/${documento.id}/archivo?modo=descargar`).set('Authorization', `Bearer ${usuario}`);
@@ -363,7 +363,7 @@ describe('Documentos (RF07–RF12)', () => {
       expect(descarga.status).toBe(200);
       expect(descarga.body.url.startsWith(`${URL_PUBLICA_DE_PRUEBAS}/api/v1/archivos/`)).toBe(true);
       expect(new Date(descarga.body.expiraEn).getTime() - Date.now()).toBeGreaterThan(290_000);
-      const historial = await historialDe(pool, organizacion.id);
+      const historial = await historialDe(pool, empresa.id);
       expect(historial.slice(-2).map((fila) => fila.accion)).toEqual(['DOCUMENTO_DESCARGADO', 'DOCUMENTO_VISUALIZADO']);
 
       const archivo = await request(app).get(descarga.body.url.replace(URL_PUBLICA_DE_PRUEBAS, '')).buffer(true);
@@ -376,7 +376,7 @@ describe('Documentos (RF07–RF12)', () => {
     });
 
     it('un enlace manipulado no sirve el archivo', async () => {
-      const { usuario, categoria } = await crearOrganizacion();
+      const { usuario, categoria } = await crearEmpresa();
       const { body: documento } = await subir(usuario, { nombre: 'Factura', categoriaId: categoria('Otros'), fechaDocumento: '2026-09-01' });
       const { body } = await request(app).get(`/api/v1/documentos/${documento.id}/archivo`).set('Authorization', `Bearer ${usuario}`);
       const ruta = body.url.replace(URL_PUBLICA_DE_PRUEBAS, '');
@@ -386,7 +386,7 @@ describe('Documentos (RF07–RF12)', () => {
     });
 
     it('si la descarga no se puede registrar, no se entrega el enlace (RN16)', async () => {
-      const { usuario, categoria } = await crearOrganizacion();
+      const { usuario, categoria } = await crearEmpresa();
       const { body: documento } = await subir(usuario, { nombre: 'Factura', categoriaId: categoria('Otros'), fechaDocumento: '2026-09-01' });
       await pool.query(`
         CREATE FUNCTION fallar_registro() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -409,7 +409,7 @@ describe('Documentos (RF07–RF12)', () => {
 
   describe('tiempo de respuesta del listado (RF12, indicador 7)', () => {
     it('cada listado guarda su duración en el servidor y el navegador puede completar la suya una sola vez', async () => {
-      const { usuario, categoria } = await crearOrganizacion();
+      const { usuario, categoria } = await crearEmpresa();
       await subir(usuario, { nombre: 'Algo', categoriaId: categoria('Otros'), fechaDocumento: '2026-09-01' });
 
       const respuesta = await listar(usuario, { q: 'algo' }).set('User-Agent', UA_IPHONE);
@@ -429,8 +429,8 @@ describe('Documentos (RF07–RF12)', () => {
     });
 
     it('nadie puede completar la medición de otra persona', async () => {
-      const { usuario } = await crearOrganizacion();
-      const ajena = await crearOrganizacion();
+      const { usuario } = await crearEmpresa();
+      const ajena = await crearEmpresa();
       const { body } = await listar(usuario);
 
       const respuesta = await request(app).patch(`/api/v1/tiempos-respuesta/${body.tiempoRespuestaId}`)

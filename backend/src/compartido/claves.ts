@@ -22,3 +22,20 @@ export async function claveCoincide(clave: string, hash: string | null): Promise
   const coincide = await bcrypt.compare(clave, hash ?? HASH_SIN_CUENTA);
   return hash !== null && coincide;
 }
+
+/**
+ * La contraseña del Master (CLAUDE.md v2): al menos 12 caracteres, y nunca su DNI, su correo ni solo
+ * números. Devuelve por qué no sirve, o null si sirve. Se aplica al crearla, al cambiarla y al
+ * restablecerla: no basta con exigirla una vez.
+ */
+export function problemaDeClaveDelMaster(clave: string, { email, dni }: { email: string; dni: string | null }): string | null {
+  const normalizada = clave.toLowerCase();
+  const usuarioDelCorreo = email.toLowerCase().split('@')[0] ?? '';
+  if (clave.length < 12) return 'La contraseña del Master necesita al menos 12 caracteres';
+  if (/^[\d\s.-]+$/.test(clave)) return 'No puede ser una secuencia de números';
+  if (dni && normalizada.includes(dni)) return 'No puede contener el DNI';
+  if (normalizada.includes(email.toLowerCase()) || (usuarioDelCorreo.length >= 4 && normalizada.includes(usuarioDelCorreo))) {
+    return 'No puede contener el correo';
+  }
+  return null;
+}

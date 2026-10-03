@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarOrganizacion } from '../apoyo/api.js';
+import { crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa } from '../apoyo/api.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 
 describe('Categorías (RF06)', () => {
@@ -18,10 +18,10 @@ describe('Categorías (RF06)', () => {
     app = crearAppDePruebas(pool);
   });
 
-  async function crearOrganizacion() {
-    const { token: admin, organizacion } = await registrarOrganizacion(app);
-    const empleado = await crearUsuarioEn(pool, organizacion.id, 'usuario');
-    return { admin, usuario: await iniciarSesion(app, empleado.email), empleadoId: empleado.id, organizacion };
+  async function crearEmpresa() {
+    const { token: admin, empresa } = await registrarEmpresa(app);
+    const empleado = await crearUsuarioEn(pool, empresa.id, 'usuario');
+    return { admin, usuario: await iniciarSesion(app, empleado.email), empleadoId: empleado.id, empresa };
   }
   const listar = (token: string, query = '') => request(app).get(`/api/v1/categorias${query}`).set('Authorization', `Bearer ${token}`);
   const crear = (token: string, cuerpo: object) => request(app).post('/api/v1/categorias').set('Authorization', `Bearer ${token}`).send(cuerpo);
@@ -29,7 +29,7 @@ describe('Categorías (RF06)', () => {
     request(app).patch(`/api/v1/categorias/${id}`).set('Authorization', `Bearer ${token}`).send(cuerpo);
 
   it('cualquier usuario ve las activas, ordenadas sin que las tildes alteren el orden', async () => {
-    const { admin, usuario } = await crearOrganizacion();
+    const { admin, usuario } = await crearEmpresa();
     await crear(admin, { nombre: 'Área legal' });
 
     const respuesta = await listar(usuario);
@@ -41,7 +41,7 @@ describe('Categorías (RF06)', () => {
   });
 
   it('el administrador crea, renombra y desactiva, y cada cambio queda registrado', async () => {
-    const { admin, organizacion } = await crearOrganizacion();
+    const { admin, empresa } = await crearEmpresa();
 
     const creada = await crear(admin, { nombre: 'Planillas', descripcion: '  ' });
     expect(creada.status).toBe(201);
@@ -53,7 +53,7 @@ describe('Categorías (RF06)', () => {
 
     expect((await listar(admin)).body.datos.map((c: { nombre: string }) => c.nombre)).not.toContain('Planillas de pago');
     expect((await listar(admin, '?incluirInactivas=true')).body.datos.map((c: { nombre: string }) => c.nombre)).toContain('Planillas de pago');
-    expect((await historialDe(pool, organizacion.id)).slice(-2)).toEqual([
+    expect((await historialDe(pool, empresa.id)).slice(-2)).toEqual([
       expect.objectContaining({ accion: 'CATEGORIA_CREADA', entidad_id: creada.body.id, detalle: { nombre: 'Planillas' } }),
       expect.objectContaining({ accion: 'CATEGORIA_EDITADA', detalle: { cambios: {
         nombre: { antes: 'Planillas', despues: 'Planillas de pago' }, activa: { antes: true, despues: false },
@@ -61,8 +61,8 @@ describe('Categorías (RF06)', () => {
     ]);
   });
 
-  it('no admite dos con el mismo nombre en la organización, ni al crear ni al renombrar (RN08)', async () => {
-    const { admin } = await crearOrganizacion();
+  it('no admite dos con el mismo nombre en la empresa, ni al crear ni al renombrar (RN08)', async () => {
+    const { admin } = await crearEmpresa();
     const otra = await crear(admin, { nombre: 'Proveedores' });
 
     expect((await crear(admin, { nombre: 'CONTRATOS' })).body.error.codigo).toBe('CATEGORIA_DUPLICADA');
@@ -72,13 +72,13 @@ describe('Categorías (RF06)', () => {
   });
 
   it('un usuario no crea, no edita ni ve las inactivas: 403 registrado cada vez (indicador 6)', async () => {
-    const { usuario, empleadoId, organizacion, admin } = await crearOrganizacion();
+    const { usuario, empleadoId, empresa, admin } = await crearEmpresa();
     const id = (await listar(admin)).body.datos[0].id;
 
     expect((await crear(usuario, { nombre: 'Mía' })).status).toBe(403);
     expect((await editar(usuario, id, { nombre: 'Cambiada' })).status).toBe(403);
     expect((await listar(usuario, '?incluirInactivas=true')).status).toBe(403);
-    const denegados = (await historialDe(pool, organizacion.id)).filter((fila) => fila.accion === 'ACCESO_DENEGADO');
+    const denegados = (await historialDe(pool, empresa.id)).filter((fila) => fila.accion === 'ACCESO_DENEGADO');
     expect(denegados.map((fila) => [fila.usuario_id, fila.detalle.permiso])).toEqual([
       [empleadoId, 'GESTIONAR_CATEGORIAS'],
       [empleadoId, 'GESTIONAR_CATEGORIAS'],
@@ -86,16 +86,16 @@ describe('Categorías (RF06)', () => {
     ]);
   });
 
-  it('una categoría de otra organización no existe para el administrador', async () => {
-    const { admin } = await crearOrganizacion();
-    const ajena = await crearOrganizacion();
+  it('una categoría de otra empresa no existe para el administrador', async () => {
+    const { admin } = await crearEmpresa();
+    const ajena = await crearEmpresa();
     const idAjeno = (await listar(ajena.admin)).body.datos[0].id;
 
     expect((await editar(admin, idAjeno, { nombre: 'Robada' })).status).toBe(404);
   });
 
   it('un cambio sin campos responde 400', async () => {
-    const { admin } = await crearOrganizacion();
+    const { admin } = await crearEmpresa();
     const id = (await listar(admin)).body.datos[0].id;
 
     const respuesta = await editar(admin, id, {});

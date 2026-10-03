@@ -1,12 +1,13 @@
 import { crearAlmacenamiento } from './almacenamiento/crear.js';
 import { crearApp } from './app.js';
 import { leerEntorno } from './config/entorno.js';
+import { crearCorreo } from './correo/crear.js';
 import { crearPool } from './db/pool.js';
 
 function arrancar(): void {
   const entorno = leerEntorno();
   const pool = crearPool(entorno);
-  const app = crearApp({ pool, entorno, almacenamiento: crearAlmacenamiento(entorno) });
+  const app = crearApp({ pool, entorno, almacenamiento: crearAlmacenamiento(entorno), correo: crearCorreo(entorno) });
   const servidor = app.listen(entorno.PORT, (error) => {
     if (error) {
       console.error(`No se pudo escuchar en el puerto ${entorno.PORT}: ${error.message}`);

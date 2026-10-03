@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarOrganizacion } from '../apoyo/api.js';
+import { crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa } from '../apoyo/api.js';
 import { PDF } from '../apoyo/archivos.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 
@@ -19,18 +19,18 @@ describe('Flujo de aprobación y notificaciones (RF15–RF18)', () => {
     app = crearAppDePruebas(pool);
   });
 
-  /** Una organización con dos administradores y un usuario que ha subido un documento. */
+  /** Una empresa con dos administradores y un usuario que ha subido un documento. */
   async function escenario() {
-    const { token: admin, organizacion, usuario: administrador } = await registrarOrganizacion(app);
-    const segundo = await crearUsuarioEn(pool, organizacion.id, 'administrador');
-    const empleado = await crearUsuarioEn(pool, organizacion.id, 'usuario');
+    const { token: admin, empresa, usuario: administrador } = await registrarEmpresa(app);
+    const segundo = await crearUsuarioEn(pool, empresa.id, 'administrador');
+    const empleado = await crearUsuarioEn(pool, empresa.id, 'usuario');
     const admin2 = await iniciarSesion(app, segundo.email);
     const usuario = await iniciarSesion(app, empleado.email);
     const categoriaId = (await request(app).get('/api/v1/categorias').set('Authorization', `Bearer ${usuario}`)).body.datos[0].id;
     const { body: documento } = await request(app).post('/api/v1/documentos').set('Authorization', `Bearer ${usuario}`)
       .field('nombre', 'Contrato de alquiler').field('categoriaId', categoriaId).field('fechaDocumento', '2026-09-15')
       .attach('archivo', PDF, 'contrato.pdf');
-    return { admin, admin2, usuario, organizacion, documento, ids: { admin: administrador.id, admin2: segundo.id, empleado: empleado.id } };
+    return { admin, admin2, usuario, empresa, documento, ids: { admin: administrador.id, admin2: segundo.id, empleado: empleado.id } };
   }
 
   const solicitar = (token: string, documentoId: string, cuerpo: object = {}) =>
@@ -42,7 +42,7 @@ describe('Flujo de aprobación y notificaciones (RF15–RF18)', () => {
   const ficha = (token: string, id: string) => request(app).get(`/api/v1/documentos/${id}`).set('Authorization', `Bearer ${token}`);
 
   it('solicitar → aprobar → notificar, con cada paso en el historial', async () => {
-    const { admin, admin2, usuario, organizacion, documento, ids } = await escenario();
+    const { admin, admin2, usuario, empresa, documento, ids } = await escenario();
 
     const creada = await solicitar(usuario, documento.id, { comentario: 'Para la firma del gerente' });
     expect(creada.status).toBe(201);
@@ -69,7 +69,7 @@ describe('Flujo de aprobación y notificaciones (RF15–RF18)', () => {
     expect(avisos.noLeidas).toBe(1);
     expect(avisos.datos[0]).toMatchObject({ tipo: 'SOLICITUD_APROBADA', mensaje: expect.stringMatching(/aprobó «Contrato de alquiler»$/) });
     expect((await ficha(usuario, documento.id)).body.ultimaSolicitud).toMatchObject({ estado: 'aprobada', revisor: { id: ids.admin } });
-    expect((await historialDe(pool, organizacion.id)).filter((f) => f.entidad_tipo === 'solicitud').map((f) => [f.accion, f.usuario_id]))
+    expect((await historialDe(pool, empresa.id)).filter((f) => f.entidad_tipo === 'solicitud').map((f) => [f.accion, f.usuario_id]))
       .toEqual([['SOLICITUD_CREADA', ids.empleado], ['SOLICITUD_APROBADA', ids.admin]]);
   });
 
@@ -124,11 +124,11 @@ describe('Flujo de aprobación y notificaciones (RF15–RF18)', () => {
   });
 
   it('solo el propietario solicita, y nadie resuelve lo suyo: 403 registrados (RN12, RN13, indicador 6)', async () => {
-    const { admin, admin2, usuario, organizacion, documento, ids } = await escenario();
+    const { admin, admin2, usuario, empresa, documento, ids } = await escenario();
 
     const ajeno = await solicitar(admin, documento.id);
     expect(ajeno.status).toBe(403);
-    expect((await historialDe(pool, organizacion.id)).at(-1)).toMatchObject({
+    expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
       accion: 'ACCESO_DENEGADO', usuario_id: ids.admin, detalle: { permiso: 'SER_PROPIETARIO', operacion: 'SOLICITAR_APROBACION' },
     });
 
@@ -139,14 +139,14 @@ describe('Flujo de aprobación y notificaciones (RF15–RF18)', () => {
     const { body: propia } = await solicitar(admin, suyo.id);
     expect((await ficha(admin, suyo.id)).body.permisos.resolverSolicitud).toBe(false);
     expect((await resolver(admin, propia.id, { decision: 'aprobada' })).status).toBe(403);
-    expect((await historialDe(pool, organizacion.id)).at(-1)).toMatchObject({ accion: 'ACCESO_DENEGADO', detalle: { permiso: 'NO_SER_EL_SOLICITANTE' } });
+    expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({ accion: 'ACCESO_DENEGADO', detalle: { permiso: 'NO_SER_EL_SOLICITANTE' } });
     expect((await resolver(admin2, propia.id, { decision: 'aprobada' })).status).toBe(200);
 
     expect((await resolver(usuario, propia.id, { decision: 'aprobada' })).status).toBe(403);
   });
 
   it('si el solicitante es el único administrador activo, la solicitud no se crea (RN13)', async () => {
-    const { token: admin } = await registrarOrganizacion(app);
+    const { token: admin } = await registrarEmpresa(app);
     const categoriaId = (await request(app).get('/api/v1/categorias').set('Authorization', `Bearer ${admin}`)).body.datos[0].id;
     const { body: documento } = await request(app).post('/api/v1/documentos').set('Authorization', `Bearer ${admin}`)
       .field('nombre', 'Solo yo').field('categoriaId', categoriaId).field('fechaDocumento', '2026-09-20').attach('archivo', PDF, 'a.pdf');
@@ -158,8 +158,8 @@ describe('Flujo de aprobación y notificaciones (RF15–RF18)', () => {
   });
 
   it('el administrador ve todas las solicitudes, pendientes primero; el usuario, solo las suyas', async () => {
-    const { admin, usuario, documento, organizacion } = await escenario();
-    const otro = await crearUsuarioEn(pool, organizacion.id, 'usuario');
+    const { admin, usuario, documento, empresa } = await escenario();
+    const otro = await crearUsuarioEn(pool, empresa.id, 'usuario');
     const sesionOtro = await iniciarSesion(app, otro.email);
     const { body: primera } = await solicitar(usuario, documento.id);
     await resolver(admin, primera.id, { decision: 'aprobada' });

@@ -8,12 +8,14 @@
   },
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
-    "local": "tsx scripts/local.ts",
+    "local": "tsx --env-file-if-exists=.env scripts/local.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "migrar": "tsx --env-file-if-exists=.env scripts/migrar.ts",
+    "crear-master": "tsx --env-file-if-exists=.env scripts/crear-master.ts",
     "test": "vitest run",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "informe:aislamiento": "tsx scripts/informe-aislamiento.ts"
   },
   "dependencies": {
     "@supabase/storage-js": "^2.117.2",

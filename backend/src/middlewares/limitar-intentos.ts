@@ -9,12 +9,15 @@ const responder: RequestHandler = (_req, _res, next) => {
 };
 
 /** Frenos contra la fuerza bruta (RN20). Se crean con cada app para que sus contadores no se compartan. */
-export function crearLimitadores(): { inicioSesion: RequestHandler; registro: RequestHandler } {
+export function crearLimitadores(): Record<'inicioSesion' | 'recuperacion' | 'confirmacion', RequestHandler> {
   const comunes = { standardHeaders: 'draft-8', legacyHeaders: false, handler: responder } as const;
   return {
     // Solo cuentan los intentos fallidos. En una MYPE toda la oficina sale a internet con la misma IP:
     // cinco personas entrando bien a la vez no deben bloquearse entre sí.
     inicioSesion: rateLimit({ ...comunes, windowMs: 15 * MINUTO, limit: 10, skipSuccessfulRequests: true }),
-    registro: rateLimit({ ...comunes, windowMs: 60 * MINUTO, limit: 10 }),
+    // Cada petición puede mandar un correo: sin freno, la API serviría para inundar el buzón de alguien.
+    recuperacion: rateLimit({ ...comunes, windowMs: 60 * MINUTO, limit: 10 }),
+    // Probar enlaces al azar es inútil (256 bits), pero tampoco se deja intentar sin límite.
+    confirmacion: rateLimit({ ...comunes, windowMs: 15 * MINUTO, limit: 10, skipSuccessfulRequests: true }),
   };
 }

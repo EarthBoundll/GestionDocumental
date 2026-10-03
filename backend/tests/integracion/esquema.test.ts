@@ -2,7 +2,7 @@ import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 import {
-  crearCategoria, crearDocumento, crearEscenario, crearOrganizacion, crearSolicitud, crearUsuario,
+  crearCategoria, crearDocumento, crearEscenario, crearEmpresa, crearSolicitud, crearUsuario,
 } from '../apoyo/datos.js';
 
 // Códigos de error de PostgreSQL.
@@ -11,11 +11,12 @@ const UNICIDAD = '23505';
 const COMPROBACION = '23514';
 
 const ACCIONES_DEL_CATALOGO = [
-  'ORGANIZACION_REGISTRADA', 'SESION_INICIADA', 'SESION_FALLIDA', 'SESION_CERRADA', 'CLAVE_CAMBIADA',
+  'SESION_INICIADA', 'SESION_FALLIDA', 'SESION_CERRADA', 'CLAVE_CAMBIADA', 'RECUPERACION_SOLICITADA',
+  'CLAVE_RESTABLECIDA', 'EMPRESA_CREADA', 'EMPRESA_EDITADA', 'EMPRESA_DESACTIVADA', 'EMPRESA_REACTIVADA',
   'USUARIO_CREADO', 'USUARIO_EDITADO', 'USUARIO_DESACTIVADO', 'USUARIO_REACTIVADO', 'CATEGORIA_CREADA',
-  'CATEGORIA_EDITADA', 'DOCUMENTO_SUBIDO', 'DOCUMENTO_EDITADO', 'DOCUMENTO_ELIMINADO',
-  'DOCUMENTO_VISUALIZADO', 'DOCUMENTO_DESCARGADO', 'BUSQUEDA_REALIZADA', 'SOLICITUD_CREADA',
-  'SOLICITUD_APROBADA', 'SOLICITUD_RECHAZADA', 'ACCESO_DENEGADO', 'HISTORIAL_EXPORTADO',
+  'CATEGORIA_EDITADA', 'DOCUMENTO_SUBIDO', 'DOCUMENTO_EDITADO', 'DOCUMENTO_ELIMINADO', 'DOCUMENTO_VISUALIZADO',
+  'DOCUMENTO_DESCARGADO', 'BUSQUEDA_REALIZADA', 'SOLICITUD_CREADA', 'SOLICITUD_APROBADA',
+  'SOLICITUD_RECHAZADA', 'ACCESO_DENEGADO', 'HISTORIAL_EXPORTADO',
 ];
 
 describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () => {
@@ -28,52 +29,52 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
   });
   afterAll(() => base.cerrar());
 
-  describe('aislamiento entre organizaciones (RN01, M2)', () => {
-    it('un documento no puede usar la categoría de otra organización', async () => {
+  describe('aislamiento entre empresas (RN01, M2)', () => {
+    it('un documento no puede usar la categoría de otra empresa', async () => {
       const a = await crearEscenario(db);
-      const categoriaAjena = await crearCategoria(db, await crearOrganizacion(db));
+      const categoriaAjena = await crearCategoria(db, await crearEmpresa(db));
 
       await expect(
-        crearDocumento(db, { organizacionId: a.organizacionId, categoriaId: categoriaAjena, subidoPor: a.usuarioId }),
-      ).rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'documentos_categoria_de_su_organizacion' });
+        crearDocumento(db, { empresaId: a.empresaId, categoriaId: categoriaAjena, subidoPor: a.usuarioId }),
+      ).rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'documentos_categoria_de_su_empresa' });
     });
 
-    it('un documento no puede tener como propietario a alguien de otra organización', async () => {
+    it('un documento no puede tener como propietario a alguien de otra empresa', async () => {
       const a = await crearEscenario(db);
-      const ajeno = await crearUsuario(db, await crearOrganizacion(db));
+      const ajeno = await crearUsuario(db, await crearEmpresa(db));
 
       await expect(
-        crearDocumento(db, { organizacionId: a.organizacionId, categoriaId: a.categoriaId, subidoPor: ajeno }),
-      ).rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'documentos_propietario_de_su_organizacion' });
+        crearDocumento(db, { empresaId: a.empresaId, categoriaId: a.categoriaId, subidoPor: ajeno }),
+      ).rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'documentos_propietario_de_su_empresa' });
     });
 
-    it('una solicitud no la puede resolver un administrador de otra organización', async () => {
+    it('una solicitud no la puede resolver un administrador de otra empresa', async () => {
       const a = await crearEscenario(db);
       const solicitudId = await crearSolicitud(db, {
-        organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
+        empresaId: a.empresaId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
       });
-      const administradorAjeno = await crearUsuario(db, await crearOrganizacion(db), 'administrador');
+      const administradorAjeno = await crearUsuario(db, await crearEmpresa(db), 'administrador');
 
       await expect(resolver(db, solicitudId, 'aprobada', administradorAjeno))
-        .rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'solicitudes_revisor_de_su_organizacion' });
+        .rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'solicitudes_revisor_de_su_empresa' });
     });
 
-    it('el historial no puede atribuir a una organización la acción de alguien de otra', async () => {
+    it('el historial no puede atribuir a una empresa la acción de alguien de otra', async () => {
       const a = await crearEscenario(db);
-      const ajeno = await crearUsuario(db, await crearOrganizacion(db));
+      const ajeno = await crearUsuario(db, await crearEmpresa(db));
 
-      await expect(registrar(db, { organizacionId: a.organizacionId, usuarioId: ajeno, rol: 'usuario' }))
-        .rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'historial_usuario_de_su_organizacion' });
+      await expect(registrar(db, { empresaId: a.empresaId, usuarioId: ajeno, rol: 'usuario' }))
+        .rejects.toMatchObject({ code: CLAVE_FORANEA, constraint: 'historial_autor_de_su_empresa' });
     });
   });
 
   it('el correo se guarda en minúsculas y es único en todo el sistema (RN02)', async () => {
-    const primera = await crearOrganizacion(db);
-    const segunda = await crearOrganizacion(db);
-    const insertarCorreo = (organizacionId: string, email: string) => db.query(
-      `INSERT INTO usuarios (organizacion_id, nombre, email, clave_hash, rol)
+    const primera = await crearEmpresa(db);
+    const segunda = await crearEmpresa(db);
+    const insertarCorreo = (empresaId: string, email: string) => db.query(
+      `INSERT INTO usuarios (empresa_id, nombre, email, clave_hash, rol)
        VALUES ($1, 'Ana', $2, repeat('x', 60), 'usuario')`,
-      [organizacionId, email],
+      [empresaId, email],
     );
 
     await expect(insertarCorreo(primera, 'Ana@Ejemplo.pe'))
@@ -83,23 +84,23 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
       .rejects.toMatchObject({ code: UNICIDAD, constraint: 'usuarios_email_unico' });
   });
 
-  it('una categoría no repite nombre en su organización, sin distinguir mayúsculas (RN08)', async () => {
-    const organizacionId = await crearOrganizacion(db);
-    await crearCategoria(db, organizacionId, 'Contratos');
+  it('una categoría no repite nombre en su empresa, sin distinguir mayúsculas (RN08)', async () => {
+    const empresaId = await crearEmpresa(db);
+    await crearCategoria(db, empresaId, 'Contratos');
 
-    await expect(crearCategoria(db, organizacionId, 'CONTRATOS'))
+    await expect(crearCategoria(db, empresaId, 'CONTRATOS'))
       .rejects.toMatchObject({ code: UNICIDAD, constraint: 'categorias_nombre_unico' });
     // lower() también debe entender las letras con tilde, no solo las del alfabeto inglés.
-    await crearCategoria(db, organizacionId, 'Área legal');
-    await expect(crearCategoria(db, organizacionId, 'ÁREA LEGAL'))
+    await crearCategoria(db, empresaId, 'Área legal');
+    await expect(crearCategoria(db, empresaId, 'ÁREA LEGAL'))
       .rejects.toMatchObject({ code: UNICIDAD, constraint: 'categorias_nombre_unico' });
-    await expect(crearCategoria(db, await crearOrganizacion(db), 'Contratos')).resolves.toBeTypeOf('string');
+    await expect(crearCategoria(db, await crearEmpresa(db), 'Contratos')).resolves.toBeTypeOf('string');
   });
 
   it('un archivo pesa como máximo 10 MB (RN09)', async () => {
     const a = await crearEscenario(db);
     const subir = (pesoBytes: number) => crearDocumento(db, {
-      organizacionId: a.organizacionId, categoriaId: a.categoriaId, subidoPor: a.usuarioId, pesoBytes,
+      empresaId: a.empresaId, categoriaId: a.categoriaId, subidoPor: a.usuarioId, pesoBytes,
     });
 
     await expect(subir(10 * 1024 * 1024)).resolves.toBeTypeOf('string');
@@ -110,7 +111,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
   describe('solicitudes de aprobación', () => {
     it('solo puede haber una pendiente por documento, y tras resolverla se puede pedir otra (RN12, RN14)', async () => {
       const a = await crearEscenario(db);
-      const datos = { organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.usuarioId };
+      const datos = { empresaId: a.empresaId, documentoId: a.documentoId, solicitanteId: a.usuarioId };
       const primera = await crearSolicitud(db, datos);
 
       await expect(crearSolicitud(db, datos))
@@ -122,7 +123,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
     it('nadie resuelve su propia solicitud (RN13)', async () => {
       const a = await crearEscenario(db);
       const solicitudId = await crearSolicitud(db, {
-        organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.administradorId,
+        empresaId: a.empresaId, documentoId: a.documentoId, solicitanteId: a.administradorId,
       });
 
       await expect(resolver(db, solicitudId, 'aprobada', a.administradorId))
@@ -132,7 +133,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
     it('rechazar exige un motivo que no esté en blanco (RN14)', async () => {
       const a = await crearEscenario(db);
       const solicitudId = await crearSolicitud(db, {
-        organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
+        empresaId: a.empresaId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
       });
 
       for (const motivo of [null, '   ']) {
@@ -145,7 +146,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
     it('una resuelta tiene revisor y fecha de resolución, y una pendiente no', async () => {
       const a = await crearEscenario(db);
       const solicitudId = await crearSolicitud(db, {
-        organizacionId: a.organizacionId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
+        empresaId: a.empresaId, documentoId: a.documentoId, solicitanteId: a.usuarioId,
       });
 
       await expect(db.query("UPDATE solicitudes SET estado = 'aprobada' WHERE id = $1", [solicitudId]))
@@ -158,7 +159,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
   describe('historial', () => {
     it('solo admite inserciones: rechaza UPDATE, DELETE y TRUNCATE (RN17, M4)', async () => {
       const a = await crearEscenario(db);
-      const id = await registrar(db, { organizacionId: a.organizacionId, usuarioId: a.usuarioId, rol: 'usuario' });
+      const id = await registrar(db, { empresaId: a.empresaId, usuarioId: a.usuarioId, rol: 'usuario' });
 
       await expect(db.query("UPDATE historial SET detalle = '{\"x\":1}' WHERE id = $1", [id]))
         .rejects.toThrow('UPDATE no está permitido');
@@ -171,7 +172,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
 
     it('solo acepta las 22 acciones del catálogo (docs/01-analisis.md §7)', async () => {
       const a = await crearEscenario(db);
-      const autor = { organizacionId: a.organizacionId, usuarioId: a.usuarioId, rol: 'usuario' as const };
+      const autor = { empresaId: a.empresaId, usuarioId: a.usuarioId, rol: 'usuario' as const };
 
       for (const accion of ACCIONES_DEL_CATALOGO) {
         await expect(registrar(db, { ...autor, accion })).resolves.toBeTypeOf('string');
@@ -183,10 +184,12 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
     it('toda acción con autor guarda el rol con el que actuó (indicador 6)', async () => {
       const a = await crearEscenario(db);
 
-      await expect(registrar(db, { organizacionId: a.organizacionId, usuarioId: a.usuarioId, rol: null }))
-        .rejects.toMatchObject({ code: COMPROBACION, constraint: 'historial_usuario_con_rol' });
-      // Un inicio de sesión fallido con un correo inexistente no tiene autor ni organización.
-      await expect(registrar(db, { organizacionId: null, usuarioId: null, rol: null, accion: 'SESION_FALLIDA' }))
+      await expect(registrar(db, { empresaId: a.empresaId, usuarioId: a.usuarioId, rol: null }))
+        .rejects.toMatchObject({ code: COMPROBACION, constraint: 'historial_rol_del_autor' });
+      await expect(registrar(db, { empresaId: a.empresaId, usuarioId: a.usuarioId, rol: 'administrador' }))
+        .rejects.toMatchObject({ code: COMPROBACION, constraint: 'historial_rol_del_autor' });
+      // Un inicio de sesión fallido con un correo inexistente no tiene autor ni empresa.
+      await expect(registrar(db, { empresaId: null, usuarioId: null, rol: null, accion: 'SESION_FALLIDA' }))
         .resolves.toBeTypeOf('string');
     });
   });
@@ -194,34 +197,34 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
   it('la búsqueda por nombre ignora mayúsculas y tildes, y usa el índice de trigramas (M8)', async () => {
     const a = await crearEscenario(db);
     await crearDocumento(db, {
-      organizacionId: a.organizacionId, categoriaId: a.categoriaId, subidoPor: a.usuarioId, nombre: 'Cotización de útiles',
+      empresaId: a.empresaId, categoriaId: a.categoriaId, subidoPor: a.usuarioId, nombre: 'Cotización de útiles',
     });
     const buscar = `SELECT nombre FROM documentos
-      WHERE organizacion_id = $1 AND eliminado_en IS NULL
+      WHERE empresa_id = $1 AND eliminado_en IS NULL
         AND normalizar(nombre) LIKE '%' || normalizar($2) || '%'`;
 
-    const { rows } = await db.query(buscar, [a.organizacionId, 'COTIZACION de UTILES']);
+    const { rows } = await db.query(buscar, [a.empresaId, 'COTIZACION de UTILES']);
     expect(rows).toEqual([{ nombre: 'Cotización de útiles' }]);
 
     // Un índice que el planificador nunca elige no sirve de nada. Con un volumen realista y sin
     // forzarlo, debe escogerlo por sí mismo: eso prueba que la expresión indexada y la buscada coinciden.
     await db.query(
-      `INSERT INTO documentos (organizacion_id, categoria_id, subido_por, nombre, fecha_documento,
+      `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento,
          archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
        SELECT $1, $2, $3, 'Factura número ' || n, '2026-01-01', 'f.pdf', 'masivo/' || n, 'application/pdf', 1000
        FROM generate_series(1, 3000) AS n`,
-      [a.organizacionId, a.categoriaId, a.usuarioId],
+      [a.empresaId, a.categoriaId, a.usuarioId],
     );
     await db.query('ANALYZE documentos');
-    const plan = await db.query(`EXPLAIN ${buscar}`, [a.organizacionId, 'cotizacion']);
+    const plan = await db.query(`EXPLAIN ${buscar}`, [a.empresaId, 'cotizacion']);
     expect(plan.rows.map((fila) => fila['QUERY PLAN']).join('\n')).toContain('documentos_nombre_trigramas');
   });
 
   it('actualizado_en se renueva en cada UPDATE sin que la aplicación lo pida', async () => {
-    const organizacionId = await crearOrganizacion(db);
+    const empresaId = await crearEmpresa(db);
     const { rows: [categoria] } = await db.query<{ id: string }>(
-      "INSERT INTO categorias (organizacion_id, nombre, actualizado_en) VALUES ($1, 'Vieja', '2020-01-01') RETURNING id",
-      [organizacionId],
+      "INSERT INTO categorias (empresa_id, nombre, actualizado_en) VALUES ($1, 'Vieja', '2020-01-01') RETURNING id",
+      [empresaId],
     );
 
     const { rows } = await db.query<{ actualizado_en: Date }>(
@@ -231,10 +234,10 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
     expect(rows[0]?.actualizado_en.getFullYear()).toBeGreaterThanOrEqual(2026);
   });
 
-  it('nada se borra en cascada: una organización con usuarios no se puede borrar', async () => {
+  it('nada se borra en cascada: una empresa con usuarios no se puede borrar', async () => {
     const a = await crearEscenario(db);
 
-    await expect(db.query('DELETE FROM organizaciones WHERE id = $1', [a.organizacionId]))
+    await expect(db.query('DELETE FROM empresas WHERE id = $1', [a.empresaId]))
       .rejects.toMatchObject({ code: CLAVE_FORANEA });
   });
 
@@ -245,7 +248,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
       WHERE n.nspname = 'public' AND c.relkind = 'r'
       ORDER BY 1`);
 
-    expect(rows).toHaveLength(10);
+    expect(rows).toHaveLength(11);
     expect(rows.filter((fila) => !fila.rls)).toEqual([]);
   });
 });
@@ -260,11 +263,11 @@ function resolver(db: pg.Pool, solicitudId: string, estado: 'aprobada' | 'rechaz
 
 async function registrar(
   db: pg.Pool,
-  datos: { organizacionId: string | null; usuarioId: string | null; rol: 'administrador' | 'usuario' | null; accion?: string },
+  datos: { empresaId: string | null; usuarioId: string | null; rol: 'administrador' | 'usuario' | null; accion?: string },
 ): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    'INSERT INTO historial (organizacion_id, usuario_id, rol_usuario, accion) VALUES ($1, $2, $3, $4) RETURNING id',
-    [datos.organizacionId, datos.usuarioId, datos.rol, datos.accion ?? 'DOCUMENTO_SUBIDO'],
+    'INSERT INTO historial (empresa_id, usuario_id, rol_usuario, accion) VALUES ($1, $2, $3, $4) RETURNING id',
+    [datos.empresaId, datos.usuarioId, datos.rol, datos.accion ?? 'DOCUMENTO_SUBIDO'],
   );
   return String(rows[0]?.id);
 }

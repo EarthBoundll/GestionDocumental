@@ -8,6 +8,8 @@ import { crearApp } from '../../src/app.js';
 import { hashearClave } from '../../src/compartido/claves.js';
 import type { Rol } from '../../src/compartido/permisos.js';
 import { leerEntorno, type Entorno } from '../../src/config/entorno.js';
+import type { Correo, Mensaje } from '../../src/correo/correo.js';
+import { crearMaster } from '../../src/modulos/auth/master.js';
 
 export const SECRETO_DE_PRUEBAS = 'secreto-de-pruebas-con-mas-de-32-caracteres';
 export const CLAVE = 'clave-de-prueba-1';
@@ -34,44 +36,84 @@ export function almacenamientoDePruebas(): AlmacenamientoEnDisco {
   });
 }
 
-export function crearAppDePruebas(
-  pool: pg.Pool,
-  cambios: Record<string, string> = {},
-  almacenamiento: Almacenamiento = almacenamientoDePruebas(),
-) {
-  return crearApp({ pool, entorno: entornoDePruebas(cambios), almacenamiento });
+/** Un correo que no sale a ningún sitio: guarda lo enviado para que la prueba lo lea. */
+export class CorreoDePruebas implements Correo {
+  readonly enviados: Mensaje[] = [];
+  async enviar(mensaje: Mensaje): Promise<void> {
+    this.enviados.push(mensaje);
+  }
 }
 
 type App = ReturnType<typeof crearApp>;
 
+const pools = new WeakMap<App, pg.Pool>();
+const tokensDelMaster = new WeakMap<App, string>();
+
+export function crearAppDePruebas(
+  pool: pg.Pool,
+  cambios: Record<string, string> = {},
+  almacenamiento: Almacenamiento = almacenamientoDePruebas(),
+  correo: Correo = new CorreoDePruebas(),
+) {
+  const app = crearApp({ pool, entorno: entornoDePruebas(cambios), almacenamiento, correo });
+  pools.set(app, pool);
+  return app;
+}
+
+/** Valores de prueba del Master: solo existen en las bases temporales de las pruebas. */
+export const MASTER_DE_PRUEBAS = {
+  email: 'plataforma@ejemplo.pe',
+  nombre: 'Master de pruebas',
+  dni: '10000001',
+  clave: 'clave-maestra-de-pruebas-1',
+};
+
+/** La sesión del Master en esta app; crea su cuenta si la base aún no la tiene. */
+export async function tokenDelMaster(app: App): Promise<string> {
+  const guardado = tokensDelMaster.get(app);
+  if (guardado) return guardado;
+  const pool = pools.get(app);
+  if (!pool) throw new Error('La app no se creó con crearAppDePruebas');
+  await crearMaster(pool, MASTER_DE_PRUEBAS);
+  const token = await iniciarSesion(app, MASTER_DE_PRUEBAS.email, { clave: MASTER_DE_PRUEBAS.clave });
+  tokensDelMaster.set(app, token);
+  return token;
+}
+
 let secuencia = 0;
 
-/** Registra una organización por la API y devuelve su respuesta: token, usuario y organización. */
-export async function registrarOrganizacion(app: App, { userAgent = UA_ESCRITORIO } = {}) {
+/**
+ * Una empresa nueva, como en producción: la crea el Master por la API con su primer administrador
+ * (decisión B), y después ese administrador inicia sesión. Devuelve su sesión: token, usuario y empresa.
+ */
+export async function registrarEmpresa(app: App, { userAgent = UA_ESCRITORIO } = {}) {
   const n = ++secuencia;
-  const respuesta = await request(app)
-    .post('/api/v1/auth/registro')
-    .set('User-Agent', userAgent)
+  const email = `admin${n}.${Date.now()}@ejemplo.pe`;
+  const creada = await request(app)
+    .post('/api/v1/plataforma/empresas')
+    .set('Authorization', `Bearer ${await tokenDelMaster(app)}`)
     .send({
-      organizacion: { nombre: `Empresa de prueba ${n}` },
-      administrador: { nombre: `Administradora ${n}`, email: `admin${n}.${Date.now()}@ejemplo.pe`, clave: CLAVE },
+      empresa: { nombre: `Empresa de prueba ${n}` },
+      administrador: { nombre: `Administradora ${n}`, email, clave: CLAVE },
     });
-  if (respuesta.status !== 201) throw new Error(`El registro falló: ${respuesta.status} ${JSON.stringify(respuesta.body)}`);
+  if (creada.status !== 201) throw new Error(`No se pudo crear la empresa: ${creada.status} ${JSON.stringify(creada.body)}`);
+  const respuesta = await request(app).post('/api/v1/auth/login').set('User-Agent', userAgent).send({ email, clave: CLAVE });
+  if (respuesta.status !== 200) throw new Error(`El inicio de sesión falló: ${respuesta.status} ${JSON.stringify(respuesta.body)}`);
   return respuesta.body as {
     token: string;
     expiraEn: string;
-    usuario: { id: string; nombre: string; email: string; rol: Rol };
-    organizacion: { id: string; nombre: string };
+    usuario: { id: string; nombre: string; email: string; rol: Rol; dni: string | null };
+    empresa: { id: string; nombre: string };
   };
 }
 
-/** Crea directamente en la base un usuario de la organización, con la contraseña CLAVE. */
-export async function crearUsuarioEn(pool: pg.Pool, organizacionId: string, rol: Rol = 'usuario') {
+/** Crea directamente en la base un usuario de la empresa, con la contraseña CLAVE. */
+export async function crearUsuarioEn(pool: pg.Pool, empresaId: string, rol: 'administrador' | 'usuario' = 'usuario') {
   const email = `persona${++secuencia}.${Date.now()}@ejemplo.pe`;
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO usuarios (organizacion_id, nombre, email, clave_hash, rol)
+    `INSERT INTO usuarios (empresa_id, nombre, email, clave_hash, rol)
      VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [organizacionId, `Persona ${secuencia}`, email, await hashearClave(CLAVE), rol],
+    [empresaId, `Persona ${secuencia}`, email, await hashearClave(CLAVE), rol],
   );
   return { id: rows[0]!.id, email };
 }
@@ -82,12 +124,12 @@ export async function iniciarSesion(app: App, email: string, { userAgent = UA_ES
   return respuesta.body.token as string;
 }
 
-/** Las acciones del historial de una organización, en orden de inserción. */
-export async function historialDe(pool: pg.Pool, organizacionId: string | null) {
+/** Las acciones del historial de una empresa, en orden de inserción. */
+export async function historialDe(pool: pg.Pool, empresaId: string | null) {
   const { rows } = await pool.query(
     `SELECT accion, usuario_id, rol_usuario, entidad_tipo, entidad_id, detalle, user_agent, es_movil
-     FROM historial WHERE organizacion_id IS NOT DISTINCT FROM $1 ORDER BY id`,
-    [organizacionId],
+     FROM historial WHERE empresa_id IS NOT DISTINCT FROM $1 ORDER BY id`,
+    [empresaId],
   );
   return rows;
 }

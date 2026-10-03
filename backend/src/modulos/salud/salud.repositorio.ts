@@ -6,5 +6,5 @@ import type { Consultor } from '../../db/pool.js';
  * que Supabase mira antes de pausar un proyecto (D13).
  */
 export async function comprobarBase(db: Consultor): Promise<void> {
-  await db.query('SELECT 1 FROM organizaciones LIMIT 1');
+  await db.query('SELECT 1 FROM empresas LIMIT 1');
 }

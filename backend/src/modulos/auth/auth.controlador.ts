@@ -1,14 +1,11 @@
 import type { RequestHandler } from 'express';
 import { actorDe } from '../../compartido/peticion.js';
-import { esquemaCambioClave, esquemaInicioSesion, esquemaRegistro } from './auth.esquemas.js';
-import type { ServicioAuth } from './auth.servicio.js';
+import {
+  esquemaCambioClave, esquemaConfirmacionRecuperacion, esquemaInicioSesion, esquemaSolicitudRecuperacion,
+} from './auth.esquemas.js';
+import { MINUTOS_DE_RECUPERACION, type ServicioAuth } from './auth.servicio.js';
 
 export function crearControladorAuth(servicio: ServicioAuth) {
-  const registrar: RequestHandler = async (req, res) => {
-    const datos = esquemaRegistro.parse(req.body);
-    res.status(201).json(await servicio.registrarOrganizacion(datos, req.contexto));
-  };
-
   const iniciarSesion: RequestHandler = async (req, res) => {
     const datos = esquemaInicioSesion.parse(req.body);
     res.json(await servicio.iniciarSesion(datos, req.contexto));
@@ -29,5 +26,20 @@ export function crearControladorAuth(servicio: ServicioAuth) {
     res.status(204).end();
   };
 
-  return { registrar, iniciarSesion, cerrarSesion, perfil, cambiarClave };
+  // La misma respuesta exista o no el correo (CLAUDE.md v2): no revela qué cuentas hay.
+  const solicitarRecuperacion: RequestHandler = async (req, res) => {
+    const { email } = esquemaSolicitudRecuperacion.parse(req.body);
+    await servicio.solicitarRecuperacion(email, req.contexto);
+    res.status(202).json({
+      mensaje: `Si el correo corresponde a una cuenta, en unos minutos llegará un enlace para definir una contraseña nueva. Vale ${MINUTOS_DE_RECUPERACION} minutos y una sola vez.`,
+    });
+  };
+
+  const confirmarRecuperacion: RequestHandler = async (req, res) => {
+    const datos = esquemaConfirmacionRecuperacion.parse(req.body);
+    await servicio.confirmarRecuperacion(datos, req.contexto);
+    res.status(204).end();
+  };
+
+  return { iniciarSesion, cerrarSesion, perfil, cambiarClave, solicitarRecuperacion, confirmarRecuperacion };
 }
