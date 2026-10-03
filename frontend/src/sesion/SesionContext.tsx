@@ -46,10 +46,14 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const actual = useRef(sesion);
   actual.current = sesion;
 
-  const olvidar = useCallback(() => {
-    guardar(null);
-    setSesion(null);
+  // La referencia se actualiza en el acto, sin esperar al siguiente render: una respuesta que llegue justo
+  // después (el perfil, otra pantalla) no debe usar ni resucitar una sesión que ya se dio por terminada.
+  const cambiar = useCallback((nueva: SesionIniciada | null) => {
+    actual.current = nueva;
+    guardar(nueva);
+    setSesion(nueva);
   }, []);
+  const olvidar = useCallback(() => cambiar(null), [cambiar]);
 
   // El cliente HTTP necesita el token y saber qué hacer si la API lo rechaza. Va en un efecto de diseño
   // (useLayoutEffect) porque React ejecuta los efectos normales de los hijos antes que los del padre: con
@@ -68,18 +72,17 @@ export function SesionProvider({ children }: { children: ReactNode }) {
 
   // El nombre y el rol pueden haber cambiado desde que se inició la sesión (RN05): se refrescan al abrir.
   useEffect(() => {
-    if (!actual.current) return;
+    const inicial = actual.current;
+    if (!inicial) return;
     const control = new AbortController();
     auth.perfil(control.signal)
       .then((perfil: Perfil) => {
-        if (!actual.current) return;
-        const refrescada = { ...actual.current, ...perfil };
-        guardar(refrescada);
-        setSesion(refrescada);
+        // Solo si sigue siendo la misma sesión: entretanto pudo cerrarse o caducar.
+        if (actual.current?.token === inicial.token) cambiar({ ...inicial, ...perfil });
       })
       .catch(() => {});
     return () => control.abort();
-  }, []);
+  }, [cambiar]);
 
   const valor = useMemo<ValorSesion>(() => ({
     sesion,
@@ -87,8 +90,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     esAdministrador: sesion?.usuario.rol === 'administrador',
     esMaster: sesion?.usuario.rol === 'master',
     iniciar(nueva) {
-      guardar(nueva);
-      setSesion(nueva);
+      cambiar(nueva);
       setCaducada(false);
     },
     async cerrar() {
@@ -97,7 +99,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
       olvidar();
       navegar('/login', { replace: true });
     },
-  }), [sesion, caducada, navegar, olvidar]);
+  }), [sesion, caducada, navegar, cambiar, olvidar]);
 
   return <Contexto value={valor}>{children}</Contexto>;
 }
