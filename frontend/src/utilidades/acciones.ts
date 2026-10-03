@@ -69,7 +69,10 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
     const campos = Object.keys(detalle.cambios).map((campo) => NOMBRES_DE_CAMPOS[campo] ?? campo);
     if (campos.length > 0) partes.push(`cambió ${campos.join(', ')}`);
   }
-  if (typeof detalle.permiso === 'string') partes.push(`exigía ${legible(detalle.permiso)}${typeof detalle.ruta === 'string' ? ` en ${detalle.ruta}` : ''}`);
+  if (typeof detalle.permiso === 'string') {
+    const ruta = typeof detalle.ruta === 'string' ? ` en ${detalle.ruta.replace(/^\/api\/v1/, '')}` : '';
+    partes.push(`exigía ${legible(detalle.permiso)}${ruta}`);
+  }
   if (typeof detalle.motivo === 'string') partes.push(legible(detalle.motivo));
   if (detalle.enviada === true) partes.push('enlace enviado');
   if (typeof detalle.sesionesCerradas === 'number' && detalle.sesionesCerradas > 0) {

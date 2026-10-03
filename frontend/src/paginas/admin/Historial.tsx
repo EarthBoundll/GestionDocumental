@@ -99,15 +99,17 @@ function FilaDeHistorial({ asiento }: { asiento: Asiento }) {
   return (
     <li className="flex items-start gap-3 px-4 py-3 text-sm">
       <Dispositivo aria-label={asiento.esMovil ? 'Desde un móvil' : 'Desde un ordenador'} className="mt-0.5 size-4 shrink-0 text-slate-400" />
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2">
-          <Insignia tono={denegado ? 'peligro' : 'neutro'}>{NOMBRES_DE_ACCIONES[asiento.accion] ?? asiento.accion}</Insignia>
-          <span className="font-medium text-slate-900">{autorDe(asiento)}</span>
-          {asiento.rolUsuario && <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[asiento.rolUsuario]}</span>}
-        </p>
-        <Resumen asiento={asiento} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2">
+            <Insignia tono={denegado ? 'peligro' : 'neutro'}>{NOMBRES_DE_ACCIONES[asiento.accion] ?? asiento.accion}</Insignia>
+            <span className="font-medium text-slate-900">{autorDe(asiento)}</span>
+            {asiento.rolUsuario && <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[asiento.rolUsuario]}</span>}
+          </p>
+          <Resumen asiento={asiento} />
+        </div>
+        <time dateTime={asiento.creadoEn} className="shrink-0 text-xs whitespace-nowrap text-slate-500">{formatearFechaHora(asiento.creadoEn)}</time>
       </div>
-      <time dateTime={asiento.creadoEn} className="shrink-0 text-xs whitespace-nowrap text-slate-500">{formatearFechaHora(asiento.creadoEn)}</time>
     </li>
   );
 }

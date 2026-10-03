@@ -30,16 +30,19 @@ export function Modal({ abierto, alCerrar, titulo, children, acciones }: Props) 
       ref={dialogo}
       aria-labelledby={idTitulo}
       onClose={alCerrar}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl p-0 shadow-xl backdrop:bg-slate-900/50"
+      className="m-auto w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-xl p-0 shadow-xl backdrop:bg-slate-900/50"
     >
-      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-        <h2 id={idTitulo} className="text-base font-semibold text-slate-900">{titulo}</h2>
-        <button type="button" onClick={alCerrar} aria-label="Cerrar" className="rounded-md p-1 text-slate-500 hover:bg-slate-100">
-          <X aria-hidden className="size-5" />
-        </button>
+      {/* En un celular el formulario puede no caber: se desplaza el contenido, y título y botones quedan a la vista. */}
+      <div className="flex max-h-[calc(100dvh-3rem)] flex-col">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+          <h2 id={idTitulo} className="text-base font-semibold text-slate-900">{titulo}</h2>
+          <button type="button" onClick={alCerrar} aria-label="Cerrar" className="-mr-2 rounded-lg p-2.5 text-slate-500 hover:bg-slate-100">
+            <X aria-hidden className="size-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">{children}</div>
+        {acciones && <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-5 py-3 sm:flex-row sm:justify-end">{acciones}</div>}
       </div>
-      <div className="space-y-4 px-5 py-4">{children}</div>
-      {acciones && <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-5 py-3 sm:flex-row sm:justify-end">{acciones}</div>}
     </dialog>
   );
 }

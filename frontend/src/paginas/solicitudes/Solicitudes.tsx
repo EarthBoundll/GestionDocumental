@@ -32,7 +32,8 @@ export function Solicitudes() {
           : 'Las aprobaciones que has pedido y en qué quedaron.'}
       />
 
-      <div role="tablist" aria-label="Filtrar por estado" className="mb-4 flex gap-1 overflow-x-auto">
+      {/* En el celular, dos por fila: en una sola, la última quedaría escondida tras un desplazamiento lateral. */}
+      <div role="tablist" aria-label="Filtrar por estado" className="mb-4 grid grid-cols-2 gap-1 sm:flex">
         {PESTANAS.map((pestana) => (
           <button
             key={pestana.texto}
@@ -61,12 +62,12 @@ export function Solicitudes() {
           <>
             <ul className="divide-y divide-slate-100">
               {consulta.datos.datos.map((solicitud) => (
-                <li key={solicitud.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <li key={solicitud.id} className="flex flex-col items-start gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     {solicitud.documento.eliminado ? (
                       <p className="font-medium text-slate-500">{solicitud.documento.nombre} <span className="text-xs">(eliminado)</span></p>
                     ) : (
-                      <Link to={`/documentos/${solicitud.documento.id}`} className="font-medium text-slate-900 hover:text-marca-700 hover:underline">
+                      <Link to={`/documentos/${solicitud.documento.id}`} className="-my-1 inline-block py-1 font-medium text-slate-900 hover:text-marca-700 hover:underline">
                         {solicitud.documento.nombre}
                       </Link>
                     )}

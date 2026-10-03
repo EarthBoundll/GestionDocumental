@@ -138,13 +138,13 @@ function FilaDeDocumento({ documento, alAbrir }: { documento: DocumentoResumen; 
         {nombreDeTipo(documento.archivo.tipoMime)}
       </div>
       <div className="min-w-0 flex-1">
-        <Link to={`/documentos/${documento.id}`} className="block truncate font-medium text-slate-900 hover:text-marca-700 hover:underline">
+        <Link to={`/documentos/${documento.id}`} className="-my-1 block truncate py-1 font-medium text-slate-900 hover:text-marca-700 hover:underline">
           {documento.nombre}
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
           <Insignia tono="marca">{documento.categoria.nombre}</Insignia>
           <span>{formatearFecha(documento.fechaDocumento)}</span>
-          <span aria-hidden>·</span>
+          <span aria-hidden className="hidden sm:inline">·</span>
           <span>{documento.subidoPor.nombre}</span>
           <span aria-hidden className="hidden sm:inline">·</span>
           <span className="hidden sm:inline">{formatearPeso(documento.archivo.pesoBytes)}</span>

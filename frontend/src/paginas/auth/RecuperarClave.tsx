@@ -37,7 +37,7 @@ export function RecuperarClave() {
     <PantallaDeAcceso
       titulo="Recuperar la contraseña"
       subtitulo="Te enviaremos un enlace para definir una nueva"
-      pie={<Link to="/login" className="font-medium text-marca-700 hover:underline">Volver a iniciar sesión</Link>}
+      pie={<Link to="/login" className="inline-block py-2 font-medium text-marca-700 hover:underline">Volver a iniciar sesión</Link>}
     >
       {respuesta ? (
         <div className="space-y-4 text-center">

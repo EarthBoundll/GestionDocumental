@@ -66,8 +66,9 @@ export function Campana() {
           </span>
         )}
       </button>
+      {/* En el celular la campana no está en el borde: el panel se ancla a la pantalla para no salirse. */}
       {abierta && (
-        <div className="absolute right-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200">
+        <div className="fixed inset-x-4 top-18 z-30 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-slate-200 sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-88">
           <p className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">Notificaciones</p>
           {datos && datos.datos.length > 0 ? (
             <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto">

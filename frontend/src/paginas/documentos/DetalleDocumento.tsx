@@ -44,7 +44,7 @@ export function DetalleDocumento() {
 
   return (
     <>
-      <Link to="/documentos" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
+      <Link to="/documentos" className="mb-2 -ml-1 inline-flex min-h-10 items-center gap-1 rounded-lg px-1 text-sm text-slate-600 hover:text-slate-900">
         <ArrowLeft aria-hidden className="size-4" /> Documentos
       </Link>
 

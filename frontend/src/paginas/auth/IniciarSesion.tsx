@@ -46,8 +46,8 @@ export function IniciarSesion() {
         {error && !error.detalles.length && <Aviso tipo="error">{error.mensaje}</Aviso>}
         <Campo etiqueta="Correo" type="email" autoComplete="username" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} error={errores.email} />
         <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" required value={clave} onChange={(e) => setClave(e.target.value)} error={errores.clave} />
-        <p className="-mt-1 text-right text-sm">
-          <Link to="/recuperar-clave" state={{ email }} className="font-medium text-marca-700 hover:underline">¿Olvidaste tu contraseña?</Link>
+        <p className="-my-2 text-right text-sm">
+          <Link to="/recuperar-clave" state={{ email }} className="inline-block py-2 font-medium text-marca-700 hover:underline">¿Olvidaste tu contraseña?</Link>
         </p>
         <Boton type="submit" cargando={enviando} className="w-full">Entrar</Boton>
       </form>
