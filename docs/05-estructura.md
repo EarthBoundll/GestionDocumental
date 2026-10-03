@@ -18,7 +18,10 @@ GestionDocumental/
 backend/
 ├── migraciones/                  SQL versionado: 001_esquema_inicial.sql, 002_…
 ├── scripts/
-│   └── migrar.ts                 aplica en orden las migraciones pendientes
+│   ├── migrar.ts                 aplica en orden las migraciones pendientes
+│   ├── crear-master.ts           crea la cuenta única del Master con los datos del .env (RN22)
+│   ├── local.ts                  el sistema completo en esta máquina, sin cuentas (D16)
+│   └── informe-aislamiento.ts    ejecuta la batería A contra B y escribe su informe (indicador 6)
 ├── src/
 │   ├── server.ts                 arranque: valida el entorno, crea la app y escucha
 │   ├── app.ts                    ensambla middlewares y rutas sin escuchar; lo usan las pruebas
@@ -26,6 +29,7 @@ backend/
 │   │   └── entorno.ts            lee y valida las variables de entorno; si falta una, no arranca
 │   ├── db/
 │   │   ├── pool.ts               conexión a PostgreSQL
+│   │   ├── acceso.ts             la capa transversal: acceso de empresa o de plataforma, con RLS (D17)
 │   │   ├── transaccion.ts        ejecuta una función entre BEGIN y COMMIT, o ROLLBACK si falla
 │   │   └── migraciones.ts        ejecutor de migraciones con suma de verificación (E6)
 │   ├── almacenamiento/
@@ -33,17 +37,22 @@ backend/
 │   │   ├── supabase-storage.ts   implementación con Supabase Storage (producción)
 │   │   ├── en-disco.ts           implementación en una carpeta, con enlaces firmados (desarrollo y pruebas, D16)
 │   │   └── crear.ts              elige una u otra según ALMACENAMIENTO
+│   ├── correo/
+│   │   ├── correo.ts             contrato e implementaciones: Brevo (producción) y archivo (desarrollo, D19)
+│   │   └── crear.ts              elige una u otra según CORREO
 │   ├── middlewares/
 │   │   ├── contexto.ts           id de la petición, user-agent y es_movil
-│   │   ├── autenticar.ts         JWT → sesión → usuario activo
-│   │   ├── autorizar.ts          exige un rol; si no lo hay, 403 y ACCESO_DENEGADO
-│   │   ├── medir.ts              tiempo de respuesta del listado (indicador 7)
-│   │   ├── limitar-intentos.ts   freno a la fuerza bruta en login y registro
+│   │   ├── autenticar.ts         JWT → sesión → usuario y empresa activos → acceso a datos
+│   │   ├── autorizar.ts          exige un permiso (403 y ACCESO_DENEGADO); las puertas de empresa y de plataforma
+│   │   ├── limitar-intentos.ts   freno a la fuerza bruta en login y a los envíos de recuperación
 │   │   └── manejar-errores.ts    único punto que convierte errores en respuestas
 │   ├── compartido/
 │   │   ├── errores.ts            ErrorAplicacion y sus variantes (404, 409…)
 │   │   ├── validacion.ts         Zod con los mensajes en español; todo el código importa z de aquí
 │   │   ├── permisos.ts           la matriz de permisos: única fuente de verdad
+│   │   ├── peticion.ts           Actor: quién actúa, desde dónde y con qué acceso a los datos
+│   │   ├── claves.ts             bcrypt y las reglas de contraseña, también las del Master
+│   │   ├── tokens.ts             firma y verificación del JWT
 │   │   ├── paginacion.ts
 │   │   └── dispositivo.ts        ¿es un móvil?, a partir del user-agent
 │   └── modulos/
@@ -51,8 +60,11 @@ backend/
 │       │   ├── auth.rutas.ts
 │       │   ├── auth.controlador.ts
 │       │   ├── auth.servicio.ts
-│       │   ├── auth.repositorio.ts
-│       │   └── auth.esquemas.ts
+│       │   ├── auth.repositorio.ts   la capa de identidad: cuentas, sesiones y recuperaciones
+│       │   ├── auth.esquemas.ts
+│       │   ├── auth.correos.ts       el texto del correo de recuperación
+│       │   └── master.ts             crea al Master y valida sus datos (lo usa el script)
+│       ├── plataforma/           lo que hace el Master: empresas, administradores y cifras
 │       ├── usuarios/             todos los módulos tienen la misma forma
 │       ├── categorias/
 │       ├── documentos/
@@ -87,7 +99,7 @@ rutas → controlador → servicio → repositorio | almacenamiento | historial
 |---|---|---|
 | `*.rutas.ts` | Declara la URL, sus middlewares y su controlador | Nada más |
 | `*.controlador.ts` | Valida la entrada con su esquema (`esquema.parse(req.body)`), llama al servicio y elige el código HTTP. Si la entrada no es válida, Zod lanza y el manejador central responde 400 | SQL o reglas de negocio |
-| `*.servicio.ts` | Reglas de negocio, transacción y registro en el historial | Importar Express o tocar `req` y `res` |
+| `*.servicio.ts` | Reglas de negocio, transacción y registro en el historial, siempre con `actor.datos.ejecutar()` | Importar Express, tocar `req` y `res`, o recibir el pool |
 | `*.repositorio.ts` | SQL parametrizado y traducción entre `snake_case` y `camelCase` | Reglas, o llamar a otro módulo |
 | `*.esquemas.ts` | Esquemas Zod de entrada y los tipos que se derivan de ellos | Lógica |
 
@@ -106,15 +118,16 @@ frontend/
 │   │   ├── documentos.ts
 │   │   └── …
 │   ├── sesion/
-│   │   ├── SesionContext.tsx     usuario y token; iniciar y cerrar sesión
-│   │   └── RutaConSesion.tsx     sin sesión → /login; el rol lo decide la API (D8)
+│   │   ├── SesionContext.tsx     usuario, empresa y token; iniciar y cerrar sesión
+│   │   └── Rutas.tsx             sin sesión → /login; la primera pantalla según el rol; el permiso lo decide la API (D8)
 │   ├── layout/
 │   │   ├── Layout.tsx
 │   │   ├── BarraLateral.tsx
 │   │   └── BarraSuperior.tsx     incluye la campana de notificaciones
 │   ├── componentes/              piezas reutilizables sin lógica de negocio; se diseñan en la Fase 5
 │   ├── paginas/
-│   │   ├── auth/                 IniciarSesion, RegistrarOrganizacion
+│   │   ├── auth/                 IniciarSesion, RecuperarClave, RestablecerClave
+│   │   ├── plataforma/           Resumen, NuevaEmpresa, DetalleEmpresa (solo el Master)
 │   │   ├── documentos/           ListaDocumentos, SubirDocumento, DetalleDocumento
 │   │   ├── solicitudes/
 │   │   ├── notificaciones/
@@ -146,7 +159,7 @@ frontend/
 | `multer` | Recibir archivos (`multipart/form-data`) | Express no lo trae; corta por tamaño mientras recibe |
 | `@supabase/storage-js` | Subir archivos y firmar enlaces | Solo el cliente de Storage, no el SDK completo |
 | `cors` | Admitir solo el origen del frontend | Pequeño y estándar |
-| `express-rate-limit` | Limitar los intentos de inicio de sesión y registro | Resuelve los casos borde (ventanas, cabeceras) que un limitador casero olvida |
+| `express-rate-limit` | Limitar los intentos de inicio de sesión y las peticiones de recuperación | Resuelve los casos borde (ventanas, cabeceras) que un limitador casero olvida |
 
 En desarrollo: `typescript`, `tsx` (ejecutar TypeScript sin compilar), `vitest` (pruebas),
 `supertest` (pruebas HTTP), `embedded-postgres` (PostgreSQL 17 para las pruebas, E7) y los tipos
@@ -196,12 +209,21 @@ En desarrollo: `vite`, `@vitejs/plugin-react`, `tailwindcss` con `@tailwindcss/v
 | `SUPABASE_CLAVE_SECRETA` | — | Clave de servidor de Supabase; solo existe en el backend |
 | `STORAGE_BUCKET` | `documentos` | Bucket privado |
 | `CORS_ORIGEN` | `https://<app>.vercel.app` | Orígenes admitidos, separados por comas. Por defecto, el de Vite en local |
-| `REGISTRO_ABIERTO` | `true` | Permite cerrar el registro público (RN21) |
 | `PROXIES_DE_CONFIANZA` | `0` en local | Cuántos proxies hay delante de la API. Si se queda corto, todos los usuarios parecen la misma IP y comparten el límite de intentos; si se pasa, cualquiera falsifica su IP con una cabecera. En Render se fija con `DIAGNOSTICO_RED` ([backend/README.md](../backend/README.md)) |
 | `DIAGNOSTICO_RED` | `false` | Activa `GET /salud/red`, que muestra qué IP ve la API. Solo para el primer despliegue |
 | `ALMACENAMIENTO` | `disco` en local, `supabase` en producción | Dónde viven los archivos (D16). En producción, `disco` impide arrancar |
 | `DIRECTORIO_ARCHIVOS` | `archivos` | Carpeta de los archivos con `ALMACENAMIENTO=disco` |
 | `URL_PUBLICA` | `http://localhost:4000` | Dirección de la API para los enlaces de archivos en disco |
+| `CORREO` | `archivo` en local, `brevo` en producción | Cómo salen los correos (D19). En producción, `archivo` impide arrancar |
+| `DIRECTORIO_CORREOS` | `correos` | Carpeta de los correos con `CORREO=archivo` |
+| `BREVO_CLAVE_API` | — | Clave de la API de Brevo; solo existe en el backend |
+| `CORREO_REMITENTE` | `avisos@ejemplo.pe` | Remitente verificado en Brevo |
+| `CORREO_REMITENTE_NOMBRE` | `Gestión Documental` | Nombre visible del remitente |
+| `URL_FRONTEND` | `https://<app>.vercel.app` | Adonde apunta el enlace de recuperación. En producción no puede ser localhost |
+
+Las del Master solo las lee `npm run crear-master` (y `npm run local`, si están): `MASTER_EMAIL`,
+`MASTER_PASSWORD`, `MASTER_NOMBRE` y `MASTER_DNI`. Viven en el `.env` de quien ejecuta el script, que
+no se sube al repositorio, y nunca en Render.
 
 ### Frontend
 

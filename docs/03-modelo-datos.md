@@ -1,24 +1,28 @@
 # 03 · Modelo de datos
 
-Nueve tablas en PostgreSQL. Nombres en español, en plural y en `snake_case`; claves primarias UUID
+Diez tablas en PostgreSQL, compartidas por todas las empresas (v2: multiempresa por columna, D6). Nombres en español, en plural y en `snake_case`; claves primarias UUID
 salvo en el historial; instantes en `timestamptz` (UTC). Extensiones: `unaccent` y `pg_trgm`, ambas
 disponibles en Supabase.
 
 **Implementación:** [`backend/migraciones/001_esquema_inicial.sql`](../backend/migraciones/001_esquema_inicial.sql).
 Cada regla de la §3 tiene su prueba automática en
 [`backend/tests/integracion/esquema.test.ts`](../backend/tests/integracion/esquema.test.ts), que comprueba
-el error de PostgreSQL y el nombre exacto de la restricción que lo produce.
+el error de PostgreSQL y el nombre exacto de la restricción que lo produce. El aislamiento con RLS
+(§3.1) se prueba en [`rls.test.ts`](../backend/tests/integracion/rls.test.ts).
 
 ## 1. Diagrama entidad-relación
 
 ```mermaid
 erDiagram
-    organizaciones ||--|{ usuarios : "tiene"
-    organizaciones ||--o{ categorias : "define"
-    organizaciones ||--o{ documentos : "posee"
-    organizaciones ||--o{ solicitudes : "tramita"
-    organizaciones |o--o{ historial : "acumula"
+    empresas |o--|{ usuarios : "tiene"
+    empresas ||--o{ categorias : "define"
+    empresas ||--o{ documentos : "posee"
+    empresas ||--o{ solicitudes : "tramita"
+    empresas |o--o{ historial : "acumula"
+    empresas ||--o{ notificaciones : "reparte"
+    empresas ||--o{ tiempos_respuesta : "mide"
     usuarios ||--o{ sesiones : "abre"
+    usuarios ||--o{ recuperaciones_clave : "pide"
     usuarios ||--o{ documentos : "sube"
     usuarios ||--o{ solicitudes : "solicita"
     usuarios |o--o{ solicitudes : "resuelve"
@@ -29,19 +33,22 @@ erDiagram
     documentos ||--o{ solicitudes : "se somete a"
     solicitudes ||--o{ notificaciones : "origina"
 
-    organizaciones {
+    empresas {
         uuid id PK
         varchar nombre
-        char ruc "opcional, 11 dígitos"
+        char ruc UK "opcional, 11 dígitos"
+        boolean activa
         timestamptz creado_en
+        timestamptz actualizado_en
     }
     usuarios {
         uuid id PK
-        uuid organizacion_id FK
+        uuid empresa_id FK "nulo solo para el Master"
         varchar nombre
         varchar email UK "en minúsculas"
+        char dni "opcional, 8 dígitos"
         char clave_hash "bcrypt"
-        varchar rol "administrador o usuario"
+        varchar rol "master, administrador o usuario"
         boolean activo
         timestamptz creado_en
         timestamptz actualizado_en
@@ -53,10 +60,18 @@ erDiagram
         timestamptz expira_en
         timestamptz revocada_en "nulo si sigue vigente"
     }
+    recuperaciones_clave {
+        uuid id PK
+        uuid usuario_id FK
+        char token_hash UK "SHA-256, nunca el token"
+        timestamptz creada_en
+        timestamptz expira_en "creada_en + 60 min"
+        timestamptz usada_en "un solo uso"
+    }
     categorias {
         uuid id PK
-        uuid organizacion_id FK
-        varchar nombre "único en la organización"
+        uuid empresa_id FK
+        varchar nombre "único en la empresa"
         varchar descripcion
         boolean activa
         timestamptz creado_en
@@ -64,7 +79,7 @@ erDiagram
     }
     documentos {
         uuid id PK
-        uuid organizacion_id FK
+        uuid empresa_id FK
         uuid categoria_id FK
         uuid subido_por FK
         varchar nombre
@@ -80,7 +95,7 @@ erDiagram
     }
     solicitudes {
         uuid id PK
-        uuid organizacion_id FK
+        uuid empresa_id FK
         uuid documento_id FK
         uuid solicitante_id FK
         uuid revisor_id FK "nulo mientras está pendiente"
@@ -92,6 +107,7 @@ erDiagram
     }
     notificaciones {
         uuid id PK
+        uuid empresa_id FK
         uuid usuario_id FK "destinatario"
         uuid solicitud_id FK
         varchar tipo
@@ -101,7 +117,7 @@ erDiagram
     }
     historial {
         bigint id PK
-        uuid organizacion_id FK
+        uuid empresa_id FK
         uuid usuario_id FK
         varchar rol_usuario "rol al actuar"
         varchar accion
@@ -114,6 +130,7 @@ erDiagram
     }
     tiempos_respuesta {
         uuid id PK
+        uuid empresa_id FK
         uuid usuario_id FK
         varchar operacion
         boolean con_filtros
@@ -129,30 +146,34 @@ erDiagram
 
 «Ahora» significa que el valor por defecto es el instante de la inserción.
 
-### organizaciones
+### empresas
 
 | Campo | Tipo | Nulo | Restricciones | Descripción |
 |---|---|---|---|---|
 | id | uuid | no | PK | |
 | nombre | varchar(150) | no | | Razón social o nombre comercial |
-| ruc | char(11) | sí | 11 dígitos | Informativo; no se valida contra SUNAT |
+| ruc | char(11) | sí | 11 dígitos; único | Informativo; no se valida contra SUNAT |
+| activa | boolean | no | por defecto, verdadero | Desactivada, nadie de ella puede entrar (RN24) |
 | creado_en | timestamptz | no | ahora | |
+| actualizado_en | timestamptz | no | ahora | |
 
 ### usuarios
 
 | Campo | Tipo | Nulo | Restricciones | Descripción |
 |---|---|---|---|---|
 | id | uuid | no | PK | |
-| organizacion_id | uuid | no | FK → organizaciones | |
+| empresa_id | uuid | sí | FK → empresas; nulo si y solo si el rol es `master` | |
 | nombre | varchar(120) | no | | Nombre visible |
 | email | varchar(254) | no | único; en minúsculas | Correo de acceso, único en todo el sistema (RN02) |
+| dni | char(8) | sí | 8 dígitos | Dato del perfil; nunca una credencial |
 | clave_hash | char(60) | no | | Hash bcrypt; la contraseña nunca se guarda |
-| rol | varchar(13) | no | `administrador` o `usuario` | |
+| rol | varchar(13) | no | `master`, `administrador` o `usuario`; un solo `master` | |
 | activo | boolean | no | por defecto, verdadero | |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
-Además, único (`id`, `organizacion_id`), que necesitan las claves foráneas compuestas (M2).
+Además, único (`id`, `empresa_id`), que necesitan las claves foráneas compuestas (M2), y un índice
+único parcial que admite una sola fila con rol `master` (RN22).
 
 ### sesiones
 
@@ -162,52 +183,63 @@ Además, único (`id`, `organizacion_id`), que necesitan las claves foráneas co
 | usuario_id | uuid | no | FK → usuarios | |
 | creada_en | timestamptz | no | ahora | |
 | expira_en | timestamptz | no | | `creada_en` + 8 h |
-| revocada_en | timestamptz | sí | | Se llena al cerrar sesión, al desactivar al usuario o al cambiar su contraseña |
+| revocada_en | timestamptz | sí | | Se llena al cerrar sesión, al desactivar al usuario o a su empresa, o al cambiar o restablecer su contraseña |
+
+### recuperaciones_clave
+
+| Campo | Tipo | Nulo | Restricciones | Descripción |
+|---|---|---|---|---|
+| id | uuid | no | PK | |
+| usuario_id | uuid | no | FK → usuarios | |
+| token_hash | char(64) | no | único | Huella SHA-256 del token: con ella no se puede entrar (M12) |
+| creada_en | timestamptz | no | ahora | |
+| expira_en | timestamptz | no | posterior a `creada_en` | `creada_en` + 60 minutos, con el reloj de la base |
+| usada_en | timestamptz | sí | | Se llena al usarlo o al pedir otro: un enlace sirve una sola vez (RN26) |
 
 ### categorias
 
 | Campo | Tipo | Nulo | Restricciones | Descripción |
 |---|---|---|---|---|
 | id | uuid | no | PK | |
-| organizacion_id | uuid | no | FK → organizaciones | |
-| nombre | varchar(80) | no | único en la organización, sin distinguir mayúsculas | |
+| empresa_id | uuid | no | FK → empresas | |
+| nombre | varchar(80) | no | único en la empresa, sin distinguir mayúsculas | |
 | descripcion | varchar(255) | sí | | |
 | activa | boolean | no | por defecto, verdadero | Las inactivas no se ofrecen para documentos nuevos (RN08) |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
-Además, único (`id`, `organizacion_id`).
+Además, único (`id`, `empresa_id`).
 
 ### documentos
 
 | Campo | Tipo | Nulo | Restricciones | Descripción |
 |---|---|---|---|---|
 | id | uuid | no | PK | Lo genera la API antes de subir el archivo |
-| organizacion_id | uuid | no | FK → organizaciones | |
-| categoria_id | uuid | no | FK (`categoria_id`, `organizacion_id`) → categorias | |
-| subido_por | uuid | no | FK (`subido_por`, `organizacion_id`) → usuarios | Propietario |
+| empresa_id | uuid | no | FK → empresas | |
+| categoria_id | uuid | no | FK (`categoria_id`, `empresa_id`) → categorias | |
+| subido_por | uuid | no | FK (`subido_por`, `empresa_id`) → usuarios | Propietario |
 | nombre | varchar(200) | no | | Título visible: es lo que se busca |
 | descripcion | varchar(1000) | sí | | |
 | fecha_documento | date | no | | Fecha del propio documento (emisión, firma); se filtra por ella |
 | archivo_nombre_original | varchar(255) | no | | Con este nombre se descarga |
-| archivo_ruta | varchar(300) | no | único | Clave en Storage: `{organizacion_id}/{id}.{extensión}` |
+| archivo_ruta | varchar(300) | no | único | Clave en Storage: `{empresa_id}/{id}.{extensión}`; la carpeta es la empresa |
 | archivo_tipo_mime | varchar(100) | no | | De la lista blanca (RN09) |
 | archivo_peso_bytes | integer | no | entre 1 y 10 485 760 | |
 | creado_en | timestamptz | no | ahora | Instante de la subida |
 | actualizado_en | timestamptz | no | ahora | |
 | eliminado_en | timestamptz | sí | | Eliminación lógica (M5) |
 
-Además, único (`id`, `organizacion_id`).
+Además, único (`id`, `empresa_id`).
 
 ### solicitudes
 
 | Campo | Tipo | Nulo | Restricciones | Descripción |
 |---|---|---|---|---|
 | id | uuid | no | PK | |
-| organizacion_id | uuid | no | FK → organizaciones | |
-| documento_id | uuid | no | FK (`documento_id`, `organizacion_id`) → documentos | |
-| solicitante_id | uuid | no | FK (`solicitante_id`, `organizacion_id`) → usuarios | |
-| revisor_id | uuid | sí | FK (`revisor_id`, `organizacion_id`) → usuarios | Administrador que la resolvió |
+| empresa_id | uuid | no | FK → empresas | |
+| documento_id | uuid | no | FK (`documento_id`, `empresa_id`) → documentos | |
+| solicitante_id | uuid | no | FK (`solicitante_id`, `empresa_id`) → usuarios | |
+| revisor_id | uuid | sí | FK (`revisor_id`, `empresa_id`) → usuarios | Administrador que la resolvió |
 | estado | varchar(9) | no | `pendiente`, `aprobada` o `rechazada`; por defecto, `pendiente` | |
 | comentario_solicitud | varchar(500) | sí | | |
 | comentario_resolucion | varchar(500) | sí | obligatorio si se rechaza | |
@@ -219,8 +251,9 @@ Además, único (`id`, `organizacion_id`).
 | Campo | Tipo | Nulo | Restricciones | Descripción |
 |---|---|---|---|---|
 | id | uuid | no | PK | |
-| usuario_id | uuid | no | FK → usuarios | Destinatario |
-| solicitud_id | uuid | no | FK → solicitudes | Desde aquí, la interfaz lleva al documento |
+| empresa_id | uuid | no | FK → empresas | |
+| usuario_id | uuid | no | FK (`usuario_id`, `empresa_id`) → usuarios | Destinatario |
+| solicitud_id | uuid | no | FK (`solicitud_id`, `empresa_id`) → solicitudes | Desde aquí, la interfaz lleva al documento |
 | tipo | varchar(19) | no | `SOLICITUD_CREADA`, `SOLICITUD_APROBADA` o `SOLICITUD_RECHAZADA` | |
 | mensaje | varchar(300) | no | | Texto ya redactado: no cambia si después cambia el documento |
 | leida_en | timestamptz | sí | | |
@@ -231,11 +264,11 @@ Además, único (`id`, `organizacion_id`).
 | Campo | Tipo | Nulo | Restricciones | Descripción |
 |---|---|---|---|---|
 | id | bigint | no | PK, autoincremental | Orden exacto de inserción |
-| organizacion_id | uuid | sí | FK → organizaciones | Nulo solo en un inicio de sesión fallido con un correo que no existe |
-| usuario_id | uuid | sí | FK (`usuario_id`, `organizacion_id`) → usuarios | Quién; nulo en el mismo caso |
-| rol_usuario | varchar(13) | sí | | Rol que tenía al actuar (indicador 6) |
-| accion | varchar(30) | no | una de las 22 de [Análisis §7](01-analisis.md) | Qué |
-| entidad_tipo | varchar(12) | sí | `organizacion`, `usuario`, `sesion`, `categoria`, `documento` o `solicitud` | Sobre qué |
+| empresa_id | uuid | sí | FK → empresas | La del autor o, si actúa el Master, la de la empresa sobre la que actúa. Nulo en lo que no es de ninguna empresa: un correo desconocido, o el Master en su propia cuenta |
+| usuario_id | uuid | sí | FK → usuarios; su empresa debe ser la del asiento, salvo el Master (M11) | Quién; nulo si no hay autor |
+| rol_usuario | varchar(13) | sí | el rol actual del autor (M11) | Rol que tenía al actuar (indicador 6) |
+| accion | varchar(30) | no | una de las 27 de [Análisis §7](01-analisis.md) | Qué |
+| entidad_tipo | varchar(12) | sí | `empresa`, `usuario`, `sesion`, `categoria`, `documento` o `solicitud` | Sobre qué |
 | entidad_id | uuid | sí | sin FK (M3) | |
 | detalle | jsonb | no | por defecto, `{}` | Lo propio de cada acción: antes → después, filtros, correo intentado, ruta denegada |
 | user_agent | varchar(300) | sí | | |
@@ -249,7 +282,8 @@ Inalterable: un trigger rechaza UPDATE, DELETE y TRUNCATE (M4).
 | Campo | Tipo | Nulo | Restricciones | Descripción |
 |---|---|---|---|---|
 | id | uuid | no | PK | Lo genera la API y lo devuelve con el listado, para que el navegador complete su parte |
-| usuario_id | uuid | no | FK → usuarios | |
+| empresa_id | uuid | no | FK → empresas | |
+| usuario_id | uuid | no | FK (`usuario_id`, `empresa_id`) → usuarios | |
 | operacion | varchar(30) | no | por ahora, solo `LISTAR_DOCUMENTOS` | |
 | con_filtros | boolean | no | | Distingue un listado de una búsqueda |
 | total_resultados | integer | no | | |
@@ -264,16 +298,35 @@ No dependen de que el código se acuerde de comprobarlas.
 
 | Regla | Cómo |
 |---|---|
-| Nada apunta a otra organización (RN01) | Claves foráneas compuestas con `organizacion_id` (M2) |
+| Nada apunta a otra empresa (RN01) | Claves foráneas compuestas con `empresa_id` (M2) |
+| Ninguna consulta de la API ve filas de otra empresa (RN01) | RLS con la empresa de la transacción (§3.1) |
+| Un solo Master, sin empresa (RN22) | Índice único parcial sobre `rol = 'master'` y comprobación de que el Master, y solo él, no tiene empresa |
+| El historial no atribuye a una empresa la acción de alguien de otra | Trigger que comprueba el rol y la empresa del autor; la excepción es el Master, escrita en el propio trigger (M11) |
 | Correo único y en minúsculas (RN02) | Índice único y comprobación de que el correo ya está en minúsculas |
-| Categoría única por organización (RN08) | Índice único sobre la organización y el nombre en minúsculas |
+| RUC único (RN21) | Índice único; varios nulos están permitidos |
+| Categoría única por empresa (RN08) | Índice único sobre la empresa y el nombre en minúsculas |
 | Una sola solicitud pendiente por documento (RN12) | Índice único parcial sobre `documento_id`, limitado a las pendientes |
 | Nadie resuelve su propia solicitud (RN13) | `revisor_id` distinto de `solicitante_id` |
 | El rechazo exige motivo (RN14) | Si el estado es `rechazada`, `comentario_resolucion` no puede ser nulo |
 | Coherencia de la solicitud | Pendiente si y solo si no tiene revisor ni fecha de resolución |
 | Peso máximo del archivo (RN09) | `archivo_peso_bytes` entre 1 y 10 485 760 |
 | Historial inalterable (RN17) | Trigger que rechaza UPDATE, DELETE y TRUNCATE |
-| Nada se borra en cascada | Todas las claves foráneas restringen el borrado: organizaciones, usuarios y documentos no se borran |
+| Nada se borra en cascada | Todas las claves foráneas restringen el borrado: empresas, usuarios y documentos no se borran |
+
+### 3.1 Aislamiento con RLS (D17)
+
+La API no consulta los datos de negocio con el rol dueño de las tablas. En cada transacción adopta uno
+de dos roles sin inicio de sesión y fija la empresa activa con `set_config('app.empresa_id', …, true)`:
+
+| Rol | Ve | Puede escribir | No tiene |
+|---|---|---|---|
+| `app_empresa` | Las filas de su empresa en todas las tablas de negocio; su propia empresa | Insertar y actualizar en usuarios, categorías, documentos, solicitudes, notificaciones y tiempos; insertar en el historial | DELETE en ninguna tabla; nada de otra empresa; recuperaciones de contraseña |
+| `app_plataforma` (Master) | Empresas; usuarios con rol `administrador` | Crear y editar empresas y administradores; las categorías iniciales; insertar en el historial | Documentos, solicitudes, notificaciones, tiempos de respuesta y usuarios que no son administradores |
+
+Si la transacción no fija empresa, `empresa_actual()` es nula y `app_empresa` no ve ninguna fila: el
+fallo es cerrado. Dos funciones `SECURITY DEFINER`, ejecutables solo por `app_plataforma`, hacen lo que
+el Master necesita y su rol no alcanza: `metricas_de_empresas()` devuelve conteos por empresa (nunca
+contenido) y `revocar_sesiones_de_empresa()` cierra las sesiones de todos sus usuarios al desactivarla.
 
 ## 4. Índices
 
@@ -281,18 +334,19 @@ Además de los únicos de la sección anterior.
 
 | Tabla | Índice | Para qué |
 |---|---|---|
-| documentos | organización + `creado_en` descendente, solo no eliminados | Listado por defecto |
-| documentos | organización + categoría, solo no eliminados | Filtro por categoría |
-| documentos | organización + `fecha_documento`, solo no eliminados | Filtro por fechas |
+| documentos | empresa + `creado_en` descendente, solo no eliminados | Listado por defecto |
+| documentos | empresa + categoría, solo no eliminados | Filtro por categoría |
+| documentos | empresa + `fecha_documento`, solo no eliminados | Filtro por fechas |
 | documentos | Trigramas (GIN) sobre el nombre en minúsculas y sin tildes | Búsqueda por nombre (M8) |
-| solicitudes | organización + estado + `creada_en` descendente | Bandeja del administrador |
+| solicitudes | empresa + estado + `creada_en` descendente | Bandeja del administrador |
 | solicitudes | solicitante + `creada_en` descendente | «Mis solicitudes» |
 | notificaciones | usuario + `creada_en` descendente | Campana de notificaciones |
 | sesiones | usuario, solo no revocadas | Revocar todas al desactivar a alguien |
-| historial | organización + `creado_en` descendente | Consulta y exportación |
-| historial | organización + usuario + `creado_en` descendente | Filtro por usuario |
-| historial | organización + `entidad_tipo` + `entidad_id` | Todo lo ocurrido a un documento concreto |
-| usuarios | organización | Listado de usuarios |
+| historial | empresa + `creado_en` descendente | Consulta y exportación |
+| historial | empresa + usuario + `creado_en` descendente | Filtro por usuario |
+| historial | empresa + `entidad_tipo` + `entidad_id` | Todo lo ocurrido a un documento concreto |
+| usuarios | empresa | Listado de usuarios |
+| recuperaciones_clave | usuario, solo no usadas | Anular los enlaces pendientes al pedir otro |
 
 ## 5. Decisiones de modelado
 
@@ -300,15 +354,15 @@ Además de los únicos de la sección anterior.
 `/documentos/1`, `/2`, `/3`… El historial usa un entero autoincremental, porque nunca aparece en una
 URL y da el orden exacto de inserción.
 
-**M2 · Claves foráneas compuestas con la organización.** Un documento referencia su categoría con el
-par (categoría, organización), y lo mismo con usuarios, solicitudes e historial. Así la base impide que
-un documento apunte a la categoría de otra organización aunque el código se equivocara: es el respaldo
-de RN01 sin recurrir a RLS. Requiere un índice único (`id`, `organizacion_id`) en las tablas referenciadas.
+**M2 · Claves foráneas compuestas con la empresa.** Un documento referencia su categoría con el
+par (categoría, empresa), y lo mismo con usuarios, solicitudes, notificaciones y tiempos de respuesta.
+Así la base impide que un documento apunte a la categoría de otra empresa aunque el código se
+equivocara. Es la tercera capa del aislamiento, debajo del filtro del repositorio y de RLS (§3.1). Requiere un índice único (`id`, `empresa_id`) en las tablas referenciadas.
 
 **M3 · Historial con referencia polimórfica.** `entidad_tipo` más `entidad_id`, sin clave foránea: una
 sola tabla registra acciones sobre cualquier entidad, y el registro sobrevive aunque la entidad cambie.
 Es el patrón habitual de las bitácoras de auditoría. Sí tiene claves foráneas hacia el usuario y la
-organización.
+empresa.
 
 **M4 · Historial inalterable desde la base.** Un trigger rechaza UPDATE, DELETE y TRUNCATE sobre
 `historial`. La garantía no depende de que la API «no lo haga»: la base no lo permite.
@@ -337,3 +391,15 @@ guardan el user-agent, del que sale `es_movil` (indicador 5), y el rol de quien 
 **M10 · Fechas.** Los instantes se guardan como `timestamptz`, en UTC, y la interfaz los muestra en hora
 de Lima. La fecha propia de un documento es `date`, sin hora ni zona: un contrato es «del 15 de
 septiembre», no de un instante.
+
+**M11 · El autor del historial se comprueba con un trigger, no con una clave compuesta.** En la v1 el
+par (usuario, empresa) era una clave foránea compuesta. El Master no tiene empresa pero sus acciones
+sobre una empresa deben quedar en el historial de esa empresa, y una clave compuesta no admite esa
+excepción. Un trigger `SECURITY DEFINER` comprueba que el rol del asiento es el del autor y que el
+autor pertenece a la empresa del asiento, y deja pasar al Master por una línea con su nombre: la
+excepción es explícita, no el efecto de una comprobación ausente.
+
+**M12 · De la recuperación de contraseña se guarda la huella, no el token.** Quien leyera la tabla no
+podría usar ningún enlace. El token tiene 256 bits aleatorios, así que basta SHA-256 sin sal; bcrypt
+haría falta para algo que una persona elige, no para esto. Gastar un enlace es un solo UPDATE que
+comprueba vigencia, que no esté usado y que el usuario y su empresa sigan activos.

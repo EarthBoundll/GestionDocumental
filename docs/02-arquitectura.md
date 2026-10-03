@@ -61,17 +61,43 @@ flowchart TB
 ```
 
 - **Middlewares.** `contexto` asigna un id a la petición y deduce si viene de un móvil; `autenticar`
-  resuelve la sesión; `autorizar` exige el rol y, si falla, responde 403 y registra
-  `ACCESO_DENEGADO`; `medir` guarda el tiempo de respuesta del listado.
+  resuelve la sesión y crea el **acceso a datos** de la petición (§3.1); `autorizar` exige el permiso
+  y, si falla, responde 403 y registra `ACCESO_DENEGADO`. Toda ruta entra por una de dos puertas: la
+  de empresa (sesión y un rol de empresa) o la de plataforma (sesión y rol Master).
 - **Controlador.** Valida la entrada con el esquema Zod del endpoint, llama al servicio y elige el
   código de estado. Ni SQL ni reglas. Por qué la validación vive aquí y no en un middleware:
   [Estructura §6](05-estructura.md).
 - **Servicio.** Las reglas de negocio y la transacción. No conoce Express —no recibe `req` ni
   `res`—, así que se prueba sin levantar un servidor.
 - **Repositorio.** SQL parametrizado y la traducción entre `snake_case` y `camelCase`. Ninguna regla.
+  Sus consultas filtran por la empresa del actor, y debajo la base vuelve a filtrar (§3.1).
 - **Historial.** `registrarAccion()` recibe la conexión de la transacción en curso: el registro y la
   operación se confirman o se deshacen juntos.
 - **Errores.** Todos acaban en un único manejador, que produce el formato descrito en la [API](04-api.md).
+
+### 3.1 La capa de acceso a datos: el aislamiento entre empresas (D17)
+
+Ningún servicio de negocio recibe el pool de conexiones. Recibe, dentro del `Actor`, un acceso a
+datos que creó la autenticación a partir de la identidad guardada en la base, nunca de lo que envía el
+cliente. Cada operación corre en una transacción que primero adopta un rol de PostgreSQL sin
+privilegios y fija la empresa activa; las políticas RLS hacen el resto.
+
+```mermaid
+flowchart LR
+    T["Token válido"] --> S["Sesión vigente en la base<br/>usuario, rol, empresa"]
+    S -->|Administrador o Usuario| E["accesoDeEmpresa(empresa)<br/>SET ROLE app_empresa<br/>app.empresa_id = empresa"]
+    S -->|Master: la excepción, con nombre propio| P["accesoDePlataforma()<br/>SET ROLE app_plataforma"]
+    E --> R1[("Solo las filas de su empresa")]
+    P --> R2[("Empresas, administradores y cifras;<br/>nunca documentos")]
+```
+
+Son tres capas, y cada una basta por sí sola para que una consulta no devuelva nada ajeno: el
+repositorio filtra por `empresa_id`; si una consulta lo olvidara, RLS no devuelve filas de otra
+empresa; y las claves foráneas compuestas (M2) impiden que una fila apunte a otra empresa. Si la
+transacción no fija empresa, `app_empresa` no ve nada: el fallo es cerrado. La identidad (iniciar
+sesión, comprobar la sesión, recuperar la contraseña, el script del Master) es la otra excepción
+explícita: averigua quién es alguien antes de saber su empresa, y por eso usa la conexión dueña de las
+tablas, limitada a cuentas, sesiones y recuperaciones.
 
 ## 4. Flujos críticos
 
@@ -88,16 +114,22 @@ sequenceDiagram
     alt token inválido o caducado
         A-->>N: 401 NO_AUTENTICADO
     end
-    A->>BD: sesión (jti) y su usuario, en una sola consulta
-    BD-->>A: sesión y usuario
-    alt sesión revocada o usuario inactivo
+    A->>BD: sesión (jti), su usuario y su empresa, en una sola consulta
+    BD-->>A: sesión, usuario, rol y empresa vigentes
+    alt sesión revocada, usuario inactivo, empresa desactivada o empresa distinta de la del token
         A-->>N: 401 NO_AUTENTICADO
     end
-    Note over A: identidad, organización y rol vigentes quedan en la petición
+    Note over A: identidad y acceso a datos (de empresa o de plataforma) quedan en la petición
+    A->>A: puerta de la ruta: ¿rol de empresa o Master?
+    alt la puerta no corresponde a su rol
+        A->>BD: ACCESO_DENEGADO
+        A-->>N: 403 SIN_PERMISO
+    end
 ```
 
-El rol y la organización se leen de la base, no del token: un cambio de rol o una desactivación
-valen desde la petición siguiente.
+El token lleva la empresa y el rol (decisión C), pero el rol y la empresa que valen son los de la
+base: un cambio de rol, una desactivación o la desactivación de la empresa valen desde la petición
+siguiente. Si la empresa del token no coincide con la de la base, el token no es de fiar y se rechaza.
 
 ### 4.2 Subir un documento
 
@@ -134,7 +166,7 @@ sequenceDiagram
     participant S as Storage
     participant BD as PostgreSQL
     N->>A: GET /documentos/ID/archivo?modo=descargar
-    A->>BD: ¿existe, es de su organización y no está eliminado?
+    A->>BD: ¿existe, es de su empresa y no está eliminado?
     A->>S: firma un enlace de 5 minutos
     A->>BD: INSERT historial DOCUMENTO_DESCARGADO
     alt no se pudo registrar
@@ -188,12 +220,15 @@ se suspende en vez de cobrar.
 | Robo de la base de datos | Contraseñas con bcrypt (coste 10); nunca en claro, tampoco en el historial |
 | Fuerza bruta contra el inicio de sesión | Límite de intentos fallidos por IP (RN20); el mismo mensaje, y el mismo tiempo de respuesta, para un correo inexistente que para una contraseña errónea |
 | Robo del token | Caduca en 8 h y se puede revocar; contra XSS, el escapado de React y una CSP estricta en Vercel |
-| Escalada de privilegios | Rol leído de la base en cada petición; matriz aplicada solo en la API; cada 403 queda registrado |
-| Acceso a datos de otra organización | Organización tomada de la sesión; UUID imposibles de adivinar; claves foráneas compuestas (M2); lo ajeno responde 404 |
+| Escalada de privilegios | Rol leído de la base en cada petición; matriz aplicada solo en la API; cada 403 queda registrado; el rol `master` no se puede asignar desde la API y la base admite un solo Master |
+| Acceso a datos de otra empresa | Empresa tomada de la identidad, nunca del cliente; capa de acceso transversal con RLS (D17); claves foráneas compuestas (M2); UUID imposibles de adivinar; lo ajeno responde 404; batería de pruebas A contra B en cada endpoint |
+| Un token con otra empresa, aun firmado con el secreto | La empresa del token se compara con la de la base: si no coinciden, 401 |
+| El Master leyendo el contenido de una empresa | Su rol de base (`app_plataforma`) no tiene permisos sobre documentos, solicitudes, notificaciones ni tiempos de respuesta; sus cifras salen de una función que solo devuelve conteos (decisión E) |
+| Recuperación de contraseña como oráculo de cuentas o puerta trasera | Misma respuesta y mismo tiempo exista o no el correo; token de 256 bits, de un solo uso, 60 minutos, guardado como huella SHA-256 y enviado en el fragmento del enlace; límite de peticiones por IP |
 | Inyección SQL | Solo consultas parametrizadas |
 | Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación |
-| Lectura de tablas por la API automática de Supabase | Data API desactivada y RLS activo sin políticas (D14) |
-| Secretos en el repositorio | Variables de entorno; `.env` ignorado por git; la clave secreta de Supabase solo existe en Render |
+| Lectura de tablas por la API automática de Supabase | Data API desactivada y RLS activo en todas las tablas, con políticas solo para los roles propios de la API (D14, D17) |
+| Secretos en el repositorio | Variables de entorno; `.env` ignorado por git; la clave secreta de Supabase y la de Brevo solo existen en Render; los datos del Master solo en el `.env` de quien ejecuta el script |
 | Manipulación del historial | Solo inserción, impuesto por un trigger (M4) |
 | Errores que revelan el interior | Manejador central: en producción, un 500 no lleva trazas ni SQL |
 | Peticiones desde otros sitios | CORS solo admite el origen del frontend |
@@ -201,7 +236,7 @@ se suspende en vez de cobrar.
 ## 7. Decisiones técnicas
 
 Cada una dice qué se decidió, por qué y qué se descartó. Las decisiones de datos están en el
-[modelo de datos](03-modelo-datos.md) (M1–M10) y las de código, en la [estructura](05-estructura.md) (E1–E5).
+[modelo de datos](03-modelo-datos.md) (M1–M10) y las de código, en la [estructura](05-estructura.md) (E1–E7).
 
 ### Las preguntas del jurado
 
@@ -212,7 +247,7 @@ la única forma de garantizar que cada acción quede en el historial dentro de s
 React. El navegador escribiría directamente y el registro dependería del cliente: un corte de red a
 mitad de camino, y el indicador 4 pierde una acción.
 
-**D2 · PostgreSQL.** Los datos son relacionales por naturaleza —organización, usuarios, documentos,
+**D2 · PostgreSQL.** Los datos son relacionales por naturaleza —empresas, usuarios, documentos,
 solicitudes— y la integridad se puede exigir en la propia base: claves foráneas, restricciones,
 índices únicos parciales y transacciones. Los indicadores, además, se calculan con SQL estándar.
 *Descartado:* una base documental (MongoDB, Firestore). Sin claves foráneas, la coherencia entre
@@ -224,15 +259,15 @@ con la API. React aporta componentes reutilizables y el ecosistema más amplio.
 *Descartado:* Next.js (el renderizado en servidor no aporta detrás de un login y complica el
 despliegue) y Angular (más estructura de la que piden una decena de pantallas).
 
-**D4 · JWT, pero revocable.** El token, firmado con HS256 y válido 8 horas, solo lleva el id del
-usuario y el de su sesión (`jti`). En cada petición la API comprueba esa sesión y al usuario en la
+**D4 · JWT, pero revocable.** El token, firmado con HS256 y válido 8 horas, lleva el id del
+usuario, el de su sesión (`jti`) y, desde la v2, su empresa y su rol (decisión C). En cada petición la API comprueba esa sesión y al usuario en la
 base, con una consulta que haría falta de todos modos para leer el rol vigente. Así, cerrar sesión,
 desactivar a alguien o cambiarle el rol surte efecto al instante; la firma, por su parte, rechaza un
 token manipulado o caducado sin tocar la base.
 *Descartado:* JWT sin estado. Un usuario desactivado seguiría entrando hasta que caducara su token, y
 eso es exactamente un acceso incorrecto para el indicador 6.
 
-### Sesión, permisos y registro
+### Sesión, permisos y empresas
 
 **D5 · El token viaja en la cabecera Authorization, no en una cookie.** El frontend (`vercel.app`) y
 la API (`onrender.com`) están en dominios distintos, así que una cookie de sesión sería de terceros,
@@ -242,13 +277,14 @@ y eso es el indicador 5.
 riesgo que se acepta —un token en `localStorage` es legible si hubiera XSS— se acota con el escapado
 de React, una CSP estricta y la caducidad de 8 horas.
 
-**D6 · La organización como entidad.** El registro crea una organización y su primer administrador;
-todo dato cuelga de una organización, y la API filtra siempre por la de la sesión. Es lo mínimo que
-hace coherentes dos puntos del alcance —«registro» y «categorías definidas por cada organización»— y
-permite evaluar con personas de varias MYPEs sin mezclar sus documentos.
-*Descartado:* una instalación por empresa (el «registro» no tendría sentido y dos MYPEs necesitarían
-dos despliegues) y el multi-tenant real (esquemas por cliente, RLS, subdominios, planes), excluido
-del alcance. Añadir la organización más adelante obligaría a tocar todas las tablas, consultas y pruebas.
+**D6 · Una plataforma multiempresa por columna compartida (v2).** Todas las empresas viven en la
+misma base y las mismas tablas; cada fila de negocio lleva `empresa_id`. Hay un Administrador Master
+que da de alta las empresas con su primer administrador (no hay registro público, decisión B) y que no
+pertenece a ninguna. Permite evaluar con personas de varias MYPEs sin mezclar sus documentos y sin un
+despliegue por empresa.
+*Descartado:* un esquema o una base por empresa (las migraciones se multiplican, y el plan gratuito
+limita conexiones y proyectos) y una instalación por empresa. La v1 tenía ya la «organización» como
+entidad; la v2 la renombra a empresa y añade el Master ([06-migracion-v2.md](06-migracion-v2.md)).
 
 **D7 · El historial se escribe en la misma transacción que la acción.** Cada servicio abre una
 transacción, ejecuta la operación y llama a `registrarAccion()` con la misma conexión: se confirman
@@ -303,16 +339,15 @@ registro de caídas es evidencia externa de disponibilidad.
 *Descartado:* un plan de pago de Render, y «abrir la página un rato antes», que depende de acordarse.
 
 **D14 · Supabase se usa como PostgreSQL y almacén, nada más.** Ni Supabase Auth, ni su API automática,
-ni Realtime. Se desactiva la Data API y, por si se reactivara, se activa RLS sin políticas en cada
-tabla, de modo que nadie pueda leerlas por esa vía; la API se conecta como dueña de las tablas, a la
-que RLS no se aplica. De paso, la base es PostgreSQL estándar: cambiar de proveedor es cambiar una
+ni Realtime. Se desactiva la Data API y, por si se reactivara, RLS está activo en cada tabla con
+políticas solo para los roles propios de la API (`app_empresa`, `app_plataforma`), de modo que nadie
+pueda leerlas por esa vía. De paso, la base es PostgreSQL estándar: cambiar de proveedor es cambiar una
 cadena de conexión.
 
 **D15 · Notificaciones dentro del sistema.** Una tabla que la interfaz consulta al navegar y al
-volver a la pestaña.
-*Descartado:* el correo electrónico —Render gratuito bloquea los puertos SMTP y los proveedores por
-API exigen un dominio propio para escribir a terceros— y las notificaciones push o por websockets,
-fuera del alcance.
+volver a la pestaña. El único correo que envía el sistema es el de recuperación de contraseña (D19).
+*Descartado:* avisar de las solicitudes por correo (más envíos de los que caben en la capa gratuita y
+más datos personales circulando) y las notificaciones push o por websockets, fuera del alcance.
 
 **D16 · En desarrollo y en las pruebas, los archivos van a una carpeta local.** Una segunda
 implementación del almacenamiento imita a Supabase: la API firma un enlace con caducidad (HMAC) y una
@@ -321,6 +356,42 @@ en una sola máquina, sin cuentas, y las pruebas suben y descargan archivos de v
 doble. En producción el arranque lo impide: el disco de Render se borra en cada reinicio.
 *Descartado:* depender de un proyecto de Supabase para desarrollar (lento, con datos compartidos, y
 gasta uno de los dos proyectos gratuitos) y un doble en memoria (no habría probado la firma de enlaces).
+
+### Multiempresa (v2)
+
+**D17 · El aislamiento vive en una capa transversal y, debajo, en la propia base.** Los servicios no
+reciben el pool, sino un acceso a datos creado por la autenticación (§3.1). Cada transacción adopta
+`app_empresa` con la empresa de la identidad, o `app_plataforma` para el Master; RLS filtra todas las
+tablas de negocio. Así el aislamiento no depende de que cada consulta se acuerde del `WHERE`: una
+consulta que lo olvide sigue sin ver nada ajeno. Los roles se adoptan con `set_config('role', …, true)`
+dentro de la transacción, que funciona igual a través de Supavisor (D12) y deja la conexión limpia al
+terminar.
+*Descartado:* filtrar solo en el código (un olvido es una fuga), una conexión por rol con su propia
+contraseña (más secretos y más conexiones, que Supavisor limita) y RLS con las variables de Supabase
+Auth (no se usa su Auth, D14).
+
+**D18 · El Master es una excepción explícita, con su propia puerta.** Su acceso se decide en un solo
+sitio (`accesoDe`), sus rutas cuelgan de `/plataforma` y su rol de base solo alcanza empresas,
+administradores y dos funciones: las cifras por empresa (solo conteos) y revocar las sesiones de una
+empresa al desactivarla. Su cuenta es única, la crea un script con datos del entorno y su contraseña
+tiene reglas propias (RN22, RN23). Lo que hace con una empresa queda en el historial de esa empresa.
+*Descartado:* un Master que «ve todo» (sería el atajo para leer documentos ajenos, y la decisión E lo
+excluye) y crearlo desde la interfaz.
+
+**D19 · El correo sale por la API HTTPS de Brevo.** Render gratuito bloquea SMTP, y Brevo permite
+enviar 300 correos al día desde un remitente verificado sin dominio propio. Detrás de una interfaz
+`Correo`, como el almacenamiento: en desarrollo y en las pruebas los correos se guardan en una carpeta
+(el enlace sale por la consola), y en producción el arranque exige Brevo.
+*Descartado:* Resend (exige un dominio propio para escribir a terceros), SMTP de Gmail (bloqueado en
+Render y frágil) y Supabase Auth solo para el correo (obligaría a duplicar las cuentas).
+
+**D20 · Recuperación de contraseña con un enlace de un solo uso.** Un token aleatorio de 256 bits que
+viaja en el fragmento del enlace (`/restablecer-clave#…`), que el navegador no envía a ningún servidor;
+en la base solo queda su huella SHA-256, con 60 minutos de vigencia contados por el reloj de la base.
+Gastarlo es una sola sentencia (dos peticiones a la vez no lo usan dos veces), pedir otro anula el
+anterior, y definir la contraseña cierra todas las sesiones. La respuesta a la petición es la misma
+exista o no el correo, y el correo se envía sin esperarlo para que tampoco el tiempo lo delate.
+*Descartado:* códigos de 6 dígitos (adivinables con pocos intentos) y guardar el token en claro.
 
 ## 8. Riesgos
 
@@ -341,9 +412,9 @@ dónde se ven en el sistema.
 
 | Característica | En este sistema |
 |---|---|
-| Autoservicio bajo demanda | Una MYPE se registra y empieza a usarlo sin intervención de nadie |
+| Autoservicio bajo demanda | El Master da de alta una empresa en un minuto, y desde ese momento su administrador gestiona a su equipo sin intervención de nadie |
 | Amplio acceso por red | Un navegador en PC o celular, desde cualquier lugar (indicador 5) |
-| Agrupación de recursos | Varias organizaciones comparten la misma infraestructura, aisladas lógicamente |
+| Agrupación de recursos | Varias empresas comparten la misma infraestructura y la misma base, aisladas lógicamente por la capa de acceso y RLS (D17) |
 | Elasticidad rápida | La API no guarda estado en memoria (salvo el limitador de intentos), así que en un plan de pago podría replicarse. En el gratuito no se usa, y conviene decirlo así |
 | Servicio medido | El propio sistema mide su uso (historial, tiempos de respuesta) y los proveedores miden el consumo de cada recurso |
 
