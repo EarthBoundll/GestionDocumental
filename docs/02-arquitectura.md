@@ -395,6 +395,17 @@ anterior, y definir la contraseña cierra todas las sesiones. La respuesta a la 
 exista o no el correo, y el correo se envía sin esperarlo para que tampoco el tiempo lo delate.
 *Descartado:* códigos de 6 dígitos (adivinables con pocos intentos) y guardar el token en claro.
 
+### Despliegue
+
+**D21 · La API entra a la base con un usuario propio, `gestion_api`.** Es dueño del esquema y puede
+crear los dos roles de D17, pero no es superusuario ni salta RLS; se crea una vez por SQL con su
+contraseña ya cifrada (SCRAM), de modo que la contraseña en claro no pasa por la consola de Supabase
+ni por sus registros. Así la cadena de conexión de Render no abre la base entera, y lo que crea la API
+no hereda los permisos que Supabase concede por defecto a `anon` y `authenticated` sobre lo que crea
+`postgres`.
+*Descartado:* conectar como `postgres`, con más privilegios de los que la API necesita y cuya
+contraseña Supabase solo deja cambiar desde su panel.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

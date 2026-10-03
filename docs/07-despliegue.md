@@ -1,21 +1,46 @@
 # 07 · Despliegue
 
-Estado: **todo preparado y probado en local; faltan las cuentas.** El código, `render.yaml` y
-`frontend/vercel.json` están listos, y la compilación de producción se probó con la CSP de Vercel
-(ningún bloqueo). Crear las cuentas y pegar las claves lo hace el autor: son datos personales y
-credenciales que no pasan por el repositorio ni por el asistente.
+Estado: **desplegado el 3 de octubre de 2026**, todo en capa gratuita.
 
-Orden: Supabase → Brevo → Render → Vercel → Master → monitor → comprobación. Ningún servicio pide
-tarjeta (RNF07). Calcula una hora la primera vez.
+| Pieza | Dónde |
+|---|---|
+| Frontend | https://gestion-documental-zeta.vercel.app (proyecto `gestion-documental` en Vercel) |
+| API | https://gestion-documental-api-keuj.onrender.com (servicio `gestion-documental-api` en Render, Virginia) |
+| Base y archivos | Proyecto `gestion-documental` de Supabase (`dpqddwryhoatnqukahiy`, us-east-1), bucket privado `documentos` |
+
+Falta: la clave secreta de Supabase y la de Brevo (hasta entonces subir archivos y recibir el correo de
+recuperación no funcionan; Render tiene valores provisionales que dicen `pendiente`), apagar la Data API,
+el monitor (§7) y los proxies de confianza (§5). Las migraciones, el usuario de la API y la cuenta Master
+ya están en la base.
+
+Orden para repetirlo desde cero: Supabase → Brevo → Render → Vercel → Master → monitor → comprobación.
+Ningún servicio pide tarjeta (RNF07). Calcula una hora la primera vez.
 
 ## 1. Supabase: base de datos y archivos
 
 1. Crea el proyecto en la región **East US (North Virginia)**, la misma que Render (D11). Guarda la
    contraseña de la base en tu gestor de contraseñas.
 2. **Desactiva la Data API** (*Project Settings → Data API*). La API propia es la única puerta (D14).
-3. Botón **Connect → Session pooler** (puerto 5432): copia la URI. Es `DATABASE_URL`, **sin**
-   `?sslmode` al final (D12).
-4. *Project Settings → Database → SSL Configuration → Download certificate*: el contenido completo del
+3. Crea el usuario de la API (D21) en el *SQL Editor*. La contraseña va ya cifrada: genérala y cífrala
+   en tu máquina (por ejemplo con `psql`, `\password`, o cualquier generador de SCRAM-SHA-256) y pega
+   solo el resultado, que empieza por `SCRAM-SHA-256$4096:`.
+
+   ```sql
+   create role gestion_api login createrole password '<verificador SCRAM-SHA-256>';
+   grant create on database postgres to gestion_api;
+   grant usage, create on schema public to gestion_api;
+   grant usage on schema extensions to gestion_api with grant option;
+   create extension if not exists unaccent schema extensions;
+   create extension if not exists pg_trgm schema extensions;
+   ```
+
+   `DATABASE_URL` es la URI de **Connect → Session pooler** (puerto 5432, D12) con ese usuario y su
+   contraseña en claro, **sin** `?sslmode` al final:
+   `postgresql://gestion_api.<ref del proyecto>:<contraseña>@aws-0-us-east-1.pooler.supabase.com:5432/postgres`.
+   El prefijo `aws-0` o `aws-1` depende del proyecto: copia el que muestre Connect. Con el equivocado,
+   el pooler responde `tenant/user … not found`.
+4. *Project Settings → Database → SSL Configuration → Download certificate* (es el mismo para todos los
+   proyectos: `prod-ca-2021.crt`, «Supabase Root 2021 CA», válido hasta 2031): el contenido completo del
    archivo, con sus líneas `-----BEGIN CERTIFICATE-----`, es `DATABASE_CA`.
 5. *Storage → New bucket*: nombre `documentos`, **privado** (D9).
 6. *Project Settings → API Keys*: la URL del proyecto es `SUPABASE_URL`, y la clave **secreta** (no la
@@ -47,8 +72,8 @@ Sin él, `npm run local` levanta todo en tu máquina.
    `JWT_SECRETO` lo genera Render. Las variables que faltan ya tienen valor en `render.yaml`.
 3. La compilación instala, compila y **aplica las migraciones**. Si una falla, el despliegue se
    detiene y no queda nada a medias: cada migración es una transacción. La migración crea dos roles
-   de PostgreSQL sin contraseña (`app_empresa` y `app_plataforma`, D17); el usuario `postgres` de
-   Supabase tiene permiso para hacerlo.
+   de PostgreSQL sin contraseña (`app_empresa` y `app_plataforma`, D17); `gestion_api` tiene permiso
+   para hacerlo.
 4. Anota la dirección del servicio: `https://<servicio>.onrender.com`.
 
 ## 4. Vercel: el frontend
@@ -76,6 +101,11 @@ de producción y tus `MASTER_EMAIL`, `MASTER_PASSWORD`, `MASTER_NOMBRE` y `MASTE
 `npm run crear-master`. La contraseña necesita 12 caracteres o más, sin tu DNI, sin tu correo (tampoco
 lo que va antes de la @) y sin ser solo números. Después **quita la URL de producción de tu `.env`**:
 así ningún `npm run migrar` de desarrollo toca la base de la evaluación.
+
+En este despliegue el Master se creó desde el *SQL Editor* con lo mismo que hace el script: la fila en
+`usuarios` con rol `master` y el hash bcrypt (coste 10) calculado fuera de la base, y el asiento
+`USUARIO_CREADO` con `origen: script de inicialización`, ambos como `gestion_api`. Su contraseña
+inicial fue temporal: se cambia en *Mi cuenta* al primer ingreso.
 
 ## 7. El monitor
 

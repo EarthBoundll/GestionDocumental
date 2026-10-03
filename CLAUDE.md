@@ -224,6 +224,10 @@ datos ajenos.
 administrador. Se descartó el autorregistro: cualquiera crearía empresas en la
 plataforma de la tesis.
 
+**La API entra a la base con un usuario propio, `gestion_api`.** Dueño del esquema, sin superusuario
+ni BYPASSRLS, creado una vez con su contraseña ya cifrada (D21). Se descartó conectar como `postgres`:
+más privilegios de los necesarios, y Supabase solo deja cambiar su contraseña desde el panel.
+
 **Pruebas funcionales contra la compilación de producción.** Playwright recorre cada requisito en un
 navegador real contra la API con una base desechable y el frontend compilado como en Vercel, y deja su
 informe en `docs/evidencias/`. Se descartó probar contra `npm run dev`, donde StrictMode tapaba un fallo
