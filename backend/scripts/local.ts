@@ -17,8 +17,9 @@ import { crearPool } from '../src/db/pool.js';
 import { crearMaster, leerDatosDelMaster } from '../src/modulos/auth/master.js';
 
 // No es el 5432, por si hay un PostgreSQL instalado, ni el 3000, que en esta máquina usa el suyo.
-const PUERTO_BASE = 5433;
-const DIRECTORIO = resolve('.local');
+// Las pruebas de punta a punta (frontend/e2e) cambian carpeta y puerto: su base es otra, desechable.
+const PUERTO_BASE = Number(process.env.PUERTO_BASE_LOCAL ?? 5433);
+const DIRECTORIO = resolve(process.env.DIRECTORIO_LOCAL ?? '.local');
 const DATOS = join(DIRECTORIO, 'postgres');
 
 await mkdir(DIRECTORIO, { recursive: true });
@@ -42,6 +43,8 @@ const entorno = leerEntorno({
   ...process.env,
   NODE_ENV: 'development',
   DATABASE_URL: `postgresql://postgres:postgres@localhost:${PUERTO_BASE}/postgres`,
+  // Si el .env apunta a Supabase, su certificado no vale para esta base local.
+  DATABASE_CA: '',
   JWT_SECRETO: (await readFile(archivoSecreto, 'utf8')).trim(),
   ALMACENAMIENTO: 'disco',
   DIRECTORIO_ARCHIVOS: join(DIRECTORIO, 'archivos'),
