@@ -6,7 +6,7 @@ import { clasesDeBoton } from '../../componentes/Boton';
 import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
-import { formatearFechaHora, formatearPeso } from '../../utilidades/formato';
+import { contar, formatearFechaHora, formatearPeso } from '../../utilidades/formato';
 
 function Cifra({ titulo, valor, detalle }: { titulo: string; valor: string; detalle?: string }) {
   return (
@@ -71,7 +71,7 @@ export function Resumen() {
                     </p>
                     <p className="text-sm text-slate-500">
                       {empresa.ruc ? `RUC ${empresa.ruc} · ` : ''}
-                      {numero(empresa.metricas.usuariosActivos)} usuarios activos · {numero(empresa.metricas.documentos)} documentos
+                      {contar(empresa.metricas.usuariosActivos, 'usuario activo', 'usuarios activos')} · {contar(empresa.metricas.documentos, 'documento')}
                       {' · '}{formatearPeso(empresa.metricas.almacenamientoBytes)}
                     </p>
                     <p className="text-xs text-slate-500">

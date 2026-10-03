@@ -21,7 +21,8 @@ backend/
 │   ├── migrar.ts                 aplica en orden las migraciones pendientes
 │   ├── crear-master.ts           crea la cuenta única del Master con los datos del .env (RN22)
 │   ├── local.ts                  el sistema completo en esta máquina, sin cuentas (D16)
-│   └── informe-aislamiento.ts    ejecuta la batería A contra B y escribe su informe (indicador 6)
+│   ├── informe-aislamiento.ts    ejecuta la batería A contra B y escribe su informe (indicador 6)
+│   └── comprobar-despliegue.ts   revisa desde fuera un despliegue: salud, CORS, CSP y URL de la API
 ├── src/
 │   ├── server.ts                 arranque: valida el entorno, crea la app y escucha
 │   ├── app.ts                    ensambla middlewares y rutas sin escuchar; lo usan las pruebas
@@ -113,18 +114,17 @@ frontend/
 │   ├── rutas.tsx                 mapa de rutas: públicas y con sesión
 │   ├── estilos.css               Tailwind y las variables del tema
 │   ├── api/
-│   │   ├── cliente.ts            fetch con el token, errores uniformes, 401 → /login
-│   │   ├── auth.ts               un archivo por recurso de la API
-│   │   ├── documentos.ts
-│   │   └── …
+│   │   ├── cliente.ts            fetch con el token, errores uniformes, 401 → sesión terminada
+│   │   ├── recursos.ts           una función por endpoint de docs/04-api.md, agrupadas por recurso
+│   │   └── tipos.ts              forma de las respuestas de la API
 │   ├── sesion/
-│   │   ├── SesionContext.tsx     usuario, empresa y token; iniciar y cerrar sesión
+│   │   ├── SesionContext.tsx     usuario, empresa y token; iniciar, cerrar y caducar la sesión
 │   │   └── Rutas.tsx             sin sesión → /login; la primera pantalla según el rol; el permiso lo decide la API (D8)
 │   ├── layout/
-│   │   ├── Layout.tsx
-│   │   ├── BarraLateral.tsx
-│   │   └── BarraSuperior.tsx     incluye la campana de notificaciones
-│   ├── componentes/              piezas reutilizables sin lógica de negocio; se diseñan en la Fase 5
+│   │   ├── Layout.tsx            barra lateral en escritorio, menú plegable en el celular, barra superior
+│   │   ├── Navegacion.tsx        los grupos del menú y qué rol ve cada uno
+│   │   └── Campana.tsx           las notificaciones de la barra superior (no para el Master)
+│   ├── componentes/              piezas reutilizables sin lógica de negocio: botón, campos, diálogo, avisos, página
 │   ├── paginas/
 │   │   ├── auth/                 IniciarSesion, RecuperarClave, RestablecerClave
 │   │   ├── plataforma/           Resumen, NuevaEmpresa, DetalleEmpresa (solo el Master)
@@ -133,12 +133,19 @@ frontend/
 │   │   ├── notificaciones/
 │   │   ├── cuenta/
 │   │   ├── admin/                Usuarios, Categorias, Historial
-│   │   └── errores/              NoEncontrado, SinPermiso
-│   ├── hooks/
-│   ├── tipos/                    forma de las respuestas de la API
-│   └── utilidades/               fechas en hora de Lima, pesos de archivo…
+│   │   └── errores/              NoEncontrado (el 403 lo explica ErrorDeCarga, en componentes/Pagina)
+│   ├── hooks/                    useConsulta (cancela la petición anterior) y la medición del listado (indicador 7)
+│   ├── utilidades/               fechas en hora de Lima, pesos de archivo, resumen del historial…
+│   ├── pruebas/                  preparación de Vitest y una API simulada en memoria
+│   └── **/*.test.ts(x)           pruebas junto a lo que prueban: sesión, marco, documentos, cliente
+├── e2e/                          pruebas funcionales de punta a punta (E8)
+│   ├── *.spec.ts                 un caso por requisito, con su código RF en el título
+│   ├── apoyo.ts                  datos de partida por la API, inicio de sesión, correos
+│   ├── entorno.ts                puertos y carpeta desechable de cada ejecución
+│   └── informe.ts                escribe docs/evidencias/pruebas-funcionales.md
 ├── index.html
 ├── vercel.json                   redirección de la SPA y cabeceras de seguridad (CSP)
+├── playwright.config.ts          levanta la API y la compilación de producción para las pruebas funcionales
 ├── vite.config.ts
 ├── .env.example
 ├── package.json
@@ -166,8 +173,9 @@ En desarrollo: `typescript`, `tsx` (ejecutar TypeScript sin compilar), `vitest` 
 `@types/*`.
 
 npm 11 bloquea por defecto los scripts de instalación. En `package.json` quedan decididos uno a
-uno: se deniega el de `esbuild`, porque solo verifica un binario que ya llega instalado, y se permite el
-de `embedded-postgres`, que en Linux recrea los enlaces que necesitan sus binarios.
+uno: se deniega el de `esbuild`, porque solo verifica un binario que ya llega instalado, y se permiten
+los de `embedded-postgres` para Windows y para Linux, que recrean los enlaces que necesitan sus binarios.
+PostgreSQL no arranca como root: en Linux, las pruebas se ejecutan con un usuario normal.
 
 ### Frontend
 
@@ -178,7 +186,8 @@ de `embedded-postgres`, que en Linux recrea los enlaces que necesitan sus binari
 | `lucide-react` | Iconos |
 
 En desarrollo: `vite`, `@vitejs/plugin-react`, `tailwindcss` con `@tailwindcss/vite`, `typescript`,
-`vitest` y `@testing-library/react`.
+`vitest` con `jsdom` y la familia `@testing-library` (pruebas de pantallas), y para las pruebas
+funcionales `@playwright/test` con `@types/node` (E8). Ninguna llega al navegador del usuario.
 
 ### Lo que no se instala
 
@@ -282,6 +291,14 @@ Supabase, con la misma versión mayor.
 *Descartado:* PGlite (PostgreSQL compilado a WebAssembly). Se probó primero, y su servidor de sockets
 cierra la conexión tras cualquier error de SQL, justo el caso que más prueban estas pruebas. Tampoco se
 usaron Docker (fuera del alcance) ni el proyecto de Supabase (lento, compartido y con datos reales).
+
+**E8 · Pruebas funcionales con Playwright, contra la compilación de producción.** Cada requisito
+funcional tiene un caso que lo recorre en un Chromium real como lo haría una persona, contra la API con
+un PostgreSQL desechable y el frontend compilado para producción. Lo segundo importa: el fallo más
+grave de la Fase 7 (las primeras peticiones al recargar salían sin token) solo existía en esa
+compilación, porque en desarrollo StrictMode lo tapaba. El informe sale solo y es evidencia para la tesis.
+*Descartado:* Cypress (otra herramienta y otro estilo de pruebas para lo mismo), probar a mano con una
+planilla (no se repite igual dos veces) y probar contra `npm run dev` (habría pasado con el fallo dentro).
 
 **Validación en el controlador.** La Fase 0 preveía un middleware `validar`. Se descartó al construirlo:
 en Express 5, `req.query` es de solo lectura, así que el middleware tendría que dejar los datos validados

@@ -227,7 +227,7 @@ se suspende en vez de cobrar.
 | Recuperación de contraseña como oráculo de cuentas o puerta trasera | Misma respuesta y mismo tiempo exista o no el correo; token de 256 bits, de un solo uso, 60 minutos, guardado como huella SHA-256 y enviado en el fragmento del enlace; límite de peticiones por IP |
 | Inyección SQL | Solo consultas parametrizadas |
 | Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación |
-| Lectura de tablas por la API automática de Supabase | Data API desactivada y RLS activo en todas las tablas, con políticas solo para los roles propios de la API (D14, D17) |
+| Lectura de tablas por la API automática de Supabase | Data API desactivada; RLS activo en todas las tablas, con políticas solo para los roles propios de la API (D14, D17); y la migración 002 quita a `anon` y `authenticated` los permisos que Supabase les concede por defecto, también sobre las funciones, que RLS no cubre |
 | Secretos en el repositorio | Variables de entorno; `.env` ignorado por git; la clave secreta de Supabase y la de Brevo solo existen en Render; los datos del Master solo en el `.env` de quien ejecuta el script |
 | Manipulación del historial | Solo inserción, impuesto por un trigger (M4) |
 | Errores que revelan el interior | Manejador central: en producción, un 500 no lleva trazas ni SQL |
@@ -341,7 +341,9 @@ registro de caídas es evidencia externa de disponibilidad.
 **D14 · Supabase se usa como PostgreSQL y almacén, nada más.** Ni Supabase Auth, ni su API automática,
 ni Realtime. Se desactiva la Data API y, por si se reactivara, RLS está activo en cada tabla con
 políticas solo para los roles propios de la API (`app_empresa`, `app_plataforma`), de modo que nadie
-pueda leerlas por esa vía. De paso, la base es PostgreSQL estándar: cambiar de proveedor es cambiar una
+pueda leerlas por esa vía. RLS no protege las funciones: la migración 002 quita a los roles de esa API
+(`anon`, `authenticated`) lo que Supabase les concede por defecto, de modo que tampoco puedan llamar a
+las funciones de plataforma. De paso, la base es PostgreSQL estándar: cambiar de proveedor es cambiar una
 cadena de conexión.
 
 **D15 · Notificaciones dentro del sistema.** Una tabla que la interfaz consulta al navegar y al

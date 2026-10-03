@@ -13,6 +13,7 @@
     "start": "node dist/server.js",
     "migrar": "tsx --env-file-if-exists=.env scripts/migrar.ts",
     "crear-master": "tsx --env-file-if-exists=.env scripts/crear-master.ts",
+    "comprobar-despliegue": "tsx scripts/comprobar-despliegue.ts",
     "test": "vitest run",
     "typecheck": "tsc",
     "informe:aislamiento": "tsx scripts/informe-aislamiento.ts"
@@ -43,6 +44,7 @@
   },
   "allowScripts": {
     "esbuild": false,
-    "@embedded-postgres/windows-x64@17.10.0-beta.17": true
+    "@embedded-postgres/windows-x64@17.10.0-beta.17": true,
+    "@embedded-postgres/linux-x64@17.10.0-beta.17": true
   }
 }

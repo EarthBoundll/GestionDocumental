@@ -1,4 +1,4 @@
-import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { conectarSesion } from '../api/cliente';
 import { auth } from '../api/recursos';
@@ -8,6 +8,8 @@ const CLAVE = 'gestion-documental.sesion';
 
 interface ValorSesion {
   sesion: SesionIniciada | null;
+  /** La API dejó de aceptar la sesión (caducó, o se desactivó la cuenta o la empresa): se avisa al volver a entrar. */
+  caducada: boolean;
   esAdministrador: boolean;
   /** El Master no pertenece a ninguna empresa: su área es la plataforma. */
   esMaster: boolean;
@@ -39,48 +41,57 @@ function guardar(sesion: SesionIniciada | null): void {
 
 export function SesionProvider({ children }: { children: ReactNode }) {
   const [sesion, setSesion] = useState<SesionIniciada | null>(leerGuardada);
+  const [caducada, setCaducada] = useState(false);
   const navegar = useNavigate();
   const actual = useRef(sesion);
   actual.current = sesion;
 
-  const olvidar = useCallback(() => {
-    guardar(null);
-    setSesion(null);
+  // La referencia se actualiza en el acto, sin esperar al siguiente render: una respuesta que llegue justo
+  // después (el perfil, otra pantalla) no debe usar ni resucitar una sesión que ya se dio por terminada.
+  const cambiar = useCallback((nueva: SesionIniciada | null) => {
+    actual.current = nueva;
+    guardar(nueva);
+    setSesion(nueva);
   }, []);
+  const olvidar = useCallback(() => cambiar(null), [cambiar]);
 
-  // El cliente HTTP necesita el token y saber qué hacer si la API lo rechaza.
-  useEffect(() => {
+  // El cliente HTTP necesita el token y saber qué hacer si la API lo rechaza. Va en un efecto de diseño
+  // (useLayoutEffect) porque React ejecuta los efectos normales de los hijos antes que los del padre: con
+  // un useEffect, al recargar, las primeras peticiones de la pantalla saldrían sin token y recibirían 401.
+  // No se navega desde aquí: sin sesión, RutaConSesion lleva a iniciar sesión, y dos redirecciones a la
+  // vez pisarían el aviso.
+  useLayoutEffect(() => {
     conectarSesion({
       token: () => actual.current?.token ?? null,
       alCaducar: () => {
         olvidar();
-        navegar('/login?motivo=sesion', { replace: true });
+        setCaducada(true);
       },
     });
-  }, [navegar, olvidar]);
+  }, [olvidar]);
 
   // El nombre y el rol pueden haber cambiado desde que se inició la sesión (RN05): se refrescan al abrir.
   useEffect(() => {
-    if (!actual.current) return;
+    const inicial = actual.current;
+    if (!inicial) return;
     const control = new AbortController();
     auth.perfil(control.signal)
       .then((perfil: Perfil) => {
-        if (!actual.current) return;
-        const refrescada = { ...actual.current, ...perfil };
-        guardar(refrescada);
-        setSesion(refrescada);
+        // Solo si sigue siendo la misma sesión: entretanto pudo cerrarse o caducar.
+        if (actual.current?.token === inicial.token) cambiar({ ...inicial, ...perfil });
       })
       .catch(() => {});
     return () => control.abort();
-  }, []);
+  }, [cambiar]);
 
   const valor = useMemo<ValorSesion>(() => ({
     sesion,
+    caducada,
     esAdministrador: sesion?.usuario.rol === 'administrador',
     esMaster: sesion?.usuario.rol === 'master',
     iniciar(nueva) {
-      guardar(nueva);
-      setSesion(nueva);
+      cambiar(nueva);
+      setCaducada(false);
     },
     async cerrar() {
       // Se avisa a la API para que revoque la sesión (RF03); si no responde, se olvida igualmente aquí.
@@ -88,7 +99,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
       olvidar();
       navegar('/login', { replace: true });
     },
-  }), [sesion, navegar, olvidar]);
+  }), [sesion, caducada, navegar, cambiar, olvidar]);
 
   return <Contexto value={valor}>{children}</Contexto>;
 }

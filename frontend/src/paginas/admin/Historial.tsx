@@ -10,7 +10,7 @@ import { Campo, Selector } from '../../componentes/Campos';
 import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
-import { NOMBRES_DE_ACCIONES } from '../../utilidades/acciones';
+import { NOMBRES_DE_ACCIONES, resumirDetalle } from '../../utilidades/acciones';
 import { formatearFechaHora } from '../../utilidades/formato';
 import { NOMBRES_DE_ROLES } from '../../utilidades/roles';
 
@@ -99,36 +99,23 @@ function FilaDeHistorial({ asiento }: { asiento: Asiento }) {
   return (
     <li className="flex items-start gap-3 px-4 py-3 text-sm">
       <Dispositivo aria-label={asiento.esMovil ? 'Desde un móvil' : 'Desde un ordenador'} className="mt-0.5 size-4 shrink-0 text-slate-400" />
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2">
-          <Insignia tono={denegado ? 'peligro' : 'neutro'}>{NOMBRES_DE_ACCIONES[asiento.accion] ?? asiento.accion}</Insignia>
-          <span className="font-medium text-slate-900">{autorDe(asiento)}</span>
-          {asiento.rolUsuario && <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[asiento.rolUsuario]}</span>}
-        </p>
-        <Resumen asiento={asiento} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2">
+            <Insignia tono={denegado ? 'peligro' : 'neutro'}>{NOMBRES_DE_ACCIONES[asiento.accion] ?? asiento.accion}</Insignia>
+            <span className="font-medium text-slate-900">{autorDe(asiento)}</span>
+            {asiento.rolUsuario && <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[asiento.rolUsuario]}</span>}
+          </p>
+          <Resumen asiento={asiento} />
+        </div>
+        <time dateTime={asiento.creadoEn} className="shrink-0 text-xs whitespace-nowrap text-slate-500">{formatearFechaHora(asiento.creadoEn)}</time>
       </div>
-      <time dateTime={asiento.creadoEn} className="shrink-0 text-xs whitespace-nowrap text-slate-500">{formatearFechaHora(asiento.creadoEn)}</time>
     </li>
   );
 }
 
-/** Lo esencial del detalle de cada acción, en una línea legible. */
 function Resumen({ asiento }: { asiento: Asiento }) {
-  const detalle = asiento.detalle as Record<string, unknown>;
-  const partes: string[] = [];
-  if (typeof detalle.nombre === 'string') partes.push(`«${detalle.nombre}»`);
-  if (typeof detalle.documento === 'string') partes.push(`«${detalle.documento}»`);
-  if (detalle.filtros && typeof detalle.filtros === 'object') {
-    const { q } = detalle.filtros as { q?: string };
-    if (q) partes.push(`buscó «${q}»`);
-  }
-  if (typeof detalle.resultados === 'number') partes.push(`${detalle.resultados} resultados`);
-  if (typeof detalle.permiso === 'string') partes.push(`exigía ${detalle.permiso}${typeof detalle.ruta === 'string' ? ` en ${detalle.ruta}` : ''}`);
-  if (typeof detalle.motivo === 'string') partes.push(String(detalle.motivo).toLowerCase().replaceAll('_', ' '));
-  if (detalle.cambios && typeof detalle.cambios === 'object') {
-    const campos = Object.keys(detalle.cambios);
-    if (campos.length > 0) partes.push(`cambió ${campos.join(', ')}`);
-  }
+  const partes = resumirDetalle(asiento.detalle);
   if (partes.length === 0) return null;
-  return <p className="mt-1 text-slate-600">{partes.join(' · ')}</p>;
+  return <p className="mt-1 break-words text-slate-600">{partes.join(' · ')}</p>;
 }

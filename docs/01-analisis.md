@@ -209,7 +209,7 @@ empresa queda en el historial de esa empresa, con el rol `master` y sin los dato
 | `DOCUMENTO_SUBIDO` | se sube un documento | documento | nombre, categoría, tipo y peso |
 | `DOCUMENTO_EDITADO` | se cambian sus datos | documento | antes → después |
 | `DOCUMENTO_ELIMINADO` | se elimina | documento | — |
-| `DOCUMENTO_VISUALIZADO` · `DOCUMENTO_DESCARGADO` | la API entrega un enlace para verlo o descargarlo | documento | — |
+| `DOCUMENTO_VISUALIZADO` · `DOCUMENTO_DESCARGADO` | la API entrega un enlace para verlo o descargarlo | documento | nombre que tenía en ese momento |
 | `BUSQUEDA_REALIZADA` | se listan documentos con al menos un filtro | — | filtros y número de resultados |
 | `SOLICITUD_CREADA` | se pide aprobar un documento | solicitud | documento y comentario |
 | `SOLICITUD_APROBADA` · `SOLICITUD_RECHAZADA` | un administrador la resuelve | solicitud | comentario |

@@ -48,7 +48,7 @@ export function DetalleEmpresa() {
 
   return (
     <>
-      <Link to="/plataforma" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
+      <Link to="/plataforma" className="mb-1 -ml-1 inline-flex min-h-10 items-center gap-1 rounded-lg px-1 text-sm text-slate-600 hover:text-slate-900">
         <ArrowLeft aria-hidden className="size-4" /> Plataforma
       </Link>
       <EncabezadoDePagina

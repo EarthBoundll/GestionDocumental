@@ -6,15 +6,21 @@ import { inicioDe, NOMBRES_DE_ROLES } from '../utilidades/roles';
 import { Campana } from './Campana';
 import { Navegacion } from './Navegacion';
 
-function Marca() {
+/** El icono, el producto y la empresa. En la barra del celular no cabe todo: queda la empresa, que es lo que orienta. */
+function Marca({ compacta = false }: { compacta?: boolean }) {
   const { sesion } = useSesion();
+  const empresa = sesion?.empresa?.nombre ?? 'Administración de la plataforma';
   return (
-    <Link to={sesion ? inicioDe(sesion.usuario.rol) : '/'} className="flex items-center gap-3 rounded-lg px-1">
-      <img src="/icono.svg" alt="" className="size-9" />
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900">Gestión documental</p>
-        <p className="truncate text-xs text-slate-500">{sesion?.empresa?.nombre ?? 'Administración de la plataforma'}</p>
-      </div>
+    <Link to={sesion ? inicioDe(sesion.usuario.rol) : '/'} className="flex min-w-0 items-center gap-3 rounded-lg px-1">
+      <img src="/icono.svg" alt="" className={`shrink-0 ${compacta ? 'size-8' : 'size-9'}`} />
+      {compacta ? (
+        <p className="truncate text-sm font-semibold text-slate-900">{empresa}</p>
+      ) : (
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900">Gestión documental</p>
+          <p className="truncate text-xs text-slate-500">{empresa}</p>
+        </div>
+      )}
     </Link>
   );
 }
@@ -77,8 +83,8 @@ export function Layout() {
         <button type="button" onClick={() => setMenuAbierto(true)} aria-label="Abrir el menú" className="-ml-1 rounded-lg p-2.5 text-slate-600 hover:bg-slate-100 lg:hidden">
           <Menu aria-hidden className="size-5" />
         </button>
-        <div className="flex-1 lg:hidden">
-          <Marca />
+        <div className="min-w-0 flex-1 lg:hidden">
+          <Marca compacta />
         </div>
         <div className="ml-auto flex items-center gap-1">
           {/* El Master no tiene notificaciones: son de las solicitudes de una empresa. */}

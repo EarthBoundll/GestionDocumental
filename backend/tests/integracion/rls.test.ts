@@ -1,7 +1,9 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { accesoDe, accesoDeEmpresa, accesoDePlataforma } from '../../src/db/acceso.js';
-import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
+import { crearBaseDePruebas, DIRECTORIO_MIGRACIONES, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 
 /**
  * El aislamiento en la propia base (D17), probado sin pasar por la API: aunque una consulta olvide
@@ -190,6 +192,33 @@ describe('Aislamiento en la base: RLS y roles (D17, indicador 6)', () => {
       expect(() => accesoDe(db, { rol: 'usuario', empresaId: null })).toThrow();
       await expect(accesoDePlataforma(db).ejecutar((cliente) => cliente.query('SELECT 1 FROM documentos')))
         .rejects.toMatchObject({ code: '42501' });
+    });
+  });
+
+  describe('la API automática de Supabase (D14)', () => {
+    it('sus roles no ejecutan las funciones de plataforma ni leen tablas, aunque Supabase se lo conceda por defecto', async () => {
+      // Lo que hace Supabase al crear objetos en public: concederlos a anon y authenticated.
+      await db.query(`DO $$ BEGIN
+        CREATE ROLE anon NOLOGIN; EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; END $$`);
+      await db.query(`DO $$ BEGIN
+        CREATE ROLE authenticated NOLOGIN; EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; END $$`);
+      await db.query('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated');
+      await db.query('GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated');
+      const puede = async (rol: string, sql: string) => (await db.query(`SELECT ${sql} AS si`, [rol])).rows[0].si as boolean;
+      const ejecutar = (funcion: string) => `has_function_privilege($1, '${funcion}', 'EXECUTE')`;
+      expect(await puede('anon', ejecutar('revocar_sesiones_de_empresa(uuid)'))).toBe(true);
+
+      await db.query(await readFile(join(DIRECTORIO_MIGRACIONES, '002_cerrar_api_automatica.sql'), 'utf8'));
+
+      for (const rol of ['anon', 'authenticated']) {
+        expect(await puede(rol, ejecutar('revocar_sesiones_de_empresa(uuid)'))).toBe(false);
+        expect(await puede(rol, ejecutar('metricas_de_empresas()'))).toBe(false);
+        expect(await puede(rol, "has_table_privilege($1, 'documentos', 'SELECT')")).toBe(false);
+        expect(await puede(rol, "has_table_privilege($1, 'usuarios', 'UPDATE')")).toBe(false);
+      }
+      // Los roles de la API siguen pudiendo lo suyo.
+      expect(await puede('app_plataforma', ejecutar('revocar_sesiones_de_empresa(uuid)'))).toBe(true);
+      expect(await puede('app_empresa', "has_table_privilege($1, 'documentos', 'SELECT')")).toBe(true);
     });
   });
 });

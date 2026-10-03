@@ -51,7 +51,7 @@ export function RestablecerClave() {
     <PantallaDeAcceso
       titulo="Definir una contraseña nueva"
       subtitulo="El enlace sirve una sola vez y vale 60 minutos"
-      pie={<Link to="/login" className="font-medium text-marca-700 hover:underline">Ir a iniciar sesión</Link>}
+      pie={<Link to="/login" className="inline-block py-2 font-medium text-marca-700 hover:underline">Ir a iniciar sesión</Link>}
     >
       {hecho ? (
         <div className="space-y-4 text-center">
@@ -59,12 +59,12 @@ export function RestablecerClave() {
           <p role="status" className="text-sm text-slate-700">
             Tu contraseña se cambió y se cerraron tus sesiones abiertas. Ya puedes entrar con la nueva.
           </p>
-          <Link to="/login" className="inline-block font-medium text-marca-700 hover:underline">Iniciar sesión</Link>
+          <Link to="/login" className="inline-block py-2 font-medium text-marca-700 hover:underline">Iniciar sesión</Link>
         </div>
       ) : enlaceInvalido ? (
         <div className="space-y-4">
           <Aviso tipo="error">{error?.mensaje ?? 'El enlace está incompleto. Ábrelo tal como llegó en el correo.'}</Aviso>
-          <Link to="/recuperar-clave" className="inline-block text-sm font-medium text-marca-700 hover:underline">Pedir un enlace nuevo</Link>
+          <Link to="/recuperar-clave" className="inline-block py-2 text-sm font-medium text-marca-700 hover:underline">Pedir un enlace nuevo</Link>
         </div>
       ) : (
         <form onSubmit={(evento) => void enviar(evento)} className="space-y-4" noValidate>
