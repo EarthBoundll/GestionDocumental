@@ -27,11 +27,12 @@ services:
       # La URL del frontend en Vercel, cuando exista.
       - key: CORS_ORIGEN
         sync: false
-      # Valor provisional: confirmarlo en el primer despliegue con DIAGNOSTICO_RED (backend/README.md).
+      # Cloudflare y dos proxies de Render, comprobado con DIAGNOSTICO_RED (docs/07-despliegue.md §5).
+      # Si Render cambia su red, se vuelve a medir: DIAGNOSTICO_RED=true y /api/v1/salud/red.
       - key: PROXIES_DE_CONFIANZA
-        value: "1"
+        value: "3"
       - key: DIAGNOSTICO_RED
-        value: "true"
+        value: "false"
       # Archivos en Supabase Storage (D9): bucket privado «documentos».
       - key: ALMACENAMIENTO
         value: supabase
