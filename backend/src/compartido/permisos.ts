@@ -20,6 +20,7 @@ const PERMISOS = {
   VER_TODAS_LAS_SOLICITUDES: ['administrador'],
   RESOLVER_SOLICITUDES: ['administrador'],
   CONSULTAR_HISTORIAL: ['administrador'],
+  VER_TABLERO: ['administrador'],
   // Empresas, sus administradores y métricas de la plataforma.
   GESTIONAR_PLATAFORMA: ['master'],
 } as const satisfies Record<string, readonly Rol[]>;

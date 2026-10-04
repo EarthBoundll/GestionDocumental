@@ -47,7 +47,7 @@ describe('Marco común según el rol', () => {
     abrirComo('administrador', '/documentos');
 
     await screen.findByRole('heading', { name: 'Documentos', level: 1 });
-    expect(enlacesDelMenu()).toEqual(['Buscar documentos', 'Subir documento', 'Solicitudes', 'Notificaciones', 'Usuarios', 'Categorías', 'Historial', 'Papelera']);
+    expect(enlacesDelMenu()).toEqual(['Buscar documentos', 'Subir documento', 'Solicitudes', 'Notificaciones', 'Tablero', 'Usuarios', 'Categorías', 'Historial', 'Papelera']);
   });
 
   it('si un usuario abre una pantalla de administración, la API decide y la pantalla lo explica (D8)', async () => {

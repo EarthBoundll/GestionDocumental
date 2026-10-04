@@ -27,6 +27,8 @@ import { crearServicioPlataforma } from './modulos/plataforma/plataforma.servici
 import { crearRutasSalud } from './modulos/salud/salud.rutas.js';
 import { crearRutasSolicitudes } from './modulos/solicitudes/solicitudes.rutas.js';
 import { crearServicioSolicitudes } from './modulos/solicitudes/solicitudes.servicio.js';
+import { crearRutasTablero } from './modulos/tablero/tablero.rutas.js';
+import { crearServicioTablero } from './modulos/tablero/tablero.servicio.js';
 import { crearRutasTiempos } from './modulos/tiempos-respuesta/tiempos-respuesta.rutas.js';
 import { crearServicioTiempos } from './modulos/tiempos-respuesta/tiempos-respuesta.servicio.js';
 import { crearControladorUsuarios } from './modulos/usuarios/usuarios.controlador.js';
@@ -86,6 +88,7 @@ export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias
   app.use('/api/v1/notificaciones', crearRutasNotificaciones(empresa));
   app.use('/api/v1/historial', crearRutasHistorial(servicioHistorial, empresa, exigir));
   app.use('/api/v1/tiempos-respuesta', crearRutasTiempos(tiempos, empresa));
+  app.use('/api/v1/tablero', crearRutasTablero(crearServicioTablero(), empresa, exigir));
   if (almacenamiento instanceof AlmacenamientoEnDisco) app.use('/api/v1/archivos', almacenamiento.rutas());
 
   app.use(rutaNoEncontrada);

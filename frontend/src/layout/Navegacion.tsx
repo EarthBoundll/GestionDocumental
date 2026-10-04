@@ -1,4 +1,6 @@
-import { Bell, Building2, ClipboardCheck, FileText, History, ShieldCheck, Tags, Trash2, Upload, Users, type LucideIcon } from 'lucide-react';
+import {
+  Bell, Building2, ClipboardCheck, FileText, History, LayoutDashboard, ShieldCheck, Tags, Trash2, Upload, Users, type LucideIcon,
+} from 'lucide-react';
 import { NavLink, useLocation } from 'react-router';
 import type { Rol } from '../api/tipos';
 import { useSesion } from '../sesion/SesionContext';
@@ -42,6 +44,7 @@ const GRUPOS: { titulo: string; roles: readonly Rol[]; enlaces: Enlace[] }[] = [
     titulo: 'Administración',
     roles: ['administrador'],
     enlaces: [
+      { a: '/admin/tablero', texto: 'Tablero', icono: LayoutDashboard },
       { a: '/admin/usuarios', texto: 'Usuarios', icono: Users },
       { a: '/admin/categorias', texto: 'Categorías', icono: Tags },
       { a: '/admin/historial', texto: 'Historial', icono: History },

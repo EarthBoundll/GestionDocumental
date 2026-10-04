@@ -169,3 +169,27 @@ export interface MetricasDePlataforma extends Metricas {
   empresas: number;
   empresasActivas: number;
 }
+
+/** RF28: el tablero del administrador. */
+export interface Tablero {
+  periodo: { desde: string; hasta: string };
+  resumen: {
+    documentos: number; enPapelera: number; almacenamientoBytes: number; usuarios: number; usuariosActivos: number;
+    categoriasActivas: number; solicitudesPendientes: number;
+  };
+  indicadores: {
+    organizacion: { subidos: number; editados: number };
+    busqueda: { busquedas: number; listados: number };
+    recuperacion: {
+      documentosObtenidos: number; visualizaciones: number; descargas: number; busquedasConResultado: number;
+      porcentajeBusquedasConResultado: number | null;
+    };
+    historial: { acciones: number };
+    accesoRemoto: { sesionesDesdeMovil: number; intentosDesdeMovil: number; porcentajeExitoMovil: number | null; sesiones: number };
+    accesosPorRol: { denegados: number; porPermiso: { permiso: string; total: number }[] };
+    tiempoRespuesta: {
+      mediciones: number; servidorMediana: number | null; servidorP95: number | null; navegadorMediana: number | null; navegadorP95: number | null;
+    };
+  };
+  actividad: { dia: string; acciones: number }[];
+}

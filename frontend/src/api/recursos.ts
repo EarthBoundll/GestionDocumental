@@ -1,7 +1,7 @@
 import { api, descargar } from './cliente';
 import type {
   Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
-  Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Usuario,
+  Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Usuario,
 } from './tipos';
 
 // Una función por endpoint de docs/04-api.md, agrupadas por recurso.
@@ -101,6 +101,10 @@ export interface FiltrosHistorial {
 export const historial = {
   listar: (filtros: FiltrosHistorial, senal?: AbortSignal) => api<Pagina<Asiento>>('/historial', { consulta: { ...filtros }, senal }),
   exportar: (filtros: Omit<FiltrosHistorial, 'pagina'>) => descargar('/historial/exportar', { ...filtros }, 'historial.csv'),
+};
+
+export const tablero = {
+  obtener: (periodo: { desde?: string; hasta?: string }, senal?: AbortSignal) => api<Tablero>('/tablero', { consulta: { ...periodo }, senal }),
 };
 
 interface DatosDeAdministrador {

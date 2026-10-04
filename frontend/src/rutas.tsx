@@ -3,6 +3,7 @@ import { Layout } from './layout/Layout';
 import { Categorias } from './paginas/admin/Categorias';
 import { Historial } from './paginas/admin/Historial';
 import { Papelera } from './paginas/admin/Papelera';
+import { Tablero } from './paginas/admin/Tablero';
 import { Usuarios } from './paginas/admin/Usuarios';
 import { IniciarSesion } from './paginas/auth/IniciarSesion';
 import { RecuperarClave } from './paginas/auth/RecuperarClave';
@@ -52,6 +53,7 @@ export const rutas: RouteObject[] = [
               { path: '/solicitudes', element: <Solicitudes /> },
               { path: '/notificaciones', element: <Notificaciones /> },
               { path: '/cuenta', element: <MiCuenta /> },
+              { path: '/admin/tablero', element: <Tablero /> },
               { path: '/admin/usuarios', element: <Usuarios /> },
               { path: '/admin/categorias', element: <Categorias /> },
               { path: '/admin/historial', element: <Historial /> },
