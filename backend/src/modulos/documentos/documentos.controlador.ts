@@ -48,6 +48,10 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
     res.status(204).end();
   };
 
+  const actividad: RequestHandler = async (req, res) => {
+    res.json(await servicio.actividad(actorDe(req), idDeRuta(req), esquemaPaginacion.parse(req.query)));
+  };
+
   const archivo: RequestHandler = async (req, res) => {
     const id = idDeRuta(req);
     const { modo } = esquemaModoArchivo.parse(req.query);
@@ -67,5 +71,5 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
     res.status(204).end();
   };
 
-  return { listar, subir, obtener, editar, eliminar, archivo, papelera, restaurar, purgar };
+  return { listar, subir, obtener, actividad, editar, eliminar, archivo, papelera, restaurar, purgar };
 }

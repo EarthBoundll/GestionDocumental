@@ -1,6 +1,6 @@
 import { api, descargar } from './cliente';
 import type {
-  Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
+  ActividadDeDocumento, Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
   Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Usuario,
 } from './tipos';
 
@@ -33,6 +33,8 @@ export const documentos = {
   editar: (id: string, cambios: Partial<{ nombre: string; categoriaId: string; fechaDocumento: string; descripcion: string | null }>) =>
     api<Documento>(`/documentos/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   eliminar: (id: string) => api<void>(`/documentos/${id}`, { metodo: 'DELETE' }),
+  actividad: (id: string, porPagina: number, senal?: AbortSignal) =>
+    api<Pagina<ActividadDeDocumento>>(`/documentos/${id}/actividad`, { consulta: { porPagina }, senal }),
   enlace: (id: string, modo: 'ver' | 'descargar') => api<{ url: string; expiraEn: string }>(`/documentos/${id}/archivo`, { consulta: { modo } }),
   solicitarAprobacion: (id: string, comentario: string) =>
     api<Solicitud>(`/documentos/${id}/solicitudes`, { metodo: 'POST', cuerpo: { comentario } }),

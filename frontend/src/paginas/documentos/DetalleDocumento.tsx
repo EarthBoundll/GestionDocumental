@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, ClipboardCheck, Download, Eye, FileQuestion, Pencil, Trash2, X } from 'lucide-react';
+import { Check, ClipboardCheck, Download, Eye, FileQuestion, Pencil, Trash2, X } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
@@ -8,19 +8,25 @@ import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton, clasesDeBoton } from '../../componentes/Boton';
 import { AreaTexto, Campo, Selector } from '../../componentes/Campos';
 import { InsigniaDeEstado } from '../../componentes/Insignia';
+import { Migas } from '../../componentes/Migas';
 import { Modal } from '../../componentes/Modal';
 import { ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
+import { useSesion } from '../../sesion/SesionContext';
 import { abrirArchivo } from '../../utilidades/archivos';
 import { formatearFecha, formatearFechaHora, formatearPeso, nombreDeTipo } from '../../utilidades/formato';
+import { ActividadDelDocumento } from './ActividadDelDocumento';
 
 type Dialogo = 'editar' | 'eliminar' | 'solicitar' | 'aprobar' | 'rechazar' | null;
 
 export function DetalleDocumento() {
   const { id = '' } = useParams();
   const consulta = useConsulta((senal) => documentos.obtener(id, senal), [id]);
+  const { esAdministrador } = useSesion();
   const [dialogo, setDialogo] = useState<Dialogo>(null);
   const [aviso, setAviso] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(null);
+  // Cada acción sobre el documento añade un paso a su actividad: al cambiar, la línea de tiempo se vuelve a pedir.
+  const [pasosNuevos, setPasosNuevos] = useState(0);
 
   if (consulta.error?.estado === 404) {
     return (
@@ -37,24 +43,26 @@ export function DetalleDocumento() {
   const terminar = (texto: string) => {
     setDialogo(null);
     setAviso({ tipo: 'exito', texto });
+    setPasosNuevos((n) => n + 1);
     consulta.recargar();
   };
   const abrir = (modo: 'ver' | 'descargar') =>
-    void abrirArchivo(documento.id, modo).catch((error: ErrorApi) => setAviso({ tipo: 'error', texto: error.mensaje }));
+    void abrirArchivo(documento.id, modo)
+      .then(() => setPasosNuevos((n) => n + 1))
+      .catch((error: ErrorApi) => setAviso({ tipo: 'error', texto: error.mensaje }));
 
   return (
     <>
-      <Link to="/documentos" className="mb-2 -ml-1 inline-flex min-h-10 items-center gap-1 rounded-lg px-1 text-sm text-slate-600 hover:text-slate-900">
-        <ArrowLeft aria-hidden className="size-4" /> Documentos
-      </Link>
+      <Migas pasos={[
+        { texto: 'Documentos', a: '/documentos' },
+        { texto: documento.categoria.nombre, a: `/documentos?categoriaId=${documento.categoria.id}` },
+        { texto: documento.nombre },
+      ]} />
 
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold break-words text-slate-900 sm:text-2xl">{documento.nombre}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-            <span>{documento.categoria.nombre}</span>
-            {documento.ultimaSolicitud && <InsigniaDeEstado estado={documento.ultimaSolicitud.estado} />}
-          </div>
+          {documento.ultimaSolicitud && <div className="mt-2"><InsigniaDeEstado estado={documento.ultimaSolicitud.estado} /></div>}
         </div>
         <div className="flex flex-wrap gap-2">
           <Boton icono={Eye} onClick={() => abrir('ver')}>Ver</Boton>
@@ -96,6 +104,8 @@ export function DetalleDocumento() {
           </div>
         </Tarjeta>
       </div>
+
+      <ActividadDelDocumento key={pasosNuevos} documentoId={documento.id} conConsultas={esAdministrador} />
 
       {dialogo === 'editar' && <DialogoEditar documento={documento} alCerrar={() => setDialogo(null)} alGuardar={() => terminar('Los cambios se guardaron.')} />}
       {dialogo === 'eliminar' && <DialogoEliminar documento={documento} alCerrar={() => setDialogo(null)} />}

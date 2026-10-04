@@ -37,10 +37,10 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 
 | Dónde | Comando | Qué prueba |
 |---|---|---|
-| `backend/` | `npm test` | 288 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS, aislamiento endpoint por endpoint, papelera, bloqueo por cuenta y la ida y vuelta de un respaldo |
+| `backend/` | `npm test` | 298 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad de cada documento y la ida y vuelta de un respaldo |
 | `backend/` | `npm run informe:aislamiento` | La batería A contra B, con su informe en [`docs/evidencias/`](docs/evidencias/aislamiento-entre-empresas.md) (indicador 6) |
-| `frontend/` | `npm test` | 42 pruebas de pantallas, sesión, roles y cliente HTTP |
-| `frontend/` | `npm run pruebas:funcionales` | Los 29 requisitos en un navegador real (32 casos, 39 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
+| `frontend/` | `npm test` | 48 pruebas de pantallas, sesión, roles y cliente HTTP |
+| `frontend/` | `npm run pruebas:funcionales` | Los 30 requisitos en un navegador real (33 casos, 41 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
 | `frontend/` | `npm run pruebas:demo` | El guion de la sustentación: los casos marcados `@demo`, en un navegador visible y a velocidad de lectura |
 
 GitHub Actions ejecuta las tres primeras filas y las funcionales en cada push a `main` y en cada pull

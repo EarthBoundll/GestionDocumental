@@ -60,6 +60,35 @@ describe('Tablero del administrador (RF28)', () => {
     expect(respuesta.body.actividad.at(-1).acciones).toBe(indicadores.historial.acciones);
   });
 
+  it('muestra el flujo de aprobación del periodo y las últimas acciones de la empresa, lo más reciente primero', async () => {
+    const { token: admin, empresa } = await registrarEmpresa(app);
+    const persona = await crearUsuarioEn(pool, empresa.id);
+    const usuario = await iniciarSesion(app, persona.email);
+    const categoriaId = (await request(app).get('/api/v1/categorias').set(conToken(admin))).body.datos[0].id;
+    for (const [nombre, decision] of [['Contrato', 'aprobada'], ['Cotización', 'rechazada'], ['Factura', null]] as const) {
+      const subida = await request(app).post('/api/v1/documentos').set(conToken(usuario))
+        .field('nombre', nombre).field('categoriaId', categoriaId).field('fechaDocumento', '2026-09-01')
+        .attach('archivo', PDF, 'documento.pdf');
+      const solicitud = await request(app).post(`/api/v1/documentos/${subida.body.id}/solicitudes`).set(conToken(usuario)).send({});
+      if (decision) {
+        await request(app).post(`/api/v1/solicitudes/${solicitud.body.id}/resolucion`).set(conToken(admin))
+          .send({ decision, comentario: decision === 'rechazada' ? 'Falta la firma' : '' });
+      }
+    }
+    // Lo de otra empresa no aparece entre las últimas acciones.
+    const otra = await registrarEmpresa(app);
+    await request(app).get('/api/v1/documentos').query({ q: 'ajena' }).set(conToken(otra.token));
+
+    const respuesta = await tablero(admin);
+
+    expect(respuesta.body.aprobacion).toEqual({ solicitadas: 3, aprobadas: 1, rechazadas: 1 });
+    expect(respuesta.body.resumen.solicitudesPendientes).toBe(1);
+    const recientes = respuesta.body.recientes as { accion: string; usuario: { id: string } | null; empresa: { id: string } }[];
+    expect(recientes).toHaveLength(8);
+    expect(recientes.map((a) => a.accion).slice(0, 3)).toEqual(['SOLICITUD_CREADA', 'DOCUMENTO_SUBIDO', 'SOLICITUD_RECHAZADA']);
+    expect(recientes.every((a) => a.empresa.id === empresa.id)).toBe(true);
+  });
+
   it('un periodo sin actividad da ceros y porcentajes nulos, no divisiones entre cero', async () => {
     const { token: admin } = await registrarEmpresa(app);
 
@@ -69,6 +98,7 @@ describe('Tablero del administrador (RF28)', () => {
     expect(respuesta.body.indicadores.recuperacion.porcentajeBusquedasConResultado).toBeNull();
     expect(respuesta.body.indicadores.accesoRemoto.porcentajeExitoMovil).toBeNull();
     expect(respuesta.body.actividad.map((dia: { acciones: number }) => dia.acciones)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(respuesta.body.aprobacion).toEqual({ solicitadas: 0, aprobadas: 0, rechazadas: 0 });
   });
 
   it('valida el periodo (400) y solo lo ve el administrador (403 registrado)', async () => {

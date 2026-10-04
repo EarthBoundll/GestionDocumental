@@ -54,7 +54,8 @@ test.describe('Aprobación de un nivel y notificaciones', () => {
 
     await entrar(page, ana);
     await page.goto(`/documentos/${id}`);
-    await expect(page.getByText('Falta el sello del proveedor')).toBeVisible();
+    // El motivo está en la tarjeta de aprobación (y también en la actividad del documento, RF30).
+    await expect(page.locator('blockquote').filter({ hasText: 'Falta el sello del proveedor' })).toBeVisible();
     await page.getByRole('button', { name: 'Solicitar aprobación' }).click();
     await page.getByRole('button', { name: 'Enviar solicitud' }).click();
     await expect(page.getByText('La solicitud se envió')).toBeVisible();

@@ -52,6 +52,13 @@ const NOMBRES_DE_CAMPOS: Record<string, string> = {
 
 const legible = (codigo: string) => codigo.toLowerCase().replaceAll('_', ' ');
 
+/** «cambió nombre, categoría», si el asiento trae cambios. */
+function camposCambiados(detalle: Record<string, unknown>): string | null {
+  if (!detalle.cambios || typeof detalle.cambios !== 'object') return null;
+  const campos = Object.keys(detalle.cambios).map((campo) => NOMBRES_DE_CAMPOS[campo] ?? campo);
+  return campos.length > 0 ? `cambió ${campos.join(', ')}` : null;
+}
+
 /** Lo esencial del detalle de un asiento, en frases cortas: qué documento, qué buscó, qué cambió… */
 export function resumirDetalle(detalle: Record<string, unknown>): string[] {
   const partes: string[] = [];
@@ -70,10 +77,8 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
   if (typeof detalle.archivo === 'string' && typeof detalle.bytes === 'number') partes.push(formatearPeso(detalle.bytes));
   if (typeof detalle.filas === 'number') partes.push(contar(detalle.filas, 'fila exportada', 'filas exportadas'));
   if (typeof detalle.comentario === 'string' && detalle.comentario) partes.push(`comentario: «${detalle.comentario}»`);
-  if (detalle.cambios && typeof detalle.cambios === 'object') {
-    const campos = Object.keys(detalle.cambios).map((campo) => NOMBRES_DE_CAMPOS[campo] ?? campo);
-    if (campos.length > 0) partes.push(`cambió ${campos.join(', ')}`);
-  }
+  const cambio = camposCambiados(detalle);
+  if (cambio) partes.push(cambio);
   if (detalle.restringida === true) partes.push('restringida');
   if (Array.isArray(detalle.autorizados) && detalle.autorizados.length > 0) partes.push(`para ${detalle.autorizados.join(', ')}`);
   if (detalle.accesos && typeof detalle.accesos === 'object') {
@@ -91,4 +96,41 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
     partes.push(contar(detalle.sesionesCerradas, 'sesión cerrada', 'sesiones cerradas'));
   }
   return partes;
+}
+
+/** Cómo se cuenta cada paso en la línea de tiempo de un documento: «Ana lo aprobó». */
+const FRASES_DE_ACTIVIDAD: Record<string, string> = {
+  DOCUMENTO_SUBIDO: 'subió el documento',
+  DOCUMENTO_EDITADO: 'lo editó',
+  DOCUMENTO_ELIMINADO: 'lo eliminó',
+  DOCUMENTO_RESTAURADO: 'lo restauró de la papelera',
+  SOLICITUD_CREADA: 'pidió aprobarlo',
+  SOLICITUD_APROBADA: 'lo aprobó',
+  SOLICITUD_RECHAZADA: 'lo rechazó',
+  DOCUMENTO_VISUALIZADO: 'lo vio',
+  DOCUMENTO_DESCARGADO: 'lo descargó',
+};
+
+/** Qué intentó quien no podía, según la operación que registró la API. */
+const INTENTOS_DENEGADOS: Record<string, string> = {
+  EDITAR_DOCUMENTO: 'intentó editarlo sin permiso',
+  ELIMINAR_DOCUMENTO: 'intentó eliminarlo sin permiso',
+  SOLICITAR_APROBACION: 'intentó pedir su aprobación sin ser el autor',
+  RESOLVER_SOLICITUD: 'intentó resolver su propia solicitud',
+};
+
+export function fraseDeActividad(accion: string, detalle: Record<string, unknown>): string {
+  if (accion === 'ACCESO_DENEGADO') {
+    return INTENTOS_DENEGADOS[String(detalle.operacion)] ?? 'intentó una acción sin permiso';
+  }
+  return FRASES_DE_ACTIVIDAD[accion] ?? (NOMBRES_DE_ACCIONES[accion] ?? accion).toLowerCase();
+}
+
+/** Lo que añade cada paso, sin repetir el nombre del documento: qué cambió y con qué comentario. */
+export function detalleDeActividad(detalle: Record<string, unknown>): string | null {
+  const partes: string[] = [];
+  const cambio = camposCambiados(detalle);
+  if (cambio) partes.push(cambio);
+  if (typeof detalle.comentario === 'string' && detalle.comentario) partes.push(`«${detalle.comentario}»`);
+  return partes.length > 0 ? partes.join(' · ') : null;
 }

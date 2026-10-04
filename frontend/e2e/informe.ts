@@ -8,7 +8,7 @@ import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/tes
  * escritorio y en el celular, y qué requisitos de docs/01-analisis.md §3 quedaron sin caso.
  */
 const DESTINO = fileURLToPath(new URL('../../docs/evidencias/pruebas-funcionales.md', import.meta.url));
-const REQUISITOS = Array.from({ length: 29 }, (_, i) => `RF${String(i + 1).padStart(2, '0')}`);
+const REQUISITOS = Array.from({ length: 30 }, (_, i) => `RF${String(i + 1).padStart(2, '0')}`);
 
 interface Fila {
   requisitos: string[];

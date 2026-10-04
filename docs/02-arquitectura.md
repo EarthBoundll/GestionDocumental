@@ -460,6 +460,15 @@ funcionales con Playwright, y guarda el informe como artefacto. Render y Vercel 
 *Descartado:* un pipeline que también despliegue (es el «CI/CD complejo» que CLAUDE.md deja fuera) y no
 tener ninguno (las pruebas dependerían de acordarse de ejecutarlas).
 
+**D27 · La actividad de un documento sale del historial, según quién mira.** La ficha muestra la línea de
+tiempo del documento (RF30): sus asientos y los de sus solicitudes, sin tablas ni registros nuevos. Todos
+ven su ciclo de vida; quien puede consultar el historial ve además quién lo vio y lo descargó. Solo se
+entrega de un documento que el actor ve, así que respeta el aislamiento y las categorías restringidas
+sin reglas nuevas. Para que las tablas que vengan (versiones, identidad) no lleguen sin su política, una
+prueba recorre el catálogo y exige RLS y la política de aislamiento en toda tabla con `empresa_id`.
+*Descartado:* una tabla de eventos propia (duplicaría el historial) y mostrar todo a todos (la ficha se
+volvería una vigilancia entre compañeros: quién abrió qué y cuándo).
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

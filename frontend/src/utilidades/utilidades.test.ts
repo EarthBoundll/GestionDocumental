@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NOMBRES_DE_ACCIONES, resumirDetalle } from './acciones';
+import { detalleDeActividad, fraseDeActividad, NOMBRES_DE_ACCIONES, resumirDetalle } from './acciones';
 import { problemaConArchivo } from './archivos';
 import { contar, formatearFecha, formatearFechaHora, formatearPeso, nombreDeTipo, nombreSugerido } from './formato';
 import { destinoTrasEntrar, inicioDe } from './roles';
@@ -88,6 +88,25 @@ describe('historial', () => {
   it('las sesiones cerradas solo se mencionan si hubo alguna', () => {
     expect(resumirDetalle({ nombre: 'Ana', sesionesCerradas: 0 })).toEqual(['«Ana»']);
     expect(resumirDetalle({ nombre: 'Ana', sesionesCerradas: 2 })).toEqual(['«Ana»', '2 sesiones cerradas']);
+  });
+});
+
+describe('actividad de un documento (RF30)', () => {
+  it('cuenta cada paso como una frase con sujeto: «Ana lo aprobó»', () => {
+    expect(fraseDeActividad('DOCUMENTO_SUBIDO', {})).toBe('subió el documento');
+    expect(fraseDeActividad('SOLICITUD_RECHAZADA', {})).toBe('lo rechazó');
+    expect(fraseDeActividad('DOCUMENTO_DESCARGADO', {})).toBe('lo descargó');
+  });
+
+  it('un acceso denegado dice qué se intentó, y si no lo sabe, no lo inventa', () => {
+    expect(fraseDeActividad('ACCESO_DENEGADO', { operacion: 'EDITAR_DOCUMENTO' })).toBe('intentó editarlo sin permiso');
+    expect(fraseDeActividad('ACCESO_DENEGADO', { operacion: 'OTRA' })).toBe('intentó una acción sin permiso');
+  });
+
+  it('el detalle dice qué cambió y con qué comentario, sin repetir el nombre del documento', () => {
+    expect(detalleDeActividad({ nombre: 'Contrato', categoria: 'Contratos' })).toBeNull();
+    expect(detalleDeActividad({ cambios: { nombre: {}, categoriaId: {} } })).toBe('cambió nombre, categoría');
+    expect(detalleDeActividad({ documento: 'Contrato', comentario: 'Falta la firma' })).toBe('«Falta la firma»');
   });
 });
 

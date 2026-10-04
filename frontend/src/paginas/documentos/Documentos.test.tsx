@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it } from 'vitest';
@@ -77,6 +77,49 @@ describe('Documentos', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'Este documento no existe' })).toBeInTheDocument();
+  });
+
+  it('la ficha cuenta la actividad del documento, lo más reciente primero (RF30)', async () => {
+    const { peticiones } = abrir('/documentos/doc-1', {
+      'GET /documentos/:id': {
+        cuerpo: {
+          ...CONTRATO,
+          descripcion: null,
+          archivo: { ...CONTRATO.archivo, nombreOriginal: 'contrato.pdf' },
+          actualizadoEn: CONTRATO.creadoEn,
+          ultimaSolicitud: null,
+          permisos: { editar: true, eliminar: true, solicitarAprobacion: true, resolverSolicitud: false },
+        },
+      },
+      'GET /documentos/:id/actividad': {
+        cuerpo: {
+          datos: [
+            { id: '3', accion: 'SOLICITUD_APROBADA', usuario: { id: 'id-admin', nombre: 'Rosa Quispe' }, rolUsuario: 'administrador', detalle: { comentario: 'Conforme' }, esMovil: true, creadoEn: '2026-10-03T15:00:00Z' },
+            { id: '2', accion: 'DOCUMENTO_EDITADO', usuario: { id: 'id-usuario', nombre: 'Ana Torres' }, rolUsuario: 'usuario', detalle: { cambios: { nombre: {} } }, esMovil: false, creadoEn: '2026-10-02T15:00:00Z' },
+            { id: '1', accion: 'DOCUMENTO_SUBIDO', usuario: { id: 'id-usuario', nombre: 'Ana Torres' }, rolUsuario: 'usuario', detalle: { nombre: 'Contrato' }, esMovil: false, creadoEn: '2026-10-02T14:35:16Z' },
+          ],
+          paginacion: { pagina: 1, porPagina: 10, total: 3 },
+        },
+      },
+    });
+
+    const lista = await screen.findByRole('list', { name: 'Actividad del documento' });
+    const pasos = Array.from(lista.querySelectorAll('li')).map((paso) => paso.textContent);
+    expect(pasos[0]).toContain('Rosa Quispe lo aprobó');
+    expect(pasos[0]).toContain('«Conforme»');
+    expect(pasos[0]).toContain('desde un celular');
+    expect(pasos[1]).toContain('Ana Torres lo editó');
+    expect(pasos[1]).toContain('cambió nombre');
+    expect(pasos[2]).toContain('Ana Torres subió el documento');
+    // Una persona sin el historial no ve quién lo consultó: la pantalla no se lo promete.
+    expect(screen.queryByText(/quién lo vio/)).not.toBeInTheDocument();
+    expect(peticiones.find((p) => p.ruta === '/documentos/doc-1/actividad')!.consulta.get('porPagina')).toBe('10');
+    expect(screen.queryByRole('button', { name: /Ver más/ })).not.toBeInTheDocument();
+    // La ruta lleva de vuelta al listado, o al listado de su categoría (RF10).
+    const ruta = screen.getByRole('navigation', { name: 'Ruta' });
+    expect(within(ruta).getByRole('link', { name: 'Documentos' })).toHaveAttribute('href', '/documentos');
+    expect(within(ruta).getByRole('link', { name: 'Contratos' })).toHaveAttribute('href', '/documentos?categoriaId=cat-contratos');
+    expect(within(ruta).getByText('Contrato de alquiler del local')).toHaveAttribute('aria-current', 'page');
   });
 
   it('al subir, propone el nombre del archivo y lo envía con su categoría y fecha', async () => {

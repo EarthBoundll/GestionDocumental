@@ -171,11 +171,20 @@ permisos dentro de una empresa.
 - Respaldo nocturno de la base con restauración probada
 - Bloqueo por cuenta tras contraseñas incorrectas
 
+**Añadido tras la segunda auditoría (octubre de 2026):**
+
+- Actividad de cada documento en su ficha, y tablero con flujo de aprobación y actividad reciente (hecho)
+- Identidad visual por empresa reducida: nombre comercial, logo y un color primario; solo la cambian el
+  Administrador de Empresa y el Master (siguiente fase)
+- Modo oscuro, elegido por cada persona y guardado en su cuenta (siguiente fase, con la identidad visual)
+
 **Postergado — solo si sobra tiempo al final:**
 
 - Etiquetas de documentos además de las categorías
-- Versionado de documentos, personalización visual por empresa (logo, colores, nombre comercial) y
-  reportes, que la auditoría clasificó como deseables
+- Versionado de documentos (5,5 días; si no cabe antes del congelamiento, va a la tesis como trabajo
+  futuro) y reportes
+- Color secundario y favicon por empresa, favoritos y búsquedas recientes, que la segunda auditoría
+  descartó
 
 ## Stack
 
@@ -264,6 +273,10 @@ días; se restaura con un script en una base vacía, y el Master no puede descar
 
 **Integración continua sin despliegue.** GitHub Actions ejecuta las pruebas en cada push y pull request; Render y
 Vercel siguen desplegando solos (D26). Se descartó un pipeline que despliegue: es el CI/CD complejo que queda fuera.
+
+**La actividad de un documento sale del historial, según quién mira.** La ficha muestra su línea de tiempo sin
+tablas nuevas: todos ven el ciclo de vida, quien consulta el historial ve además vistas y descargas (D27). Se descartó
+mostrar todo a todos: la ficha sería una vigilancia entre compañeros.
 
 **La preprueba mide el proceso actual; el sistema se congela antes de la capacitación.** El diseño es O1 → X → O2 y la
 preprueba no usa el sistema, así que puede adelantarse; desde la capacitación hasta terminar la posprueba el sistema no

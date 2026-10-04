@@ -7,6 +7,7 @@ import type { Pagina, Paginacion } from '../../compartido/paginacion.js';
 import { empresaDe, type Actor, type UsuarioAutenticado } from '../../compartido/peticion.js';
 import { tienePermiso } from '../../compartido/permisos.js';
 import { identificarTipo } from '../../compartido/tipos-de-archivo.js';
+import { actividadDeDocumento, type ActividadDeDocumento } from '../historial/historial.consulta.js';
 import { autorDe, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
 import type { CambiosDocumento, FiltrosBusqueda, NuevoDocumento } from './documentos.esquemas.js';
 import {
@@ -155,6 +156,19 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
     async obtener(actor: Actor, id: string): Promise<Documento & { permisos: Permisos }> {
       const documento = await documentoVigente(actor, id);
       return { ...publico(documento), permisos: permisosSobre(actor.autenticacion.usuario, documento) };
+    },
+
+    /**
+     * La línea de tiempo de la ficha: el indicador 4, documento por documento. Solo de un documento que el
+     * actor ve, así que respeta el aislamiento y las categorías restringidas. Consultarla no se registra,
+     * igual que ver la ficha (docs/01-analisis.md §7).
+     */
+    async actividad(actor: Actor, id: string, paginacion: Paginacion): Promise<Pagina<ActividadDeDocumento>> {
+      await documentoVigente(actor, id);
+      const conConsultas = tienePermiso(actor.autenticacion.usuario.rol, 'CONSULTAR_HISTORIAL');
+      const { filas, total } = await actor.datos.ejecutar((db) =>
+        actividadDeDocumento(db, empresaDe(actor), id, { conConsultas, paginacion }));
+      return { datos: filas, paginacion: { ...paginacion, total } };
     },
 
     async editar(actor: Actor, id: string, propuesta: CambiosDocumento): Promise<Documento> {
