@@ -27,6 +27,8 @@ Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CL
 | [06 · Migración a v2](06-migracion-v2.md) | El diagnóstico de la v1 frente a la v2, las decisiones A–G y el plan que se siguió |
 | [07 · Despliegue](07-despliegue.md) | Supabase, Brevo, Render y Vercel paso a paso, la creación del Master, el monitor y las tareas programadas, cómo restaurar un respaldo, la comprobación, la integración continua y qué hacer durante la evaluación |
 | [08 · Indicadores](08-indicadores.md) | Las consultas que sacan del sistema cada uno de los siete indicadores al cerrar una sesión de evaluación |
+| [09 · Protocolo de evaluación](09-protocolo-evaluacion.md) | Borrador para el asesor: diseño, participantes, materiales, sesiones, la tarea de cada indicador con su inicio y su fin, sesgos, ficha de observación y análisis |
+| [10 · Consentimiento informado](10-consentimiento-informado.md) | La hoja que firma cada participante, con la transferencia de datos a EE. UU., y la autorización de la empresa |
 | [Evidencias: aislamiento](evidencias/aislamiento-entre-empresas.md) | Informe de aislamiento entre empresas, generado por `npm run informe:aislamiento` (indicador 6) |
 | [Evidencias: pruebas funcionales](evidencias/pruebas-funcionales.md) | Cada requisito funcional probado en un navegador real, en escritorio y celular, generado por `npm run pruebas:funcionales` |
 
@@ -51,11 +53,12 @@ solo aparecen al desplegar. Con la v2 se aprobaron las decisiones A–G de
 
 ## Pendiente de decidir o de hacer
 
-1. **Rotar las claves** que pasaron por una conversación (Brevo, Supabase) desde sus paneles, y cambiar la
-   contraseña temporal del Master en *Mi cuenta*.
-2. **La prueba de humo con personas** de [07 · Despliegue §8](07-despliegue.md): subir desde un celular y
-   recibir el correo de recuperación.
-3. **Una o varias MYPEs en la evaluación.** No cambia el diseño, pero sí cómo se preparan los datos.
-4. **El protocolo de la preprueba y la posprueba:** las tareas cronometradas, la lista de documentos que
-   se pedirán (indicador 3) y el guion de acciones (indicador 4). El sistema mide; qué se le pide a cada
-   persona lo fija el protocolo.
+1. **Los datos de la evaluación:** cuántas MYPEs, cuántos participantes, las fechas y si habrá un periodo
+   de uso antes de la posprueba. Es lo marcado **[Por definir]** en [09 · Protocolo](09-protocolo-evaluacion.md).
+2. **Revisar el protocolo y el consentimiento con el asesor**, y probarlos en el piloto con una persona
+   fuera de la muestra.
+3. **El procedimiento de cierre del estudio:** eliminar los datos de la empresa evaluada en la fecha que
+   promete el consentimiento. El historial es inmutable para la aplicación (RN17), así que hace falta un
+   procedimiento manual del dueño de la base, escrito y probado antes de la preprueba.
+4. **La prueba de humo con personas** de [07 · Despliegue §8](07-despliegue.md): subir desde un celular y
+   recibir el correo de recuperación. Va en el congelamiento, antes de la capacitación.

@@ -265,6 +265,11 @@ días; se restaura con un script en una base vacía, y el Master no puede descar
 **Integración continua sin despliegue.** GitHub Actions ejecuta las pruebas en cada push y pull request; Render y
 Vercel siguen desplegando solos (D26). Se descartó un pipeline que despliegue: es el CI/CD complejo que queda fuera.
 
+**La preprueba mide el proceso actual; el sistema se congela antes de la capacitación.** El diseño es O1 → X → O2 y la
+preprueba no usa el sistema, así que puede adelantarse; desde la capacitación hasta terminar la posprueba el sistema no
+cambia (etiqueta de versión y respaldo restaurado). Se descartó congelar desde la preprueba: frenaba el desarrollo sin
+proteger ninguna medición (`docs/09-protocolo-evaluacion.md`).
+
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.
 
