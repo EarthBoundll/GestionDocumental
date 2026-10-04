@@ -16,7 +16,8 @@ export function Migas({ pasos }: { pasos: PasoDeRuta[] }) {
     <nav aria-label="Ruta" className="mb-2 text-sm">
       <ol className="flex min-w-0 flex-wrap items-center gap-x-1 text-slate-600">
         {pasos.map((paso, indice) => (
-          <li key={paso.texto + indice} className="flex min-w-0 items-center gap-1">
+          // En el celular, la pantalla actual no se repite: es el título que va justo debajo.
+          <li key={paso.texto + indice} className={`min-w-0 items-center gap-1 ${paso.a ? 'flex' : 'hidden sm:flex'}`}>
             {indice > 0 && <ChevronRight aria-hidden className="size-4 shrink-0 text-slate-400" />}
             {paso.a ? (
               <Link to={paso.a} className="inline-flex min-h-10 items-center rounded px-1 hover:text-slate-900">{paso.texto}</Link>
