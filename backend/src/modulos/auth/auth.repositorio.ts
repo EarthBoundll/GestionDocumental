@@ -187,3 +187,24 @@ export async function consumirRecuperacion(db: Consultor, tokenHash: string): Pr
   );
   return rows[0] ? aUsuario(rows[0]) : null;
 }
+
+/**
+ * Las contraseñas incorrectas recientes para un correo (RN27), exista o no la cuenta. Un acceso correcto
+ * o un restablecimiento por correo ponen la cuenta a cero; los intentos rechazados por el propio
+ * bloqueo no cuentan, para que el bloqueo termine solo.
+ */
+export async function fallosRecientes(db: Consultor, email: string, usuarioId: string | null, minutos: number): Promise<number> {
+  const { rows } = await db.query<{ fallos: number }>(
+    `SELECT count(*)::int AS fallos FROM historial h
+     WHERE h.accion = 'SESION_FALLIDA'
+       AND h.detalle ->> 'email' = $1
+       AND h.detalle ->> 'motivo' IN ('CLAVE_INCORRECTA', 'CORREO_DESCONOCIDO')
+       AND h.creado_en > now() - make_interval(mins => $3)
+       AND h.creado_en > coalesce(
+         (SELECT max(r.creado_en) FROM historial r
+          WHERE r.usuario_id = $2 AND r.accion IN ('SESION_INICIADA', 'CLAVE_RESTABLECIDA')),
+         '-infinity')`,
+    [email, usuarioId, minutos],
+  );
+  return rows[0]?.fallos ?? 0;
+}

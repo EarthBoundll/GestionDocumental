@@ -20,28 +20,33 @@ import { crearServicioCategorias } from './modulos/categorias/categorias.servici
 import { crearControladorDocumentos } from './modulos/documentos/documentos.controlador.js';
 import { crearRutasDocumentos } from './modulos/documentos/documentos.rutas.js';
 import { crearServicioDocumentos } from './modulos/documentos/documentos.servicio.js';
-import { crearRutasHistorial, crearServicioHistorial } from './modulos/historial/historial.consulta.js';
+import { crearRutasAuditoria, crearRutasHistorial, crearServicioHistorial } from './modulos/historial/historial.consulta.js';
 import { crearRutasNotificaciones } from './modulos/notificaciones/notificaciones.rutas.js';
 import { crearRutasPlataforma } from './modulos/plataforma/plataforma.rutas.js';
 import { crearServicioPlataforma } from './modulos/plataforma/plataforma.servicio.js';
 import { crearRutasSalud } from './modulos/salud/salud.rutas.js';
 import { crearRutasSolicitudes } from './modulos/solicitudes/solicitudes.rutas.js';
 import { crearServicioSolicitudes } from './modulos/solicitudes/solicitudes.servicio.js';
+import { crearRutasTablero } from './modulos/tablero/tablero.rutas.js';
+import { crearServicioTablero } from './modulos/tablero/tablero.servicio.js';
 import { crearRutasTiempos } from './modulos/tiempos-respuesta/tiempos-respuesta.rutas.js';
 import { crearServicioTiempos } from './modulos/tiempos-respuesta/tiempos-respuesta.servicio.js';
 import { crearControladorUsuarios } from './modulos/usuarios/usuarios.controlador.js';
 import { crearRutasUsuarios } from './modulos/usuarios/usuarios.rutas.js';
 import { crearServicioUsuarios } from './modulos/usuarios/usuarios.servicio.js';
+import type { DepositoDeRespaldos } from './respaldos/deposito.js';
+import { crearRutasRespaldos } from './respaldos/respaldos.rutas.js';
 
 export interface Dependencias {
   pool: pg.Pool;
   entorno: Entorno;
   almacenamiento: Almacenamiento;
   correo: Correo;
+  respaldos: DepositoDeRespaldos;
 }
 
 /** Ensambla la API sin ponerla a escuchar: así las pruebas la usan con su propia base. */
-export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias): express.Express {
+export function crearApp({ pool, entorno, almacenamiento, correo, respaldos }: Dependencias): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', entorno.PROXIES_DE_CONFIANZA);
@@ -73,18 +78,24 @@ export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias
     urlFrontend: entorno.URL_FRONTEND,
   });
   const servicioDocumentos = crearServicioDocumentos({ almacenamiento });
+  const servicioHistorial = crearServicioHistorial();
 
   app.use('/api/v1/salud', crearRutasSalud(pool, { diagnosticoRed: entorno.DIAGNOSTICO_RED }));
   app.use('/api/v1/auth', crearRutasAuth(crearControladorAuth(servicioAuth), autenticar, crearLimitadores()));
-  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma(), plataforma));
+  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma(), plataforma, {
+    historial: crearRutasAuditoria(servicioHistorial),
+    // Los respaldos leen como dueños de las tablas (D25): es la única ruta del Master que recibe el pool.
+    respaldos: crearRutasRespaldos(pool, respaldos),
+  }));
   app.use('/api/v1/categorias', crearRutasCategorias(crearControladorCategorias(crearServicioCategorias()), empresa, exigir));
   app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios()), empresa, exigir));
   // Antes que /documentos: una de sus rutas es /documentos/:id/solicitudes, y así no se autentica dos veces.
   app.use('/api/v1', crearRutasSolicitudes(crearServicioSolicitudes(), empresa, exigir));
-  app.use('/api/v1/documentos', crearRutasDocumentos(crearControladorDocumentos(servicioDocumentos, tiempos), empresa));
+  app.use('/api/v1/documentos', crearRutasDocumentos(crearControladorDocumentos(servicioDocumentos, tiempos), empresa, exigir));
   app.use('/api/v1/notificaciones', crearRutasNotificaciones(empresa));
-  app.use('/api/v1/historial', crearRutasHistorial(crearServicioHistorial(), empresa, exigir));
+  app.use('/api/v1/historial', crearRutasHistorial(servicioHistorial, empresa, exigir));
   app.use('/api/v1/tiempos-respuesta', crearRutasTiempos(tiempos, empresa));
+  app.use('/api/v1/tablero', crearRutasTablero(crearServicioTablero(), empresa, exigir));
   if (almacenamiento instanceof AlmacenamientoEnDisco) app.use('/api/v1/archivos', almacenamiento.rutas());
 
   app.use(rutaNoEncontrada);

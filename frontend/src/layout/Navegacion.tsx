@@ -1,5 +1,8 @@
-import { Bell, Building2, ClipboardCheck, FileText, History, Tags, Upload, Users, type LucideIcon } from 'lucide-react';
-import { NavLink } from 'react-router';
+import {
+  Bell, Building2, ClipboardCheck, DatabaseBackup, FileText, History, LayoutDashboard, ShieldCheck, Tags, Trash2, Upload, Users,
+  type LucideIcon,
+} from 'lucide-react';
+import { NavLink, useLocation } from 'react-router';
 import type { Rol } from '../api/tipos';
 import { useSesion } from '../sesion/SesionContext';
 
@@ -17,7 +20,11 @@ const GRUPOS: { titulo: string; roles: readonly Rol[]; enlaces: Enlace[] }[] = [
   {
     titulo: 'Plataforma',
     roles: ['master'],
-    enlaces: [{ a: '/plataforma', texto: 'Empresas', icono: Building2 }],
+    enlaces: [
+      { a: '/plataforma', texto: 'Empresas', icono: Building2 },
+      { a: '/plataforma/auditoria', texto: 'Auditoría', icono: ShieldCheck },
+      { a: '/plataforma/respaldos', texto: 'Respaldos', icono: DatabaseBackup },
+    ],
   },
   {
     titulo: 'Documentos',
@@ -39,16 +46,22 @@ const GRUPOS: { titulo: string; roles: readonly Rol[]; enlaces: Enlace[] }[] = [
     titulo: 'Administración',
     roles: ['administrador'],
     enlaces: [
+      { a: '/admin/tablero', texto: 'Tablero', icono: LayoutDashboard },
       { a: '/admin/usuarios', texto: 'Usuarios', icono: Users },
       { a: '/admin/categorias', texto: 'Categorías', icono: Tags },
       { a: '/admin/historial', texto: 'Historial', icono: History },
+      { a: '/admin/papelera', texto: 'Papelera', icono: Trash2 },
     ],
   },
 ];
 
 export function Navegacion({ alNavegar }: { alNavegar?: () => void }) {
   const { sesion } = useSesion();
+  const { pathname } = useLocation();
   const rol = sesion?.usuario.rol;
+  // «Empresas» sigue marcado dentro de una empresa (/plataforma/empresas/…), pero no en las otras secciones.
+  const marcado = (a: string, isActive: boolean) =>
+    isActive && !(a === '/plataforma' && /^\/plataforma\/(auditoria|respaldos)/.test(pathname));
   return (
     <nav aria-label="Principal" className="space-y-6">
       {GRUPOS.filter((grupo) => rol && grupo.roles.includes(rol)).map(({ titulo, enlaces }) => (
@@ -63,7 +76,7 @@ export function Navegacion({ alNavegar }: { alNavegar?: () => void }) {
                   onClick={alNavegar}
                   className={({ isActive }) =>
                     `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
-                      isActive ? 'bg-marca-50 text-marca-800' : 'text-slate-700 hover:bg-slate-100'
+                      marcado(a, isActive) ? 'bg-marca-50 text-marca-800' : 'text-slate-700 hover:bg-slate-100'
                     }`}
                 >
                   <Icono aria-hidden className="size-5 shrink-0" />

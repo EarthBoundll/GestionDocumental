@@ -77,6 +77,22 @@ export async function subirDocumento(
   return id;
 }
 
+/** Manda un documento a la papelera por la API (RF09, RF26). */
+export async function eliminarDocumento(request: APIRequestContext, cuenta: Cuenta, id: string): Promise<void> {
+  const token = await tokenDe(request, cuenta.email, cuenta.clave);
+  await comoJson<void>(await request.delete(`${URL_API}/documentos/${id}`, conToken(token)));
+}
+
+/** Crea una categoría por la API, restringida a esas personas si se indican (RF06, RF25). */
+export async function nuevaCategoria(
+  request: APIRequestContext, empresa: EmpresaDePrueba, nombre: string, autorizados?: Cuenta[],
+): Promise<string> {
+  const token = await tokenDe(request, empresa.administrador.email, empresa.administrador.clave);
+  const datos = autorizados ? { nombre, restringida: true, usuariosAutorizados: autorizados.map((cuenta) => cuenta.id) } : { nombre };
+  const { id } = await comoJson<{ id: string }>(await request.post(`${URL_API}/categorias`, { ...conToken(token), data: datos }));
+  return id;
+}
+
 /** Inicia sesión en pantalla, como lo haría la persona. */
 export async function entrar(page: Page, cuenta: { email: string; clave: string }) {
   await page.goto('/login');
@@ -89,6 +105,8 @@ export async function entrar(page: Page, cuenta: { email: string; clave: string 
 /** En el celular el menú está plegado; en el escritorio, a la vista. */
 export async function irDesdeElMenu(page: Page, enlace: string) {
   const abrir = page.getByRole('button', { name: 'Abrir el menú' });
+  // Se espera a que esté en pantalla uno de los dos: decidir antes de que cargue el marco elegiría mal.
+  await expect(abrir.or(page.getByRole('navigation', { name: 'Principal' })).first()).toBeVisible();
   if (await abrir.isVisible()) {
     await abrir.click();
     await page.getByRole('dialog', { name: 'Menú' }).getByRole('link', { name: enlace, exact: true }).click();

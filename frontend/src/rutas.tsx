@@ -2,6 +2,8 @@ import { createBrowserRouter, Outlet, type RouteObject } from 'react-router';
 import { Layout } from './layout/Layout';
 import { Categorias } from './paginas/admin/Categorias';
 import { Historial } from './paginas/admin/Historial';
+import { Papelera } from './paginas/admin/Papelera';
+import { Tablero } from './paginas/admin/Tablero';
 import { Usuarios } from './paginas/admin/Usuarios';
 import { IniciarSesion } from './paginas/auth/IniciarSesion';
 import { RecuperarClave } from './paginas/auth/RecuperarClave';
@@ -12,8 +14,10 @@ import { ListaDocumentos } from './paginas/documentos/ListaDocumentos';
 import { SubirDocumento } from './paginas/documentos/SubirDocumento';
 import { NoEncontrado } from './paginas/errores/NoEncontrado';
 import { Notificaciones } from './paginas/notificaciones/Notificaciones';
+import { Auditoria } from './paginas/plataforma/Auditoria';
 import { DetalleEmpresa } from './paginas/plataforma/DetalleEmpresa';
 import { NuevaEmpresa } from './paginas/plataforma/NuevaEmpresa';
+import { Respaldos } from './paginas/plataforma/Respaldos';
 import { Resumen } from './paginas/plataforma/Resumen';
 import { Solicitudes } from './paginas/solicitudes/Solicitudes';
 import { Inicio, RutaConSesion, RutaSinSesion } from './sesion/Rutas';
@@ -50,10 +54,14 @@ export const rutas: RouteObject[] = [
               { path: '/solicitudes', element: <Solicitudes /> },
               { path: '/notificaciones', element: <Notificaciones /> },
               { path: '/cuenta', element: <MiCuenta /> },
+              { path: '/admin/tablero', element: <Tablero /> },
               { path: '/admin/usuarios', element: <Usuarios /> },
               { path: '/admin/categorias', element: <Categorias /> },
               { path: '/admin/historial', element: <Historial /> },
+              { path: '/admin/papelera', element: <Papelera /> },
               { path: '/plataforma', element: <Resumen /> },
+              { path: '/plataforma/auditoria', element: <Auditoria /> },
+              { path: '/plataforma/respaldos', element: <Respaldos /> },
               { path: '/plataforma/empresas/nueva', element: <NuevaEmpresa /> },
               { path: '/plataforma/empresas/:id', element: <DetalleEmpresa /> },
               { path: '*', element: <NoEncontrado /> },

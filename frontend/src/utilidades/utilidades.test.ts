@@ -62,8 +62,8 @@ describe('roles', () => {
 });
 
 describe('historial', () => {
-  it('nombra las 27 acciones auditables de docs/01-analisis.md §7', () => {
-    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(27);
+  it('nombra las 30 acciones auditables de docs/01-analisis.md §7', () => {
+    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(30);
   });
 
   it('resume el detalle en frases: qué documento, qué buscó, qué cambió', () => {
@@ -76,6 +76,13 @@ describe('historial', () => {
 
   it('un acceso denegado dice qué se exigía y dónde, sin el prefijo técnico de la API', () => {
     expect(resumirDetalle({ permiso: 'GESTIONAR_USUARIOS', metodo: 'GET', ruta: '/api/v1/usuarios' })).toEqual(['exigía gestionar usuarios en /usuarios']);
+  });
+
+  it('una categoría restringida dice para quién, y un cambio de accesos a quién se dio y a quién se quitó (RF25)', () => {
+    expect(resumirDetalle({ nombre: 'Planillas', restringida: true, autorizados: ['Ana', 'Luis'] }))
+      .toEqual(['«Planillas»', 'restringida', 'para Ana, Luis']);
+    expect(resumirDetalle({ cambios: {}, accesos: { anadidos: ['Ana'], quitados: ['Luis'] } }))
+      .toEqual(['dio acceso a Ana', 'quitó acceso a Luis']);
   });
 
   it('las sesiones cerradas solo se mencionan si hubo alguna', () => {

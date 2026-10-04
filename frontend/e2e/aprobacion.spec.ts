@@ -30,7 +30,7 @@ test.describe('Aprobación de un nivel y notificaciones', () => {
     await administrador.close();
   });
 
-  test('RF16 · El administrador rechaza con motivo obligatorio y, tras una nueva solicitud, aprueba', async ({ page, request }) => {
+  test('RF16 · El administrador rechaza con motivo obligatorio y, tras una nueva solicitud, aprueba @demo', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     const ana = await nuevaCuenta(request, empresa, 'usuario', 'Ana Torres');
     const id = await subirDocumento(request, ana, { nombre: 'Factura del proveedor' });

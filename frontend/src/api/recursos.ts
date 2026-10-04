@@ -1,7 +1,7 @@
 import { api, descargar } from './cliente';
 import type {
-  Administrador, Asiento, Categoria, Documento, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
-  Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Usuario,
+  Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
+  Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Usuario,
 } from './tipos';
 
 // Una función por endpoint de docs/04-api.md, agrupadas por recurso.
@@ -36,6 +36,10 @@ export const documentos = {
   enlace: (id: string, modo: 'ver' | 'descargar') => api<{ url: string; expiraEn: string }>(`/documentos/${id}/archivo`, { consulta: { modo } }),
   solicitarAprobacion: (id: string, comentario: string) =>
     api<Solicitud>(`/documentos/${id}/solicitudes`, { metodo: 'POST', cuerpo: { comentario } }),
+  papelera: (filtros: { pagina?: number }, senal?: AbortSignal) =>
+    api<Pagina<DocumentoEnPapelera> & { diasEnPapelera: number }>('/documentos/papelera', { consulta: { ...filtros }, senal }),
+  restaurar: (id: string) => api<Documento>(`/documentos/papelera/${id}/restauracion`, { metodo: 'POST' }),
+  purgar: (id: string) => api<void>(`/documentos/papelera/${id}`, { metodo: 'DELETE' }),
 };
 
 export const tiemposRespuesta = {
@@ -46,8 +50,11 @@ export const tiemposRespuesta = {
 export const categorias = {
   listar: (incluirInactivas = false, senal?: AbortSignal) =>
     api<{ datos: Categoria[] }>('/categorias', { consulta: { incluirInactivas: incluirInactivas || undefined }, senal }),
-  crear: (datos: { nombre: string; descripcion?: string }) => api<Categoria>('/categorias', { metodo: 'POST', cuerpo: datos }),
-  editar: (id: string, cambios: Partial<{ nombre: string; descripcion: string | null; activa: boolean }>) =>
+  crear: (datos: { nombre: string; descripcion?: string; restringida?: boolean; usuariosAutorizados?: string[] }) =>
+    api<Categoria>('/categorias', { metodo: 'POST', cuerpo: datos }),
+  editar: (id: string, cambios: Partial<{
+    nombre: string; descripcion: string | null; activa: boolean; restringida: boolean; usuariosAutorizados: string[];
+  }>) =>
     api<Categoria>(`/categorias/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
 };
 
@@ -96,6 +103,10 @@ export const historial = {
   exportar: (filtros: Omit<FiltrosHistorial, 'pagina'>) => descargar('/historial/exportar', { ...filtros }, 'historial.csv'),
 };
 
+export const tablero = {
+  obtener: (periodo: { desde?: string; hasta?: string }, senal?: AbortSignal) => api<Tablero>('/tablero', { consulta: { ...periodo }, senal }),
+};
+
 interface DatosDeAdministrador {
   nombre: string;
   email: string;
@@ -121,4 +132,10 @@ export const plataforma = {
     api<Administrador>(`/plataforma/administradores/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   cambiarEstadoAdministrador: (id: string, activo: boolean) =>
     api<Administrador>(`/plataforma/administradores/${id}/estado`, { metodo: 'PATCH', cuerpo: { activo } }),
+  /** RF27: lo que hizo la plataforma y los accesos sin empresa; nunca la actividad dentro de una empresa. */
+  respaldos: (senal?: AbortSignal) =>
+    api<{ datos: { nombre: string; bytes: number; creadoEn: string }[]; diasDeRetencion: number }>('/plataforma/respaldos', { senal }),
+  generarRespaldo: () => api<{ nombre: string; bytes: number }>('/plataforma/respaldos', { metodo: 'POST' }),
+  auditoria: (filtros: { empresaId?: string; accion?: string; desde?: string; hasta?: string; pagina?: number }, senal?: AbortSignal) =>
+    api<Pagina<Asiento>>('/plataforma/historial', { consulta: { ...filtros }, senal }),
 };

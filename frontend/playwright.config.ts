@@ -10,6 +10,14 @@ import { CARPETA, MASTER, PUERTO_API, PUERTO_BASE, PUERTO_WEB, URL_API, URL_WEB 
  */
 const WEB = join(CARPETA, 'web');
 
+/**
+ * `npm run pruebas:demo`: el guion de la sustentación (casos @demo) en un navegador visible y a velocidad
+ * de lectura, para proyectarlo ante el jurado. npm fija el nombre del script en todos los sistemas.
+ */
+const DEMO = process.env.npm_lifecycle_event === 'pruebas:demo';
+/** El informe HTML de Playwright, con capturas y vídeo de lo que falle. Se abre con `npm run pruebas:informe`. */
+export const INFORME_HTML = 'informe-pruebas';
+
 export default defineConfig({
   testDir: './e2e',
   outputDir: join(CARPETA, 'resultados'),
@@ -17,14 +25,17 @@ export default defineConfig({
   workers: 1,
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  reporter: [['list'], ['./e2e/informe.ts']],
+  reporter: [['list'], ['./e2e/informe.ts'], ['html', { outputFolder: INFORME_HTML, open: 'never' }]],
   use: {
     baseURL: URL_WEB,
     locale: 'es-PE',
     timezoneId: 'America/Lima',
+    // De lo que falla queda la evidencia para entender por qué: captura, vídeo y traza paso a paso.
+    screenshot: 'only-on-failure',
+    video: DEMO ? 'on' : 'retain-on-failure',
     trace: 'retain-on-failure',
     // Solo si este equipo ya tiene un Chromium propio; si no, el de `npx playwright install chromium`.
-    launchOptions: { executablePath: process.env.CHROMIUM_PATH || undefined },
+    launchOptions: { executablePath: process.env.CHROMIUM_PATH || undefined, slowMo: DEMO ? 600 : 0 },
   },
   projects: [
     { name: 'escritorio', use: { ...devices['Desktop Chrome'] } },

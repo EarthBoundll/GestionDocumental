@@ -162,10 +162,20 @@ permisos dentro de una empresa.
 - Microservicios, Docker, Kubernetes, CI/CD complejo
 - Bases de datos o esquemas separados por empresa (ver "Decisiones ya tomadas")
 
+**Añadido tras la auditoría técnica (octubre de 2026):**
+
+- Categorías restringidas a personas concretas de la empresa (permisos por categoría)
+- Papelera de 30 días con restauración y eliminación definitiva
+- Auditoría de la plataforma para el Master (sus acciones y los accesos sin empresa)
+- Tablero del Administrador de Empresa con los siete indicadores
+- Respaldo nocturno de la base con restauración probada
+- Bloqueo por cuenta tras contraseñas incorrectas
+
 **Postergado — solo si sobra tiempo al final:**
 
 - Etiquetas de documentos además de las categorías
-- Métricas y tablero del Administrador Master más allá de conteos simples
+- Versionado de documentos, personalización visual por empresa (logo, colores, nombre comercial) y
+  reportes, que la auditoría clasificó como deseables
 
 ## Stack
 
@@ -236,6 +246,24 @@ exige otra cuenta; queda como opcional para tener un registro de caídas visto d
 navegador real contra la API con una base desechable y el frontend compilado como en Vercel, y deja su
 informe en `docs/evidencias/`. Se descartó probar contra `npm run dev`, donde StrictMode tapaba un fallo
 que solo existía en producción, y la prueba manual con planilla, que no se repite igual dos veces.
+
+**Los permisos por categoría también los decide la base.** Cada transacción fija quién actúa y con qué rol, y
+una política RLS restrictiva oculta una categoría restringida y sus documentos a quien no tiene acceso (D22). Se
+descartó comprobarlo en cada servicio: un olvido sería una fuga dentro de la empresa.
+
+**Papelera con purga que deja constancia.** Lo eliminado se restaura durante 30 días; después una tarea de la
+API borra el archivo y deja la fila con `purgado_en` (D23). Se descartó borrar la fila: el historial la nombra.
+
+**El Master audita solo lo que es de la plataforma.** RLS le deja leer del historial sus acciones y lo que no
+es de ninguna empresa (D24). Se descartó darle el historial completo: sería leer el contenido por la puerta de
+atrás.
+
+**Respaldo lógico nocturno en un bucket privado.** La API guarda cada noche la base comprimida y conserva 30
+días; se restaura con un script en una base vacía, y el Master no puede descargarlos (D25). Se descartaron
+`pg_dump` (no está en Render) y el plan Pro de Supabase (de pago).
+
+**Integración continua sin despliegue.** GitHub Actions ejecuta las pruebas en cada push y pull request; Render y
+Vercel siguen desplegando solos (D26). Se descartó un pipeline que despliegue: es el CI/CD complejo que queda fuera.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

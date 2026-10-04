@@ -1,0 +1,83 @@
+# Integración continua (D26): en cada push a main y en cada pull request se ejecutan las mismas pruebas
+# que en local. No despliega nada: Render y Vercel siguen desplegando desde main por su cuenta.
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Un push nuevo a la misma rama cancela la ejecución anterior: solo importa el último commit.
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (tipos y pruebas con PostgreSQL 17)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  frontend:
+    name: Frontend (tipos, pruebas y compilación)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  funcionales:
+    name: Pruebas funcionales (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run pruebas:funcionales
+        working-directory: frontend
+      # El informe por requisito y el HTML de Playwright (con capturas y vídeo de lo que falle).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-pruebas-funcionales
+          path: |
+            docs/evidencias/pruebas-funcionales.md
+            frontend/informe-pruebas/
+          retention-days: 30

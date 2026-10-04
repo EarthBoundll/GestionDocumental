@@ -3,7 +3,7 @@ import { CLAVE, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, ultimoCorreoPa
 import { URL_API } from './entorno';
 
 test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
-  test('RF02 · Iniciar sesión con correo y contraseña; si fallan, el mismo mensaje exista o no la cuenta @movil', async ({ page, request }) => {
+  test('RF02 · Iniciar sesión con correo y contraseña; si fallan, el mismo mensaje exista o no la cuenta @movil @demo', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     const usuaria = await nuevaCuenta(request, empresa, 'usuario');
 

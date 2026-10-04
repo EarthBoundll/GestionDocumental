@@ -35,7 +35,8 @@ administrador de cada empresa evaluada, y con consultas de solo lectura a la bas
 ## 3. Requisitos funcionales
 
 La columna «Fase» indica cuándo se construyó en la API; las pantallas llegan en la Fase 6. «v2» marca lo que
-añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md)).
+añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md)); «A» lo que se añadió tras la
+auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervisión, D22–D26).
 
 | ID | Requisito | Quién | Fase |
 |---|---|---|---|
@@ -63,6 +64,11 @@ añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md))
 | RF22 | Listar, editar, desactivar y reactivar empresas | Master | v2 |
 | RF23 | Añadir, editar, desactivar y reactivar a los administradores de una empresa | Master | v2 |
 | RF24 | Consultar las cifras de la plataforma y de cada empresa: usuarios, documentos, almacenamiento y último acceso | Master | v2 |
+| RF25 | Restringir una categoría, y sus documentos, a personas concretas de la empresa | Administrador | A |
+| RF26 | Restaurar lo eliminado desde la papelera durante 30 días, o eliminarlo para siempre | Administrador | A |
+| RF27 | Auditar la plataforma: las acciones del Master y los accesos que no son de ninguna empresa | Master | A |
+| RF28 | Ver el tablero de la empresa: su estado y lo que el sistema registra de cada indicador en un periodo | Administrador | A |
+| RF29 | Respaldar la base cada noche y a petición, y restaurarla en una base vacía | Sistema, Master | A |
 
 ## 4. Requisitos no funcionales
 
@@ -73,7 +79,7 @@ añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md))
 | RNF03 | Aislamiento | Nadie lee, modifica ni descarga datos de otra empresa | Capa de acceso transversal, RLS en la base (D17) y claves foráneas compuestas (M2); batería A contra B |
 | RNF04 | Trazabilidad | Ninguna acción auditable sin registro, e historial inalterable | Misma transacción (D7) y trigger (M4) |
 | RNF05 | Rendimiento | Listado de documentos en menos de 1 s, percibido por el usuario, con la API activa | API y base en la misma región (D11), paginación e índices |
-| RNF06 | Disponibilidad | La API no se duerme durante la evaluación | Monitor externo (D13) |
+| RNF06 | Disponibilidad | La API no se duerme durante la evaluación, y una base perdida se puede reconstruir | Monitor en Supabase (D13); respaldo nocturno con restauración probada (D25) |
 | RNF07 | Costo | Cero: solo capas gratuitas | Ninguna tarjeta registrada: al superar un límite, el servicio se restringe en vez de cobrar |
 | RNF08 | Portabilidad | Cambiar de proveedor no toca la lógica de negocio | PostgreSQL estándar; almacenamiento detrás de una interfaz |
 | RNF09 | Mantenibilidad | Código tipado, modular y con pruebas de reglas y permisos | TypeScript y módulos por funcionalidad (E2, E3) |
@@ -109,8 +115,8 @@ añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md))
 - **RN09** Se admiten PDF, JPG, PNG, DOC, DOCX, XLS y XLSX de hasta 10 MB. El nombre con el que se
   guarda el archivo lo genera el servidor.
 - **RN10** Solo quien subió un documento, o un administrador, puede editarlo o eliminarlo. La
-  eliminación es lógica: el documento deja de aparecer en las búsquedas, pero el registro y el
-  archivo se conservan.
+  eliminación es lógica: el documento deja de aparecer en las búsquedas y pasa a la papelera (RN28),
+  con quién lo eliminó.
 - **RN11** No se puede eliminar un documento con una solicitud pendiente.
 
 **Aprobación**
@@ -157,6 +163,27 @@ añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md))
   anterior, y la respuesta es la misma exista o no el correo. En la base solo se guarda la huella
   (SHA-256) del token.
 
+**Tras la auditoría (A)**
+
+- **RN27** Cinco contraseñas incorrectas para un mismo correo en 15 minutos bloquean ese correo hasta
+  que pase la ventana, también con la contraseña correcta. Se cuenta por correo, exista o no la cuenta,
+  para que el bloqueo no revele cuáles existen. Un acceso correcto o un restablecimiento por correo
+  ponen la cuenta a cero, y los intentos rechazados por el bloqueo no cuentan. Complementa a RN20: el
+  freno por IP no detiene a quien prueba contra una cuenta desde varias redes.
+- **RN28** Lo eliminado pasa 30 días en la papelera. Un administrador puede restaurarlo tal como estaba
+  o eliminarlo para siempre antes; pasado el plazo, el sistema lo purga solo. Purgar borra el archivo
+  del almacenamiento y deja la fila como constancia: el historial y las solicitudes la siguen
+  nombrando. Lo purgado no se restaura.
+- **RN29** Una categoría restringida, y sus documentos, solo la ven los administradores y las personas
+  que ellos autoricen, en el listado, la búsqueda, la ficha, el archivo y al subir. La restricción
+  manda sobre la autoría: quien subió un documento a una categoría que luego se restringe sin incluirlo
+  deja de verlo. Al abrir la categoría se borran sus accesos; si se vuelve a restringir, se empieza de
+  cero. Solo se autoriza a personas de la propia empresa.
+- **RN30** Cada noche, a las 03:00 de Lima, se guarda un respaldo lógico de la base en un depósito
+  privado, y se conservan 30 días. El Master puede pedir uno en el momento y ver cuáles hay, pero no
+  descargarlos: contienen los datos de todas las empresas (RN25). Un respaldo solo se restaura en una
+  base vacía con las mismas migraciones, y no incluye sesiones ni enlaces de recuperación.
+
 ## 6. Matriz de permisos
 
 El visitante solo puede iniciar sesión y pedir la recuperación de su contraseña.
@@ -166,6 +193,10 @@ El visitante solo puede iniciar sesión y pedir la recuperación de su contrase�
 | Listar, buscar, ver y descargar documentos de su empresa | ✔ | ✔ | ✘ |
 | Subir documentos | ✔ | ✔ | ✘ |
 | Editar o eliminar un documento | solo los suyos | todos los de su empresa | ✘ |
+| Ver los documentos de una categoría restringida | si está autorizado | ✔ | ✘ |
+| Restringir una categoría y elegir quién la ve | ✘ | ✔ | ✘ |
+| Ver la papelera, restaurar y eliminar para siempre | ✘ | ✔ | ✘ |
+| Ver el tablero de su empresa | ✘ | ✔ | ✘ |
 | Solicitar aprobación | de los suyos | de los suyos | ✘ |
 | Consultar solicitudes | las suyas | todas las de su empresa | ✘ |
 | Aprobar o rechazar | ✘ | todas menos las suyas | ✘ |
@@ -177,6 +208,8 @@ El visitante solo puede iniciar sesión y pedir la recuperación de su contrase�
 | Dar de alta, editar, desactivar y reactivar empresas | ✘ | ✘ | ✔ |
 | Gestionar a los administradores de una empresa | ✘ | ✘ | ✔ |
 | Ver las cifras de la plataforma y de cada empresa | ✘ | ✘ | ✔ |
+| Auditar la plataforma (sus acciones y los accesos sin empresa) | ✘ | ✘ | ✔ |
+| Ver los respaldos y pedir uno (no descargarlos) | ✘ | ✘ | ✔ |
 | Cualquier cosa de **otra** empresa | ✘ | ✘ | — |
 | Cambiar su contraseña, recuperarla y cerrar sesión | ✔ | ✔ | ✔ |
 
@@ -189,7 +222,8 @@ endpoint por endpoint y deja su informe en [evidencias/](evidencias/aislamiento-
 
 Definen qué cuenta como «acción» en el indicador 4. Cada registro guarda además quién actuó, con qué
 rol, en qué empresa, cuándo, con qué navegador y si era un móvil. Lo que hace el Master con una
-empresa queda en el historial de esa empresa, con el rol `master` y sin los datos de su cuenta.
+empresa queda en el historial de esa empresa, con el rol `master` y sin los datos de su cuenta; el
+Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna empresa.
 
 | Acción | Se registra cuando… | Entidad | Detalle |
 |---|---|---|---|
@@ -205,21 +239,25 @@ empresa queda en el historial de esa empresa, con el rol `master` y sin los dato
 | `USUARIO_CREADO` | un administrador crea un usuario, el Master un administrador o el script al Master | usuario | nombre, correo y rol |
 | `USUARIO_EDITADO` | se cambian nombre, rol, DNI o contraseña | usuario | antes → después; del DNI y la contraseña, solo que cambiaron |
 | `USUARIO_DESACTIVADO` · `USUARIO_REACTIVADO` | se cambia el estado de un usuario | usuario | sesiones revocadas |
-| `CATEGORIA_CREADA` · `CATEGORIA_EDITADA` | un administrador crea o cambia una categoría | categoría | antes → después |
+| `CATEGORIA_CREADA` · `CATEGORIA_EDITADA` | un administrador crea o cambia una categoría | categoría | antes → después; si es restringida, a quién se dio y quitó acceso, por nombre |
 | `DOCUMENTO_SUBIDO` | se sube un documento | documento | nombre, categoría, tipo y peso |
 | `DOCUMENTO_EDITADO` | se cambian sus datos | documento | antes → después |
-| `DOCUMENTO_ELIMINADO` | se elimina | documento | — |
+| `DOCUMENTO_ELIMINADO` | se elimina (pasa a la papelera) | documento | nombre |
+| `DOCUMENTO_RESTAURADO` | un administrador lo saca de la papelera | documento | nombre |
+| `DOCUMENTO_PURGADO` | un administrador lo elimina para siempre, o el sistema al vencer los 30 días (sin autor) | documento | nombre; si lo hizo el sistema, motivo y plazo |
 | `DOCUMENTO_VISUALIZADO` · `DOCUMENTO_DESCARGADO` | la API entrega un enlace para verlo o descargarlo | documento | nombre que tenía en ese momento |
 | `BUSQUEDA_REALIZADA` | se listan documentos con al menos un filtro | — | filtros y número de resultados |
 | `SOLICITUD_CREADA` | se pide aprobar un documento | solicitud | documento y comentario |
 | `SOLICITUD_APROBADA` · `SOLICITUD_RECHAZADA` | un administrador la resuelve | solicitud | comentario |
 | `ACCESO_DENEGADO` | la API responde 403 a alguien con sesión | la del recurso, si la hay | lo que se exigía (un permiso de la §6, o ser el propietario, o no ser el solicitante) y la ruta u operación |
 | `HISTORIAL_EXPORTADO` | un administrador exporta el historial | — | filtros y filas exportadas |
+| `RESPALDO_GENERADO` | se guarda un respaldo de la base: cada noche (sin autor) o a petición del Master | — | archivo, tamaño y filas por tabla |
 
-Son 27 acciones. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
+Son 30 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
+motivo `CUENTA_BLOQUEADA`. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
 buscar; su tiempo de respuesta sí se mide), ver la ficha de un documento (no entrega el archivo),
 leer notificaciones (no cambia nada), las peticiones con datos inválidos (400) o sin sesión (401)
-—no hubo acción, o no hay autor—, las frenadas por el límite de intentos (429) y los 404 por un
+—no hubo acción, o no hay autor—, las frenadas por el límite de intentos por IP (429) y los 404 por un
 recurso de otra empresa (para quien pregunta, ese recurso no existe).
 
 ## 8. De dónde sale cada indicador
@@ -229,7 +267,7 @@ recurso de otra empresa (para quien pregunta, ese recurso no existe).
 | 1 | Tiempo de organización y categorización | `DOCUMENTO_SUBIDO` y `DOCUMENTO_EDITADO`, con su instante | Tiempo entre la primera y la última acción de la tarea, por usuario | Cuándo empezó la tarea: la persona lee la consigna antes de tocar nada. El cronómetro sigue siendo la fuente principal; el sistema lo corrobora |
 | 2 | Tiempo de búsqueda | Cada consulta del listado, con o sin filtros (usuario e instante en `tiempos_respuesta`; los filtros, en `BUSQUEDA_REALIZADA`), y la obtención del documento (`DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO`) | Tiempo entre la primera consulta del listado y la obtención del documento pedido. Cuenta también a quien lo encuentra recorriendo el listado sin filtrar | Lo mismo que en el 1 |
 | 3 | Tasa de recuperación | `DOCUMENTO_VISUALIZADO` y `DOCUMENTO_DESCARGADO` | Documentos pedidos que se obtuvieron ÷ documentos pedidos | Qué documentos se pidieron: lo fija el protocolo de prueba |
-| 4 | Acciones registradas en el historial | Las 27 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
+| 4 | Acciones registradas en el historial | Las 30 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
 | 5 | Accesibilidad remota | `SESION_INICIADA` y `SESION_FALLIDA`, con `es_movil` | Inicios de sesión exitosos desde móvil ÷ intentos desde móvil | Los intentos que nunca llegan al servidor (sin cobertura, servicio caído): los anota el evaluador |
 | 6 | Accesos correctos según rol | `ACCESO_DENEGADO` y las acciones permitidas, cada una con el rol de quien actuó; el informe de aislamiento entre empresas (`npm run informe:aislamiento`) | Decisiones que coinciden con la matriz de §6 ÷ casos evaluados | Qué debía ocurrir en cada caso: lo dice la matriz, no el sistema |
 | 7 | Tiempo de respuesta | Tabla `tiempos_respuesta`: duración en el servidor y la percibida en el navegador | Mediana y percentil 95 del listado de documentos | — |

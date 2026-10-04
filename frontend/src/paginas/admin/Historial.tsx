@@ -1,6 +1,5 @@
 import { FileDown, History, Monitor, Smartphone } from 'lucide-react';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
 import { historial, usuarios, type FiltrosHistorial } from '../../api/recursos';
 import type { Asiento } from '../../api/tipos';
@@ -10,12 +9,13 @@ import { Campo, Selector } from '../../componentes/Campos';
 import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
+import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
 import { NOMBRES_DE_ACCIONES, resumirDetalle } from '../../utilidades/acciones';
 import { formatearFechaHora } from '../../utilidades/formato';
 import { NOMBRES_DE_ROLES } from '../../utilidades/roles';
 
 export function Historial() {
-  const [parametros, setParametros] = useSearchParams();
+  const [parametros, cambiarParametros] = useParametrosEnUrl();
   const filtros: FiltrosHistorial = {
     usuarioId: parametros.get('usuarioId') ?? undefined,
     accion: parametros.get('accion') ?? undefined,
@@ -29,11 +29,11 @@ export function Historial() {
   const [errorAlExportar, setErrorAlExportar] = useState<ErrorApi | null>(null);
 
   function filtrar(clave: keyof FiltrosHistorial, valor: string) {
-    const siguientes = new URLSearchParams(parametros);
-    if (valor) siguientes.set(clave, valor);
-    else siguientes.delete(clave);
-    if (clave !== 'pagina') siguientes.delete('pagina');
-    setParametros(siguientes);
+    cambiarParametros((siguientes) => {
+      if (valor) siguientes.set(clave, valor);
+      else siguientes.delete(clave);
+      if (clave !== 'pagina') siguientes.delete('pagina');
+    });
   }
 
   async function exportar() {
@@ -87,13 +87,19 @@ export function Historial() {
   );
 }
 
-/** El Master no es de la empresa y su cuenta no se ve desde ella: sus acciones salen como de la plataforma. */
+/**
+ * El Master no es de la empresa y su cuenta no se ve desde ella: sus acciones salen como de la plataforma.
+ * Sin autor ni correo, quien actuó fue el propio sistema (la purga de la papelera).
+ */
 function autorDe(asiento: Asiento): string {
   if (asiento.rolUsuario === 'master') return 'Administración de la plataforma';
-  return asiento.usuario?.nombre ?? String(asiento.detalle.email ?? 'Correo desconocido');
+  if (asiento.usuario) return asiento.usuario.nombre;
+  if (asiento.detalle.email) return String(asiento.detalle.email);
+  return asiento.accion === 'DOCUMENTO_PURGADO' || asiento.accion === 'RESPALDO_GENERADO' ? 'El sistema' : 'Correo desconocido';
 }
 
-function FilaDeHistorial({ asiento }: { asiento: Asiento }) {
+/** Una acción del historial. Con `conEmpresa`, dice además en qué empresa ocurrió (la auditoría del Master). */
+export function FilaDeHistorial({ asiento, conEmpresa = false }: { asiento: Asiento; conEmpresa?: boolean }) {
   const denegado = asiento.accion === 'ACCESO_DENEGADO' || asiento.accion === 'SESION_FALLIDA';
   const Dispositivo = asiento.esMovil ? Smartphone : Monitor;
   return (
@@ -105,6 +111,7 @@ function FilaDeHistorial({ asiento }: { asiento: Asiento }) {
             <Insignia tono={denegado ? 'peligro' : 'neutro'}>{NOMBRES_DE_ACCIONES[asiento.accion] ?? asiento.accion}</Insignia>
             <span className="font-medium text-slate-900">{autorDe(asiento)}</span>
             {asiento.rolUsuario && <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[asiento.rolUsuario]}</span>}
+            {conEmpresa && asiento.empresa && <Insignia tono="marca">{asiento.empresa.nombre}</Insignia>}
           </p>
           <Resumen asiento={asiento} />
         </div>

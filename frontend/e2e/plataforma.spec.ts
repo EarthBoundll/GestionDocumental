@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CLAVE, entrar, nuevaCuenta, nuevaEmpresa, subirDocumento, unico } from './apoyo';
+import { CLAVE, entrar, irDesdeElMenu, nuevaCategoria, nuevaCuenta, nuevaEmpresa, subirDocumento, unico } from './apoyo';
 import { MASTER, URL_WEB } from './entorno';
 
 test.describe('Plataforma: el Administrador Master', () => {
@@ -104,5 +104,31 @@ test.describe('Plataforma: el Administrador Master', () => {
     await page.goto('/documentos');
     await expect(page.getByText('No tienes permiso para ver esto')).toBeVisible();
     await expect(page.getByText('Contrato confidencial')).toHaveCount(0);
+  });
+
+  test('RF27 · El Master audita lo que hizo la plataforma, sin ver la actividad dentro de las empresas @demo', async ({ page, request }) => {
+    const empresa = await nuevaEmpresa(request);
+    await nuevaCategoria(request, empresa, 'Categoría interna');
+    await entrar(page, MASTER);
+
+    await irDesdeElMenu(page, 'Auditoría');
+    await page.getByLabel('Empresa').selectOption({ label: empresa.nombre });
+    await expect(page).toHaveURL(new RegExp(`empresaId=${empresa.id}`));
+    const registro = page.getByRole('listitem').filter({ hasText: 'Empresa registrada' });
+    await expect(registro).toHaveCount(1);
+    await expect(registro).toContainText(empresa.nombre);
+    await expect(registro).toContainText('Administración de la plataforma');
+    // La categoría que creó el administrador de la empresa es actividad de la empresa: aquí no aparece.
+    await expect(page.getByRole('listitem').filter({ hasText: 'Categoría interna' })).toHaveCount(0);
+  });
+
+  test('RF29 · El Master genera un respaldo de la base y lo ve en la lista, sin poder descargarlo', async ({ page }) => {
+    await entrar(page, MASTER);
+    await irDesdeElMenu(page, 'Respaldos');
+
+    await page.getByRole('button', { name: 'Generar respaldo ahora' }).click();
+    await expect(page.getByText(/^Respaldo guardado/)).toBeVisible();
+    await expect(page.getByRole('listitem')).not.toHaveCount(0);
+    await expect(page.getByRole('link', { name: /descargar/i })).toHaveCount(0);
   });
 });

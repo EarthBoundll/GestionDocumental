@@ -42,6 +42,9 @@ services:
         sync: false
       - key: STORAGE_BUCKET
         value: documentos
+      # El respaldo nocturno de la base (D25), en otro bucket privado.
+      - key: RESPALDOS_BUCKET
+        value: respaldos
       # Correos de recuperación de contraseña por la API de Brevo (D19), con un remitente verificado allí.
       - key: CORREO
         value: brevo

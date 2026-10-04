@@ -11,6 +11,7 @@ export const ACCIONES = [
   'CATEGORIA_EDITADA', 'DOCUMENTO_SUBIDO', 'DOCUMENTO_EDITADO', 'DOCUMENTO_ELIMINADO', 'DOCUMENTO_VISUALIZADO',
   'DOCUMENTO_DESCARGADO', 'BUSQUEDA_REALIZADA', 'SOLICITUD_CREADA', 'SOLICITUD_APROBADA',
   'SOLICITUD_RECHAZADA', 'ACCESO_DENEGADO', 'HISTORIAL_EXPORTADO',
+  'DOCUMENTO_RESTAURADO', 'DOCUMENTO_PURGADO', 'RESPALDO_GENERADO',
 ] as const;
 
 export type AccionAuditable = (typeof ACCIONES)[number];
@@ -26,12 +27,18 @@ export interface Autor {
 export interface RegistroDeAccion {
   accion: AccionAuditable;
   autor: Autor;
-  contexto: Contexto;
+  /** Null en lo que hace el propio sistema, sin una petición detrás (la purga de la papelera). */
+  contexto: Contexto | null;
   entidad?: { tipo: TipoEntidad; id: string };
   detalle?: Record<string, unknown>;
 }
 
 export const SIN_AUTOR: Autor = { empresaId: null, usuarioId: null, rol: null };
+
+/** El propio sistema actuando sobre una empresa, sin persona detrás: la purga de la papelera. */
+export function autorDelSistemaEn(empresaId: string): Autor {
+  return { empresaId, usuarioId: null, rol: null };
+}
 
 /** El autor es el usuario, y el asiento queda en su empresa (en ninguna, si es el Master en su cuenta). */
 export function autorDe(usuario: Pick<UsuarioAutenticado, 'id' | 'empresaId' | 'rol'>): Autor {
@@ -55,7 +62,7 @@ export async function registrarAccion(db: Consultor, { accion, autor, contexto, 
     `INSERT INTO historial (empresa_id, usuario_id, rol_usuario, accion, entidad_tipo, entidad_id, detalle, user_agent, es_movil)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [autor.empresaId, autor.usuarioId, autor.rol, accion, entidad?.tipo ?? null, entidad?.id ?? null,
-      detalle ?? {}, contexto.userAgent, contexto.esMovil],
+      detalle ?? {}, contexto?.userAgent ?? null, contexto?.esMovil ?? null],
   );
 }
 

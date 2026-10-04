@@ -34,7 +34,7 @@ test.describe('Documentos y categorías', () => {
     await expect(opciones.filter({ hasText: 'Personal' })).toHaveCount(0);
   });
 
-  test('RF07 · Subir un documento con nombre, categoría, fecha y descripción; el servidor rechaza lo que no es lo que dice ser @movil', async ({ page, request }) => {
+  test('RF07 · Subir un documento con nombre, categoría, fecha y descripción; el servidor rechaza lo que no es lo que dice ser @movil @demo', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     const usuaria = await nuevaCuenta(request, empresa, 'usuario');
     await entrar(page, usuaria);
@@ -102,7 +102,7 @@ test.describe('Documentos y categorías', () => {
     await expect(page.getByRole('heading', { name: 'Este documento no existe' })).toBeVisible();
   });
 
-  test('RF10 · Buscar por nombre sin importar tildes ni mayúsculas, y filtrar por categoría y fechas @movil', async ({ page, request }) => {
+  test('RF10 · Buscar por nombre sin importar tildes ni mayúsculas, y filtrar por categoría y fechas @movil @demo', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     await subirDocumento(request, empresa.administrador, { nombre: 'Cotización de telas', categoria: 'Cotizaciones', fecha: '2026-07-10' });
     await subirDocumento(request, empresa.administrador, { nombre: 'Factura F001-245', categoria: 'Facturas y boletas', fecha: '2026-08-30' });
@@ -134,8 +134,11 @@ test.describe('Documentos y categorías', () => {
     await subirDocumento(request, empresa.administrador, { nombre: 'Contrato de alquiler', archivo: 'contrato firmado.pdf' });
     await entrar(page, empresa.administrador);
 
+    // La pestaña nueva pide el enlace firmado. Se comprueba la petición y no la carga: un Chromium sin
+    // visor de PDF (el de la integración continua) convierte esa pestaña en una descarga.
+    const enlace = page.context().waitForEvent('request', (peticion) => peticion.url().startsWith(`${URL_API}/archivos/`));
     const [pestana] = await Promise.all([page.waitForEvent('popup'), page.getByRole('button', { name: 'Ver Contrato de alquiler' }).click()]);
-    await pestana.waitForURL((url) => url.href.startsWith(`${URL_API}/archivos/`));
+    expect(new URL((await enlace).url()).searchParams.get('firma')).toBeTruthy();
     await pestana.close();
 
     const [descarga] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Descargar Contrato de alquiler' }).click()]);

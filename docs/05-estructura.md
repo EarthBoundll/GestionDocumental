@@ -41,6 +41,13 @@ backend/
 │   ├── correo/
 │   │   ├── correo.ts             contrato e implementaciones: Brevo (producción) y archivo (desarrollo, D19)
 │   │   └── crear.ts              elige una u otra según CORREO
+│   ├── respaldos/                respaldo lógico de la base (D25)
+│   │   ├── deposito.ts           dónde se guardan: bucket privado (producción) o carpeta (desarrollo)
+│   │   ├── respaldo.ts           generar, restaurar y retención de 30 días, con la conexión dueña
+│   │   └── respaldos.rutas.ts    lo que ve el Master: la lista y «generar ahora», sin descarga
+│   ├── tareas/                   lo que la API hace sola mientras está despierta
+│   │   ├── purgar-papelera.ts    cada 6 horas, lo que lleva más de 30 días en la papelera (D23)
+│   │   └── respaldo-nocturno.ts  a las 03:00 de Lima (D25)
 │   ├── middlewares/
 │   │   ├── contexto.ts           id de la petición, user-agent y es_movil
 │   │   ├── autenticar.ts         JWT → sesión → usuario y empresa activos → acceso a datos
@@ -73,6 +80,7 @@ backend/
 │       ├── notificaciones/
 │       ├── historial/            incluye registrarAccion(), que usan los demás servicios
 │       ├── tiempos-respuesta/
+│       ├── tablero/              el estado de la empresa y sus indicadores (RF28)
 │       └── salud/
 ├── tests/
 │   ├── apoyo/                    PostgreSQL de pruebas y datos de ejemplo (E7)
@@ -217,6 +225,8 @@ funcionales `@playwright/test` con `@types/node` (E8). Ninguna llega al navegado
 | `SUPABASE_URL` | `https://<ref>.supabase.co` | Storage |
 | `SUPABASE_CLAVE_SECRETA` | — | Clave de servidor de Supabase; solo existe en el backend |
 | `STORAGE_BUCKET` | `documentos` | Bucket privado |
+| `RESPALDOS_BUCKET` | `respaldos` | Bucket privado de los respaldos de la base (D25) |
+| `DIRECTORIO_RESPALDOS` | `respaldos` | Carpeta de los respaldos con `ALMACENAMIENTO=disco` |
 | `CORS_ORIGEN` | `https://<app>.vercel.app` | Orígenes admitidos, separados por comas. Por defecto, el de Vite en local |
 | `PROXIES_DE_CONFIANZA` | `0` en local | Cuántos proxies hay delante de la API. Si se queda corto, todos los usuarios parecen la misma IP y comparten el límite de intentos; si se pasa, cualquiera falsifica su IP con una cabecera. En Render se fija con `DIAGNOSTICO_RED` ([backend/README.md](../backend/README.md)) |
 | `DIAGNOSTICO_RED` | `false` | Activa `GET /salud/red`, que muestra qué IP ve la API. Solo para el primer despliegue |

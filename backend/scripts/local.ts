@@ -15,6 +15,7 @@ import { crearCorreo } from '../src/correo/crear.js';
 import { aplicarMigraciones } from '../src/db/migraciones.js';
 import { crearPool } from '../src/db/pool.js';
 import { crearMaster, leerDatosDelMaster } from '../src/modulos/auth/master.js';
+import { crearDeposito } from '../src/respaldos/deposito.js';
 
 // No es el 5432, por si hay un PostgreSQL instalado, ni el 3000, que en esta máquina usa el suyo.
 // Las pruebas de punta a punta (frontend/e2e) cambian carpeta y puerto: su base es otra, desechable.
@@ -51,6 +52,7 @@ const entorno = leerEntorno({
   // Los correos de recuperación quedan en una carpeta, y su enlace sale por la consola.
   CORREO: 'archivo',
   DIRECTORIO_CORREOS: join(DIRECTORIO, 'correos'),
+  DIRECTORIO_RESPALDOS: join(DIRECTORIO, 'respaldos'),
 });
 const pool = crearPool(entorno);
 const aplicadas = await aplicarMigraciones(pool, resolve('migraciones'));
@@ -69,7 +71,9 @@ if (process.env.MASTER_EMAIL && process.env.MASTER_PASSWORD) {
   console.log('Sin MASTER_EMAIL y MASTER_PASSWORD en el .env: no se crea la cuenta del Master (ver .env.example).');
 }
 
-const servidor = crearApp({ pool, entorno, almacenamiento: crearAlmacenamiento(entorno), correo: crearCorreo(entorno) }).listen(entorno.PORT, () => {
+const servidor = crearApp({
+  pool, entorno, almacenamiento: crearAlmacenamiento(entorno), correo: crearCorreo(entorno), respaldos: crearDeposito(entorno),
+}).listen(entorno.PORT, () => {
   console.log(`API local en http://localhost:${entorno.PORT}/api/v1 (PostgreSQL en el puerto ${PUERTO_BASE}, datos en ${DIRECTORIO})`);
 });
 

@@ -47,6 +47,7 @@ Todas las respuestas de error tienen la misma forma:
 | 400 | `VALIDACION` | Entrada inválida; `detalles` dice qué campo y por qué |
 | 401 | `NO_AUTENTICADO` | Falta el token, es inválido, caducó o su sesión fue revocada |
 | 401 | `CREDENCIALES_INVALIDAS` | Correo o contraseña incorrectos, con el mismo mensaje en ambos casos |
+| 429 | `CUENTA_BLOQUEADA` | Cinco contraseñas incorrectas para ese correo en 15 minutos, exista o no la cuenta (RN27); se registra `SESION_FALLIDA` con motivo `CUENTA_BLOQUEADA` |
 | 403 | `SIN_PERMISO` | El rol o la propiedad no lo permiten; se registra `ACCESO_DENEGADO` |
 | 400 | `ENLACE_INVALIDO` | El enlace de recuperación no existe, ya se usó o caducó |
 | 403 | `USUARIO_INACTIVO` | Inicio de sesión de un usuario desactivado, con la contraseña correcta |
@@ -105,6 +106,10 @@ Todas las respuestas de error tienen la misma forma:
 | PATCH | `/plataforma/administradores/:id` | Master | `nombre?`, `email?`, `dni?`, `clave?` | 200; restablecer la clave cierra sus sesiones. 404 si no es un administrador | `USUARIO_EDITADO` |
 | PATCH | `/plataforma/administradores/:id/estado` | Master | `activo` | 200; desactivar revoca sus sesiones | `USUARIO_DESACTIVADO` o `USUARIO_REACTIVADO` |
 
+| GET | `/plataforma/historial` | Master | `?empresaId`, `accion`, `desde`, `hasta` y paginación | 200 paginado: sus propias acciones —también sobre cada empresa, con `empresa { id, nombre }`— y los asientos sin empresa; nunca la actividad de las personas de una empresa (D24) | — |
+| GET | `/plataforma/respaldos` | Master | — | 200 `{ datos: [{ nombre, bytes, creadoEn }], diasDeRetencion }` | — |
+| POST | `/plataforma/respaldos` | Master | — | 201 `{ nombre, bytes, filas }`. No hay ruta para descargarlo ni restaurarlo (D25) | `RESPALDO_GENERADO` |
+
 Lo que el Master hace con una empresa queda en el historial de esa empresa, con el rol `master`.
 
 ### Usuarios
@@ -120,9 +125,9 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
-| GET | `/categorias` | Empresa | `?incluirInactivas`, solo para administradores (a los demás, 403) | 200 `{ datos }`: la lista completa, sin paginar, cada una con cuántos documentos vigentes la usan | — |
-| POST | `/categorias` | Admin | `nombre`, `descripcion?` | 201 con la categoría | `CATEGORIA_CREADA` |
-| PATCH | `/categorias/:id` | Admin | `nombre?`, `descripcion?`, `activa?` | 200 con la categoría | `CATEGORIA_EDITADA` |
+| GET | `/categorias` | Empresa | `?incluirInactivas`, solo para administradores (a los demás, 403) | 200 `{ datos }`: las que quien pregunta puede ver, sin paginar, cada una con `restringida`, `usuariosAutorizados` (llena solo para administradores) y cuántos documentos vigentes la usan | — |
+| POST | `/categorias` | Admin | `nombre`, `descripcion?`, `restringida?`, `usuariosAutorizados?` (ids de personas de la empresa) | 201 con la categoría. 400 si alguien no es de la empresa | `CATEGORIA_CREADA` |
+| PATCH | `/categorias/:id` | Admin | `nombre?`, `descripcion?`, `activa?`, `restringida?`, `usuariosAutorizados?` (la lista completa) | 200 con la categoría; abrirla borra sus accesos | `CATEGORIA_EDITADA`, con los accesos dados y quitados |
 
 ### Documentos
 
@@ -134,6 +139,13 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 | PATCH | `/documentos/:id` | Propietario o admin | `nombre?`, `categoriaId?`, `fechaDocumento?`, `descripcion?` | 200 con el documento | `DOCUMENTO_EDITADO` |
 | DELETE | `/documentos/:id` | Propietario o admin | — | 204 | `DOCUMENTO_ELIMINADO` |
 | GET | `/documentos/:id/archivo` | Empresa | `?modo=ver` o `?modo=descargar` | 200 `{ url, expiraEn }` | `DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO` |
+| GET | `/documentos/papelera` | Admin | Paginación | 200 paginado, más `diasEnPapelera`: cada documento con `eliminadoPor`, `eliminadoEn` y `purgaEn` | — |
+| POST | `/documentos/papelera/:id/restauracion` | Admin | — | 200 con el documento, tal como estaba | `DOCUMENTO_RESTAURADO` |
+| DELETE | `/documentos/papelera/:id` | Admin | — | 204; borra el archivo y deja la fila como constancia. 404 si no está en la papelera | `DOCUMENTO_PURGADO` |
+
+En una categoría restringida (RN29), para quien no tiene acceso sus documentos no existen: no salen en
+el listado ni en la búsqueda, su ficha y su archivo responden 404, y subir a ella responde 400 «la
+categoría no existe». Lo decide la base (D22).
 
 ### Solicitudes de aprobación
 
@@ -158,13 +170,20 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 | GET | `/historial` | Admin | `?usuarioId`, `accion`, `entidadTipo`, `entidadId`, `desde`, `hasta` y paginación | 200 paginado | — |
 | GET | `/historial/exportar` | Admin | Los mismos filtros | 200 `text/csv` en UTF-8 con BOM (Excel lo abre con tildes): id, fecha y hora de Lima, fecha UTC, acción, usuario (las del Master, «Administración de la plataforma»), correo, rol, entidad, móvil, user-agent y detalle en JSON. Las fechas del filtro son días de Lima | `HISTORIAL_EXPORTADO` |
 
+### Tablero
+
+| Método | Ruta | Quién | Entrada | Respuesta | Historial |
+|---|---|---|---|---|---|
+| GET | `/tablero` | Admin | `?desde`, `hasta` (días de Lima; por defecto, los últimos 30; como mucho 366) | 200 `{ periodo, resumen, indicadores, actividad }`: el estado de la empresa, lo que registra cada uno de los siete indicadores en el periodo y las acciones por día | — |
+
 ### Tiempos de respuesta
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
 | PATCH | `/tiempos-respuesta/:id` | Empresa; solo el suyo, y una vez | `duracionClienteMs` | 204 | — |
 
-En total, 38 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la plataforma.
+En total, 45 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
+plataforma, y los siete que añadió la auditoría (papelera, tablero, auditoría y respaldos del Master).
 
 ## 4. Respuestas de ejemplo
 
@@ -272,8 +291,12 @@ lo usa alguien.
 | Notificaciones | `/notificaciones` | Administrador y Usuario | `GET /notificaciones`, `PATCH /notificaciones/:id/leida`, `PATCH /notificaciones/leidas` |
 | Mi cuenta | `/cuenta` | Todos | `GET /auth/yo`, `PUT /auth/clave` |
 | Usuarios | `/admin/usuarios` | Administrador; para los demás, 403 registrado | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/:id`, `PATCH /usuarios/:id/estado` |
-| Categorías | `/admin/categorias` | Administrador | `GET /categorias?incluirInactivas=true`, `POST /categorias`, `PATCH /categorias/:id` |
+| Categorías | `/admin/categorias` | Administrador | `GET /categorias?incluirInactivas=true`, `POST /categorias`, `PATCH /categorias/:id`, `GET /usuarios` (para elegir quién ve una restringida) |
 | Historial | `/admin/historial` | Administrador | `GET /historial`, `GET /historial/exportar`, `GET /usuarios` (para el filtro) |
+| Tablero | `/admin/tablero` | Administrador | `GET /tablero`, `GET /historial/exportar` (el historial del periodo) |
+| Papelera | `/admin/papelera` | Administrador | `GET /documentos/papelera`, `POST /documentos/papelera/:id/restauracion`, `DELETE /documentos/papelera/:id` |
+| Auditoría de la plataforma | `/plataforma/auditoria` | Master | `GET /plataforma/historial`, `GET /plataforma/empresas` (para el filtro) |
+| Respaldos | `/plataforma/respaldos` | Master | `GET /plataforma/respaldos`, `POST /plataforma/respaldos` |
 | — | — | Monitor externo | `GET /salud` |
 
 Desde una solicitud o una notificación se llega al detalle del documento, que muestra la solicitud y,

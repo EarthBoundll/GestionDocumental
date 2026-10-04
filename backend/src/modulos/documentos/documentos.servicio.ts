@@ -3,19 +3,23 @@ import { basename } from 'node:path';
 import type { Almacenamiento } from '../../almacenamiento/almacenamiento.js';
 import { calcularCambios, valoresNuevos } from '../../compartido/cambios.js';
 import { ErrorAplicacion, noEncontrado } from '../../compartido/errores.js';
-import type { Pagina } from '../../compartido/paginacion.js';
+import type { Pagina, Paginacion } from '../../compartido/paginacion.js';
 import { empresaDe, type Actor, type UsuarioAutenticado } from '../../compartido/peticion.js';
 import { tienePermiso } from '../../compartido/permisos.js';
 import { identificarTipo } from '../../compartido/tipos-de-archivo.js';
 import { autorDe, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
 import type { CambiosDocumento, FiltrosBusqueda, NuevoDocumento } from './documentos.esquemas.js';
 import {
-  actualizarDocumento, buscarDocumento, buscarDocumentos, categoriaDeLaEmpresa, insertarDocumento, marcarEliminado,
-  type Documento, type DocumentoInterno, type DocumentoResumen,
+  actualizarDocumento, bloquearEnPapelera, buscarDocumento, buscarDocumentos, categoriaDeLaEmpresa, insertarDocumento,
+  listarPapelera, marcarEliminado, marcarPurgado, restaurarDocumento,
+  type Documento, type DocumentoEnPapelera, type DocumentoInterno, type DocumentoResumen,
 } from './documentos.repositorio.js';
 
 /** RN18: los enlaces a un archivo caducan a los 5 minutos. */
 const VIGENCIA_ENLACE_SEGUNDOS = 300;
+
+/** RF26: lo eliminado se puede restaurar durante 30 días; después se purga solo (src/tareas/purgar-papelera.ts). */
+export const DIAS_EN_PAPELERA = 30;
 
 export interface Permisos {
   editar: boolean;
@@ -188,9 +192,58 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
         throw new ErrorAplicacion(409, 'DOCUMENTO_EN_REVISION', 'No se puede eliminar mientras tenga una solicitud de aprobación pendiente');
       }
       await actor.datos.ejecutar(async (cliente) => {
-        await marcarEliminado(cliente, empresaDe(actor), id);
+        await marcarEliminado(cliente, empresaDe(actor), id, usuario.id);
         await registrarAccion(cliente, {
           accion: 'DOCUMENTO_ELIMINADO',
+          autor: autorDe(usuario),
+          contexto: actor.contexto,
+          entidad: { tipo: 'documento', id },
+          detalle: { nombre: documento.nombre },
+        });
+      });
+    },
+
+    /** Lo eliminado que aún se puede restaurar, lo más reciente primero (RF26). Solo para administradores. */
+    async papelera(actor: Actor, paginacion: Paginacion): Promise<Pagina<DocumentoEnPapelera> & { diasEnPapelera: number }> {
+      const { filas, total } = await actor.datos.ejecutar((db) =>
+        listarPapelera(db, empresaDe(actor), { ...paginacion, dias: DIAS_EN_PAPELERA }));
+      return { datos: filas, paginacion: { ...paginacion, total }, diasEnPapelera: DIAS_EN_PAPELERA };
+    },
+
+    /** Saca un documento de la papelera tal como estaba: su categoría, su archivo y sus solicitudes. */
+    async restaurar(actor: Actor, id: string): Promise<Documento> {
+      const { usuario } = actor.autenticacion;
+      const empresaId = empresaDe(actor);
+      await actor.datos.ejecutar(async (cliente) => {
+        const documento = await bloquearEnPapelera(cliente, empresaId, id);
+        if (!documento) throw noEncontrado('El documento no está en la papelera');
+        await restaurarDocumento(cliente, empresaId, id);
+        await registrarAccion(cliente, {
+          accion: 'DOCUMENTO_RESTAURADO',
+          autor: autorDe(usuario),
+          contexto: actor.contexto,
+          entidad: { tipo: 'documento', id },
+          detalle: { nombre: documento.nombre },
+        });
+      });
+      return publico(await documentoVigente(actor, id));
+    },
+
+    /**
+     * Elimina para siempre un documento de la papelera: su archivo sale del almacenamiento y la fila
+     * queda como constancia. El archivo se borra dentro de la transacción y antes de marcar la fila: si
+     * el borrado falla no se marca nada, y si falla lo de después, repetirlo es inofensivo.
+     */
+    async purgar(actor: Actor, id: string): Promise<void> {
+      const { usuario } = actor.autenticacion;
+      const empresaId = empresaDe(actor);
+      await actor.datos.ejecutar(async (cliente) => {
+        const documento = await bloquearEnPapelera(cliente, empresaId, id);
+        if (!documento) throw noEncontrado('El documento no está en la papelera');
+        await almacenamiento.eliminar(documento.archivoRuta);
+        await marcarPurgado(cliente, empresaId, id);
+        await registrarAccion(cliente, {
+          accion: 'DOCUMENTO_PURGADO',
           autor: autorDe(usuario),
           contexto: actor.contexto,
           entidad: { tipo: 'documento', id },

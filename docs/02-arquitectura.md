@@ -94,10 +94,12 @@ flowchart LR
 Son tres capas, y cada una basta por sí sola para que una consulta no devuelva nada ajeno: el
 repositorio filtra por `empresa_id`; si una consulta lo olvidara, RLS no devuelve filas de otra
 empresa; y las claves foráneas compuestas (M2) impiden que una fila apunte a otra empresa. Si la
-transacción no fija empresa, `app_empresa` no ve nada: el fallo es cerrado. La identidad (iniciar
-sesión, comprobar la sesión, recuperar la contraseña, el script del Master) es la otra excepción
-explícita: averigua quién es alguien antes de saber su empresa, y por eso usa la conexión dueña de las
-tablas, limitada a cuentas, sesiones y recuperaciones.
+transacción no fija empresa, `app_empresa` no ve nada: el fallo es cerrado. Desde la auditoría, la
+transacción fija también quién actúa y con qué rol, y con eso la base aplica los permisos por categoría
+(D22). La identidad (iniciar sesión, comprobar la sesión, recuperar la contraseña, el script del Master)
+es la otra excepción explícita: averigua quién es alguien antes de saber su empresa, y por eso usa la
+conexión dueña de las tablas, limitada a cuentas, sesiones y recuperaciones. Los respaldos (D25) son la
+tercera, y nunca salen por la API.
 
 ## 4. Flujos críticos
 
@@ -202,9 +204,10 @@ resuelven a la vez, el segundo recibe 409 `SOLICITUD_RESUELTA`.
 |---|---|---|---|
 | SPA | Vercel, Hobby | CDN global | Solo uso no comercial |
 | API | Render, web service Free | Virginia | 512 MB de RAM y 0,1 CPU; se duerme tras 15 min sin tráfico y tarda alrededor de un minuto en despertar; 750 h al mes; 5 GB de salida al mes; disco efímero; puertos SMTP bloqueados |
-| Base de datos | Supabase, Free | us-east-1 | 500 MB; se pausa tras 7 días sin actividad; sin copias de seguridad |
-| Archivos | Supabase Storage, Free | us-east-1 | 1 GB; 50 MB por archivo (usamos 10); 5 GB de salida al mes |
-| Monitor | UptimeRobot o cron-job.org, gratis | — | — |
+| Base de datos | Supabase, Free | us-east-1 | 500 MB; se pausa tras 7 días sin actividad; sin copias de seguridad propias (de ahí D25) |
+| Archivos | Supabase Storage, Free | us-east-1 | 1 GB entre los dos buckets privados, `documentos` y `respaldos`; 50 MB por archivo (usamos 10); 5 GB de salida al mes |
+| Monitor | `pg_cron` + `pg_net` en Supabase (D13); UptimeRobot, opcional | — | — |
+| Integración continua | GitHub Actions (D26) | — | 2.000 minutos al mes en un repositorio privado del plan gratuito |
 
 **Entornos.** Desarrollo: API y frontend en local, contra un proyecto de Supabase «desarrollo».
 Producción: Render y Vercel, contra un proyecto «producción». Son los dos proyectos activos que
@@ -218,12 +221,14 @@ se suspende en vez de cobrar.
 | Amenaza | Control |
 |---|---|
 | Robo de la base de datos | Contraseñas con bcrypt (coste 10); nunca en claro, tampoco en el historial |
-| Fuerza bruta contra el inicio de sesión | Límite de intentos fallidos por IP (RN20); el mismo mensaje, y el mismo tiempo de respuesta, para un correo inexistente que para una contraseña errónea |
+| Fuerza bruta contra el inicio de sesión | Límite de intentos fallidos por IP (RN20) y bloqueo por correo tras cinco contraseñas incorrectas, exista o no la cuenta (RN27); el mismo mensaje, y el mismo tiempo de respuesta, para un correo inexistente que para una contraseña errónea |
 | Robo del token | Caduca en 8 h y se puede revocar; contra XSS, el escapado de React y una CSP estricta en Vercel |
 | Escalada de privilegios | Rol leído de la base en cada petición; matriz aplicada solo en la API; cada 403 queda registrado; el rol `master` no se puede asignar desde la API y la base admite un solo Master |
+| Un empleado leyendo lo confidencial de su propia empresa | Categorías restringidas: la base decide con RLS quién ve una categoría y sus documentos, también en la búsqueda, la ficha, el archivo y la subida (D22) |
+| Borrado accidental o malintencionado | Papelera de 30 días con restauración (D23); respaldo nocturno de la base con restauración probada (D25) |
 | Acceso a datos de otra empresa | Empresa tomada de la identidad, nunca del cliente; capa de acceso transversal con RLS (D17); claves foráneas compuestas (M2); UUID imposibles de adivinar; lo ajeno responde 404; batería de pruebas A contra B en cada endpoint |
 | Un token con otra empresa, aun firmado con el secreto | La empresa del token se compara con la de la base: si no coinciden, 401 |
-| El Master leyendo el contenido de una empresa | Su rol de base (`app_plataforma`) no tiene permisos sobre documentos, solicitudes, notificaciones ni tiempos de respuesta; sus cifras salen de una función que solo devuelve conteos (decisión E) |
+| El Master leyendo el contenido de una empresa | Su rol de base (`app_plataforma`) no tiene permisos sobre documentos, solicitudes, notificaciones ni tiempos de respuesta; sus cifras salen de una función que solo devuelve conteos (decisión E); del historial solo lee sus propias acciones y lo que no es de ninguna empresa (D24); los respaldos no se descargan por la API (D25) |
 | Recuperación de contraseña como oráculo de cuentas o puerta trasera | Misma respuesta y mismo tiempo exista o no el correo; token de 256 bits, de un solo uso, 60 minutos, guardado como huella SHA-256 y enviado en el fragmento del enlace; límite de peticiones por IP |
 | Inyección SQL | Solo consultas parametrizadas |
 | Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación |
@@ -409,13 +414,59 @@ no hereda los permisos que Supabase concede por defecto a `anon` y `authenticate
 *Descartado:* conectar como `postgres`, con más privilegios de los que la API necesita y cuya
 contraseña Supabase solo deja cambiar desde su panel.
 
+### Tras la auditoría técnica (A)
+
+**D22 · Los permisos por categoría también los decide la base.** Cada transacción fija, además de la
+empresa, quién actúa y con qué rol (`app.usuario_id`, `app.rol`); una política RLS restrictiva sobre
+`categorias` y `documentos` llama a `puede_ver_categoria()`, que deja pasar a los administradores y,
+en una categoría restringida, solo a las personas de `categoria_accesos`. Así la búsqueda, la ficha, el
+enlace al archivo y la subida obedecen sin que ningún servicio lo compruebe a mano, igual que el
+aislamiento entre empresas (D17). Sin persona fijada no se abre nada restringido: falla cerrado.
+*Descartado:* comprobarlo en cada servicio (un olvido sería una fuga dentro de la empresa) y permisos
+por documento (una MYPE piensa en carpetas, no en archivos sueltos, y multiplicaría la configuración).
+
+**D23 · Papelera de 30 días y purga que deja constancia.** Eliminar sigue siendo lógico; ahora se
+guarda quién lo hizo, un administrador puede restaurar, y una tarea de la API purga lo vencido cada seis
+horas, empresa por empresa y a través del mismo acceso con RLS. Purgar borra el archivo antes de marcar
+la fila (`purgado_en`), en una transacción por documento: si falla a medias, la siguiente pasada lo
+repara. La fila no se borra porque el historial y las solicitudes la nombran.
+*Descartado:* borrar la fila (rompería la trazabilidad del indicador 4), no purgar nunca (el
+almacenamiento gratuito es de 1 GB) y un cron externo (otra pieza que vigilar; la API ya está despierta
+por D13).
+
+**D24 · La auditoría del Master lee solo lo que es de la plataforma.** Una política RLS le deja leer
+del historial sus propias acciones —también las que hizo sobre una empresa— y los asientos sin empresa,
+como los intentos con correos desconocidos; la consulta repite esa condición por escrito. Para la
+supervisión de seguridad basta, y la actividad de las personas de cada empresa sigue siendo solo suya
+(D18).
+*Descartado:* darle el historial completo (leería qué documentos busca y abre cada empresa, que es leer
+su contenido por la puerta de atrás).
+
+**D25 · Respaldo lógico nocturno, en un bucket privado propio.** El plan gratuito de Supabase no tiene
+copias de seguridad, y el historial es la evidencia del capítulo 3 (R3). A las 03:00 de Lima la API lee
+todas las tablas de negocio en una transacción de solo lectura (`row_to_json`), las comprime y las
+guarda en el bucket `respaldos`; conserva 30 días. Restaurar (`npm run respaldo -- restaurar`) vuelca
+el respaldo con `json_populate_recordset` en una base vacía con las mismas migraciones, todo o nada; una
+prueba de ida y vuelta compara las dos bases tabla por tabla. Leer y escribir todas las empresas exige
+la conexión dueña de las tablas: es otra excepción explícita, como la capa de identidad, y por eso el
+respaldo nunca sale por la API. El Master ve que existen y pide uno, sin descargarlo.
+*Descartado:* `pg_dump` (no está en Render y pide credenciales de superusuario), el plan Pro de Supabase
+(de pago) y depender solo de exportar el CSV a mano.
+
+**D26 · Integración continua sin despliegue.** GitHub Actions ejecuta en cada push a `main` y en cada
+pull request las pruebas del backend (con PostgreSQL 17), las del frontend con su compilación y las
+funcionales con Playwright, y guarda el informe como artefacto. Render y Vercel siguen desplegando desde
+`main` por su cuenta.
+*Descartado:* un pipeline que también despliegue (es el «CI/CD complejo» que CLAUDE.md deja fuera) y no
+tener ninguno (las pruebas dependerían de acordarse de ejecutarlas).
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |
 |---|---|---|
 | R1 | La API está dormida cuando empieza una sesión de evaluación: alrededor de un minuto de espera | Monitor cada 10 minutos (D13). Plan B: abrir `/salud` dos minutos antes |
 | R2 | Supabase pausa el proyecto tras 7 días sin actividad, por ejemplo entre la preprueba y la posprueba, o antes de sustentar | `/salud` consulta una tabla real. Si aun así se pausa, se restaura desde el panel sin perder datos; revisarlo la semana previa a cada hito |
-| R3 | El plan gratuito de Supabase no tiene copias de seguridad, y el historial es la evidencia del capítulo 3 | Exportar el historial y los tiempos de respuesta al cerrar cada sesión de evaluación, y guardarlos fuera de Supabase |
+| R3 | El plan gratuito de Supabase no tiene copias de seguridad, y el historial es la evidencia del capítulo 3 | Respaldo nocturno con restauración probada (D25); además, exportar el historial a CSV al cerrar cada sesión de evaluación y guardarlo fuera de Supabase |
 | R4 | Los problemas de infraestructura aparecen en la Fase 7, sin margen | Desplegar desde la Fase 1 |
 | R5 | Agotar una cuota: 1 GB de archivos y 5 GB de salida en Supabase, 5 GB de salida en Render | Tope de 10 MB por archivo, y los archivos no salen por Render. Con cinco usuarios el margen es amplio; revisar el panel de uso cada semana durante la evaluación |
 | R6 | Un proveedor cambia su capa gratuita, como hizo Render el 1 de agosto de 2026 al bajar la salida incluida de 100 GB a 5 GB | PostgreSQL estándar y almacenamiento detrás de una interfaz: cada pieza tiene alternativa sin reescribir la lógica |
@@ -431,7 +482,7 @@ dónde se ven en el sistema.
 | Autoservicio bajo demanda | El Master da de alta una empresa en un minuto, y desde ese momento su administrador gestiona a su equipo sin intervención de nadie |
 | Amplio acceso por red | Un navegador en PC o celular, desde cualquier lugar (indicador 5) |
 | Agrupación de recursos | Varias empresas comparten la misma infraestructura y la misma base, aisladas lógicamente por la capa de acceso y RLS (D17) |
-| Elasticidad rápida | La API no guarda estado en memoria (salvo el limitador de intentos), así que en un plan de pago podría replicarse. En el gratuito no se usa, y conviene decirlo así |
+| Elasticidad rápida | La API no guarda estado en memoria (salvo el limitador de intentos por IP), así que en un plan de pago podría replicarse; las tareas programadas toleran varias instancias (SKIP LOCKED). En el gratuito no se usa, y conviene decirlo así |
 | Servicio medido | El propio sistema mide su uso (historial, tiempos de respuesta) y los proveedores miden el consumo de cada recurso |
 
 Modelo de servicio: el sistema se ofrece como **SaaS** a las MYPEs y está construido sobre **PaaS**

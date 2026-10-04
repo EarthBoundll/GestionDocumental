@@ -4,6 +4,12 @@ El sistema deja rastro de los siete indicadores por sí mismo (CLAUDE.md). Aquí
 cerrar cada sesión de evaluación: [01 · Análisis §8](01-analisis.md) define qué mide cada uno y qué
 no puede saber el sistema; este documento da las consultas.
 
+Para un vistazo durante la evaluación, el **Tablero** del administrador (*Administración → Tablero*,
+RF28) muestra, para el periodo que se elija, lo que el sistema registra de cada indicador: subidas y
+ediciones, búsquedas, documentos obtenidos, acciones en el historial, el éxito de los accesos desde el
+celular, los accesos denegados y la mediana y el percentil 95 del tiempo de respuesta. Para el capítulo 3
+valen las fuentes siguientes, que se pueden guardar y repetir.
+
 Hay dos fuentes:
 
 - **El CSV del historial**, que cualquier administrador de la empresa exporta desde *Historial →
