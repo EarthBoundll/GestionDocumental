@@ -4,7 +4,7 @@ Estado: **desplegado el 3 de octubre de 2026**, todo en capa gratuita.
 
 | Pieza | Dónde |
 |---|---|
-| Frontend | https://gestion-documental-zeta.vercel.app (proyecto `gestion-documental` en Vercel) |
+| Frontend | https://gestion.formatosperu.com, el subdominio propio (§4.1), y https://gestion-documental-zeta.vercel.app (proyecto `gestion-documental` en Vercel) |
 | API | https://gestion-documental-api-keuj.onrender.com (servicio `gestion-documental-api` en Render, Virginia) |
 | Base y archivos | Proyecto `gestion-documental` de Supabase (`dpqddwryhoatnqukahiy`, us-east-1), buckets privados `documentos` y `respaldos` |
 
@@ -90,6 +90,19 @@ Sin él, `npm run local` levanta todo en tu máquina.
 
 `frontend/vercel.json` reescribe cualquier ruta a `index.html` (recargar `/documentos/…` funciona) y
 envía la CSP, que solo deja hablar con `*.onrender.com`.
+
+### 4.1 Un subdominio propio (opcional)
+
+En este despliegue el frontend también se sirve en `gestion.formatosperu.com`, un subdominio de un
+dominio que el autor ya tenía en Hostinger; el dominio principal sigue sirviendo su propio sitio. No
+cuesta nada más:
+
+1. En Vercel, *Project → Settings → Domains → Add*: `gestion.<tu dominio>`.
+2. En Hostinger, *Dominios → DNS*: un registro **CNAME** con nombre `gestion` que apunta a
+   `cname.vercel-dns.com`. Vercel emite el certificado HTTPS solo, en unos minutos.
+3. En Render, `CORS_ORIGEN` admite los dos orígenes separados por coma
+   (`https://gestion.<tu dominio>,https://<nombre>.vercel.app`), y `URL_FRONTEND` pasa a ser el
+   subdominio: así el enlace del correo de recuperación lleva a la dirección que conocen las personas.
 
 ## 5. Proxies de confianza
 
