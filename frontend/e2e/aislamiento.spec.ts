@@ -4,7 +4,7 @@ import { entrar, nuevaCuenta, nuevaEmpresa, subirDocumento } from './apoyo';
 // La batería completa, endpoint por endpoint, está en backend/tests/integracion/aislamiento.test.ts. Aquí se
 // comprueba lo mismo como lo intentaría una persona: con la interfaz y un enlace copiado.
 test.describe('Aislamiento entre empresas (indicador 6)', () => {
-  test('RF10, RF11 · Una empresa no encuentra, no abre y no descarga los documentos de otra, ni con el enlace @movil', async ({ page, request }) => {
+  test('RF10, RF11 · Una empresa no encuentra, no abre y no descarga los documentos de otra, ni con el enlace @movil @demo', async ({ page, request }) => {
     const textiles = await nuevaEmpresa(request, 'Textiles Andinos');
     const contable = await nuevaEmpresa(request, 'Estudio Contable Lima');
     const ana = await nuevaCuenta(request, textiles, 'usuario');

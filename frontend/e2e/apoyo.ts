@@ -77,6 +77,22 @@ export async function subirDocumento(
   return id;
 }
 
+/** Manda un documento a la papelera por la API (RF09, RF26). */
+export async function eliminarDocumento(request: APIRequestContext, cuenta: Cuenta, id: string): Promise<void> {
+  const token = await tokenDe(request, cuenta.email, cuenta.clave);
+  await comoJson<void>(await request.delete(`${URL_API}/documentos/${id}`, conToken(token)));
+}
+
+/** Crea una categoría por la API, restringida a esas personas si se indican (RF06, RF25). */
+export async function nuevaCategoria(
+  request: APIRequestContext, empresa: EmpresaDePrueba, nombre: string, autorizados?: Cuenta[],
+): Promise<string> {
+  const token = await tokenDe(request, empresa.administrador.email, empresa.administrador.clave);
+  const datos = autorizados ? { nombre, restringida: true, usuariosAutorizados: autorizados.map((cuenta) => cuenta.id) } : { nombre };
+  const { id } = await comoJson<{ id: string }>(await request.post(`${URL_API}/categorias`, { ...conToken(token), data: datos }));
+  return id;
+}
+
 /** Inicia sesión en pantalla, como lo haría la persona. */
 export async function entrar(page: Page, cuenta: { email: string; clave: string }) {
   await page.goto('/login');

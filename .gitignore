@@ -10,6 +10,8 @@ backend/respaldo-*.json.gz
 # Base y archivos de «npm run local».
 backend/.local/
 coverage/
+# Informe HTML de Playwright (npm run pruebas:informe): se regenera en cada ejecución.
+frontend/informe-pruebas/
 *.log
 
 # Secretos: solo se versiona la plantilla.

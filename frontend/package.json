@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "pruebas:funcionales": "playwright test",
+    "pruebas:demo": "playwright test --project=escritorio --grep @demo --headed",
+    "pruebas:informe": "playwright show-report informe-pruebas",
     "typecheck": "tsc && tsc -p e2e"
   },
   "dependencies": {

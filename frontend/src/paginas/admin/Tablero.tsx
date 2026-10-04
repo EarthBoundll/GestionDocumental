@@ -9,7 +9,7 @@ import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
-import { formatearFecha, formatearPeso } from '../../utilidades/formato';
+import { contar, formatearFecha, formatearPeso } from '../../utilidades/formato';
 
 const numero = (valor: number) => valor.toLocaleString('es-PE');
 const enPorcentaje = (valor: number | null) => (valor === null ? '—' : `${valor.toLocaleString('es-PE')} %`);
@@ -87,24 +87,26 @@ function Contenido({ datos }: { datos: DatosDelTablero }) {
         </p>
         <dl className="mt-4 grid gap-3 md:grid-cols-2">
           <Indicador numero={1} titulo="Organización y categorización">
-            {numero(i.organizacion.subidos)} documentos subidos y {numero(i.organizacion.editados)} editados.
+            {contar(i.organizacion.subidos, 'documento subido', 'documentos subidos')} y{' '}
+            {contar(i.organizacion.editados, 'edición', 'ediciones')}.
           </Indicador>
           <Indicador numero={2} titulo="Búsqueda">
-            {numero(i.busqueda.busquedas)} búsquedas con filtros y {numero(i.busqueda.listados)} consultas del listado.
+            {contar(i.busqueda.busquedas, 'búsqueda con filtros', 'búsquedas con filtros')} y{' '}
+            {contar(i.busqueda.listados, 'consulta del listado', 'consultas del listado')}.
           </Indicador>
           <Indicador numero={3} titulo="Recuperación">
-            {numero(i.recuperacion.documentosObtenidos)} documentos distintos obtenidos ({numero(i.recuperacion.visualizaciones)} vistas,{' '}
-            {numero(i.recuperacion.descargas)} descargas). Búsquedas con resultado: {enPorcentaje(i.recuperacion.porcentajeBusquedasConResultado)}.
+            {contar(i.recuperacion.documentosObtenidos, 'documento distinto obtenido', 'documentos distintos obtenidos')}{' '}
+            ({contar(i.recuperacion.visualizaciones, 'vista')}, {contar(i.recuperacion.descargas, 'descarga')}). Búsquedas con resultado: {enPorcentaje(i.recuperacion.porcentajeBusquedasConResultado)}.
           </Indicador>
           <Indicador numero={4} titulo="Acciones en el historial">
-            {numero(i.historial.acciones)} acciones registradas. El porcentaje se calcula contra el guion de la prueba.
+            {contar(i.historial.acciones, 'acción registrada', 'acciones registradas')}. El porcentaje se calcula contra el guion de la prueba.
           </Indicador>
           <Indicador numero={5} titulo="Acceso desde el celular">
             {enPorcentaje(i.accesoRemoto.porcentajeExitoMovil)} de éxito ({numero(i.accesoRemoto.sesionesDesdeMovil)} de{' '}
             {numero(i.accesoRemoto.intentosDesdeMovil)} intentos desde móvil; {numero(i.accesoRemoto.sesiones)} sesiones en total).
           </Indicador>
           <Indicador numero={6} titulo="Accesos según rol">
-            {numero(i.accesosPorRol.denegados)} accesos denegados y registrados
+            {contar(i.accesosPorRol.denegados, 'acceso denegado y registrado', 'accesos denegados y registrados')}
             {i.accesosPorRol.porPermiso.length > 0 && <>: {i.accesosPorRol.porPermiso.map((p) => `${p.permiso.toLowerCase().replaceAll('_', ' ')} (${p.total})`).join(', ')}</>}.
           </Indicador>
           <Indicador numero={7} titulo="Tiempo de respuesta del listado">

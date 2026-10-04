@@ -8,7 +8,7 @@ import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/tes
  * escritorio y en el celular, y qué requisitos de docs/01-analisis.md §3 quedaron sin caso.
  */
 const DESTINO = fileURLToPath(new URL('../../docs/evidencias/pruebas-funcionales.md', import.meta.url));
-const REQUISITOS = Array.from({ length: 24 }, (_, i) => `RF${String(i + 1).padStart(2, '0')}`);
+const REQUISITOS = Array.from({ length: 29 }, (_, i) => `RF${String(i + 1).padStart(2, '0')}`);
 
 interface Fila {
   requisitos: string[];
@@ -20,7 +20,8 @@ export default class InformeFuncional implements Reporter {
   readonly #filas = new Map<string, Fila>();
 
   onTestEnd(prueba: TestCase, resultado: TestResult) {
-    const titulo = prueba.title.replace(/\s*@movil\b/, '');
+    // Las etiquetas (@movil, @demo) eligen dónde y cuándo corre un caso; no son parte de su nombre.
+    const titulo = prueba.title.replace(/\s*@\w+/g, '');
     const [, codigos = '', caso = titulo] = /^([A-Z0-9, ]+?) · (.+)$/.exec(titulo) ?? [];
     const fila = this.#filas.get(titulo) ?? { requisitos: codigos.split(',').map((c) => c.trim()).filter(Boolean), caso, resultados: new Map() };
     fila.resultados.set(prueba.parent.project()?.name ?? '', { estado: resultado.status, ms: resultado.duration });
@@ -28,6 +29,8 @@ export default class InformeFuncional implements Reporter {
   }
 
   onEnd(resultado: FullResult) {
+    // El modo demostración corre solo el guion de la sustentación: no debe pisar el informe completo.
+    if (process.env.npm_lifecycle_event === 'pruebas:demo') return;
     const filas = [...this.#filas.values()].sort((a, b) => (a.requisitos[0] ?? '').localeCompare(b.requisitos[0] ?? ''));
     const ejecuciones = filas.flatMap((fila) => [...fila.resultados.values()]);
     const superadas = ejecuciones.filter((r) => r.estado === 'passed').length;
@@ -51,7 +54,7 @@ Los casos marcados para el celular se repiten en una pantalla de 360 px (indicad
 (su empresa, sus usuarios) se crean por la API, y cada caso usa una empresa propia.
 
 **Resultado: ${superadas} de ${ejecuciones.length} ejecuciones superadas (${filas.length} casos${resultado.status === 'passed' ? '' : `; estado final: ${resultado.status}`}).**
-${sinCaso.length ? `\n**Requisitos sin caso:** ${sinCaso.join(', ')}.\n` : `\nLos 24 requisitos funcionales tienen al menos un caso.\n`}
+${sinCaso.length ? `\n**Requisitos sin caso:** ${sinCaso.join(', ')}.\n` : `\nLos ${REQUISITOS.length} requisitos funcionales tienen al menos un caso.\n`}
 | Requisito | Caso | Escritorio (1280 px) | Celular (360 px) |
 |---|---|---|---|
 ${filas.map((fila) => `| ${fila.requisitos.join(', ')} | ${fila.caso} | ${celda(fila, 'escritorio')} | ${celda(fila, 'celular')} |`).join('\n')}
