@@ -189,7 +189,7 @@ export async function consumirRecuperacion(db: Consultor, tokenHash: string): Pr
 }
 
 /**
- * Las contraseñas incorrectas recientes para un correo (RN21), exista o no la cuenta. Un acceso correcto
+ * Las contraseñas incorrectas recientes para un correo (RN27), exista o no la cuenta. Un acceso correcto
  * o un restablecimiento por correo ponen la cuenta a cero; los intentos rechazados por el propio
  * bloqueo no cuentan, para que el bloqueo termine solo.
  */

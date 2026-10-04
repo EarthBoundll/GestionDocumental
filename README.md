@@ -4,10 +4,12 @@ Sistema web basado en Cloud Computing para la gestión documental de micro y peq
 Tesis de pregrado de Ingeniería de Sistemas Computacionales, UPN, 2026 — Diego Moisés Acosta Gerónimo.
 
 Varias empresas comparten la plataforma, cada una aislada de las demás. Hay tres roles: el
-Administrador Master, que da de alta las empresas; el Administrador de Empresa, que gestiona su equipo,
-sus categorías, las aprobaciones y el historial; y el Usuario, que sube, busca, ve y descarga documentos
-y pide su aprobación. Toda acción queda registrada en un historial inalterable, del que salen los
-indicadores de la tesis.
+Administrador Master, que da de alta las empresas, audita la plataforma y vigila sus respaldos; el
+Administrador de Empresa, que gestiona su equipo, sus categorías (también las confidenciales, que solo
+ven las personas que elija), las aprobaciones, la papelera, el historial y un tablero con los
+indicadores; y el Usuario, que sube, busca, ve y descarga documentos y pide su aprobación. Toda acción
+queda registrada en un historial inalterable, del que salen los indicadores de la tesis, y la base se
+respalda cada noche.
 
 | Carpeta | Qué hay | Despliegue |
 |---|---|---|
@@ -35,12 +37,17 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 
 | Dónde | Comando | Qué prueba |
 |---|---|---|
-| `backend/` | `npm test` | 249 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS y aislamiento endpoint por endpoint |
+| `backend/` | `npm test` | 288 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS, aislamiento endpoint por endpoint, papelera, bloqueo por cuenta y la ida y vuelta de un respaldo |
 | `backend/` | `npm run informe:aislamiento` | La batería A contra B, con su informe en [`docs/evidencias/`](docs/evidencias/aislamiento-entre-empresas.md) (indicador 6) |
-| `frontend/` | `npm test` | 41 pruebas de pantallas, sesión, roles y cliente HTTP |
-| `frontend/` | `npm run pruebas:funcionales` | Los 24 requisitos en un navegador real, en escritorio y celular, contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md). La primera vez: `npx playwright install chromium` |
+| `frontend/` | `npm test` | 42 pruebas de pantallas, sesión, roles y cliente HTTP |
+| `frontend/` | `npm run pruebas:funcionales` | Los 29 requisitos en un navegador real (32 casos, 39 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
+| `frontend/` | `npm run pruebas:demo` | El guion de la sustentación: los casos marcados `@demo`, en un navegador visible y a velocidad de lectura |
+
+GitHub Actions ejecuta las tres primeras filas y las funcionales en cada push a `main` y en cada pull
+request ([`.github/workflows/pruebas.yml`](.github/workflows/pruebas.yml)).
 
 ## Desplegar
 
 [`docs/07-despliegue.md`](docs/07-despliegue.md): Supabase, Brevo, Render y Vercel paso a paso, todo en
 capa gratuita y sin tarjeta, y `npm run comprobar-despliegue` para verificar que quedó bien configurado.
+Restaurar la base desde un respaldo: `npm run respaldo -- restaurar <nombre>` (§7.1 de esa guía).

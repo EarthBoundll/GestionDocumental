@@ -6,7 +6,7 @@ Estado: **desplegado el 3 de octubre de 2026**, todo en capa gratuita.
 |---|---|
 | Frontend | https://gestion-documental-zeta.vercel.app (proyecto `gestion-documental` en Vercel) |
 | API | https://gestion-documental-api-keuj.onrender.com (servicio `gestion-documental-api` en Render, Virginia) |
-| Base y archivos | Proyecto `gestion-documental` de Supabase (`dpqddwryhoatnqukahiy`, us-east-1), bucket privado `documentos` |
+| Base y archivos | Proyecto `gestion-documental` de Supabase (`dpqddwryhoatnqukahiy`, us-east-1), buckets privados `documentos` y `respaldos` |
 
 Render tiene todas sus variables, con los proxies de confianza ajustados (§5); las migraciones, el
 usuario de la API y la cuenta Master ya están en la base, y el monitor corre en Supabase (§7). La
@@ -44,7 +44,8 @@ Ningún servicio pide tarjeta (RNF07). Calcula una hora la primera vez.
 4. *Project Settings → Database → SSL Configuration → Download certificate* (es el mismo para todos los
    proyectos: `prod-ca-2021.crt`, «Supabase Root 2021 CA», válido hasta 2031): el contenido completo del
    archivo, con sus líneas `-----BEGIN CERTIFICATE-----`, es `DATABASE_CA`.
-5. *Storage → New bucket*: nombre `documentos`, **privado** (D9).
+5. *Storage → New bucket*: nombre `documentos`, **privado** (D9). Otro, también **privado**, llamado
+   `respaldos` (D25): ahí guarda la API el respaldo de cada noche.
 6. *Project Settings → API Keys*: la URL del proyecto es `SUPABASE_URL`, y la clave **secreta** (no la
    pública) es `SUPABASE_CLAVE_SECRETA`.
 
@@ -134,6 +135,33 @@ respondieron), y las ejecuciones en `cron.job_run_details`. Para pararlo:
 Opcional: un monitor de UptimeRobot a la misma dirección deja, además, un registro de caídas visto desde
 fuera, que sirve como evidencia de disponibilidad.
 
+### Tareas de la propia API
+
+Al estar despierta, la API hace dos tareas programadas sin ninguna pieza más:
+
+- **Purga de la papelera** (D23): un minuto después de arrancar y cada seis horas, borra el archivo de
+  lo que lleva más de 30 días eliminado. En el historial de cada empresa queda `DOCUMENTO_PURGADO` con
+  «El sistema» como autor.
+- **Respaldo nocturno** (D25): a las 03:00 de Lima guarda la base comprimida en el bucket `respaldos` y
+  borra los de más de 30 días. Queda `RESPALDO_GENERADO` en la auditoría del Master, que puede pedir uno
+  en el momento desde *Respaldos*.
+
+## 7.1 Restaurar un respaldo
+
+Si la base se perdiera (o para ensayarlo antes de la sustentación), desde `backend/`, con la
+`DATABASE_URL`, el `DATABASE_CA` y las claves de Supabase de **la base de destino** en tu `.env`:
+
+```bash
+npm run respaldo -- listar                       # los respaldos guardados en el bucket
+npm run migrar                                   # la base de destino, vacía y migrada
+npm run respaldo -- restaurar respaldo-2026-10-04T08-00-00Z.json.gz
+```
+
+`restaurar` se niega si la base ya tiene datos o si sus migraciones no son las del respaldo: no mezcla,
+sustituye una base perdida. Es todo o nada. No restaura sesiones ni enlaces de recuperación: cada
+persona vuelve a iniciar sesión. Los archivos de los documentos siguen en el bucket `documentos`, que no
+se toca. `npm run respaldo -- descargar <nombre>` copia uno a tu máquina, y `generar` hace uno al momento.
+
 ## 8. Comprobar
 
 Desde `backend/`:
@@ -163,9 +191,18 @@ Después, a mano, la prueba de humo (unos diez minutos):
 |---|---|---|
 | Una semana antes de cada hito | Entra a Supabase y comprueba que el proyecto no está pausado | R2 |
 | Dos minutos antes de cada sesión | Abre `/api/v1/salud` | R1: si el monitor falló, la API despierta ahora y no con la primera persona |
-| Al cerrar cada sesión | Exporta el historial a CSV y ejecuta las consultas de [08 · Indicadores](08-indicadores.md); guarda ambos fuera de Supabase | R3: el plan gratuito no tiene copias de seguridad |
+| Al cerrar cada sesión | Exporta el historial a CSV (también desde el *Tablero*, con el periodo de la sesión) y ejecuta las consultas de [08 · Indicadores](08-indicadores.md); guarda ambos fuera de Supabase | R3: el respaldo nocturno protege la base, pero la evidencia conviene tenerla también fuera |
+| Antes de la sustentación | Comprueba en *Respaldos* (Master) que hay uno de cada noche | D25 |
 
-## 10. Alternativa sin cuentas
+## 10. Integración continua
+
+`.github/workflows/pruebas.yml` ejecuta en GitHub Actions, en cada push a `main` y en cada pull request,
+las pruebas del backend, las del frontend con su compilación y las funcionales con Playwright (D26). El
+informe por requisito y el HTML de Playwright quedan como artefacto de la ejecución durante 30 días. No
+despliega nada: Render y Vercel lo hacen solos desde `main`. En un repositorio privado del plan gratuito
+hay 2.000 minutos al mes; cada ejecución gasta unos 10.
+
+## 11. Alternativa sin cuentas
 
 Para enseñar el sistema sin internet o si un proveedor falla el día de la sustentación:
 `npm run local` en `backend/` y `npm run dev` en `frontend/` levantan todo en una sola máquina, con

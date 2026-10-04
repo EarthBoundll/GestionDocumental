@@ -9,7 +9,7 @@ import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas
 
 type App = ReturnType<typeof crearAppDePruebas>;
 
-describe('Auditoría de la plataforma (RF27) y bloqueo por cuenta (RN21)', () => {
+describe('Auditoría de la plataforma (RF27) y bloqueo por cuenta (RN27)', () => {
   let base: BaseDePruebas;
   let pool: pg.Pool;
   let app: App;

@@ -18,7 +18,7 @@ import {
 const HORA = 3_600_000;
 /** CLAUDE.md v2: el enlace de recuperación vale 60 minutos. */
 export const MINUTOS_DE_RECUPERACION = 60;
-/** RN21: cinco contraseñas incorrectas para un correo en 15 minutos lo bloquean hasta que pasen. */
+/** RN27: cinco contraseñas incorrectas para un correo en 15 minutos lo bloquean hasta que pasen. */
 export const BLOQUEO = { fallos: 5, minutos: 15 } as const;
 
 export type { Perfil };

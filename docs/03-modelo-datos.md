@@ -1,10 +1,13 @@
 # 03 · Modelo de datos
 
-Diez tablas en PostgreSQL, compartidas por todas las empresas (v2: multiempresa por columna, D6). Nombres en español, en plural y en `snake_case`; claves primarias UUID
+Once tablas en PostgreSQL, compartidas por todas las empresas (v2: multiempresa por columna, D6). Nombres en español, en plural y en `snake_case`; claves primarias UUID
 salvo en el historial; instantes en `timestamptz` (UTC). Extensiones: `unaccent` y `pg_trgm`, ambas
 disponibles en Supabase.
 
-**Implementación:** [`backend/migraciones/001_esquema_inicial.sql`](../backend/migraciones/001_esquema_inicial.sql).
+**Implementación:** [`backend/migraciones/001_esquema_inicial.sql`](../backend/migraciones/001_esquema_inicial.sql),
+con lo que añadieron las migraciones posteriores: 002 y 003 cierran la API automática de Supabase; 004
+crea los permisos por categoría (`categoria_accesos`, D22); 005, la papelera (D23); 006, la auditoría del
+Master (D24); 007, los respaldos en el catálogo del historial (D25).
 Cada regla de la §3 tiene su prueba automática en
 [`backend/tests/integracion/esquema.test.ts`](../backend/tests/integracion/esquema.test.ts), que comprueba
 el error de PostgreSQL y el nombre exacto de la restricción que lo produce. El aislamiento con RLS
@@ -30,6 +33,8 @@ erDiagram
     usuarios |o--o{ historial : "protagoniza"
     usuarios ||--o{ tiempos_respuesta : "genera"
     categorias ||--o{ documentos : "clasifica"
+    categorias ||--o{ categoria_accesos : "restringe a"
+    usuarios ||--o{ categoria_accesos : "puede ver"
     documentos ||--o{ solicitudes : "se somete a"
     solicitudes ||--o{ notificaciones : "origina"
 
@@ -74,8 +79,15 @@ erDiagram
         varchar nombre "único en la empresa"
         varchar descripcion
         boolean activa
+        boolean restringida "solo administradores y autorizados"
         timestamptz creado_en
         timestamptz actualizado_en
+    }
+    categoria_accesos {
+        uuid categoria_id PK "y FK"
+        uuid usuario_id PK "y FK"
+        uuid empresa_id FK
+        timestamptz creado_en
     }
     documentos {
         uuid id PK
@@ -91,7 +103,9 @@ erDiagram
         integer archivo_peso_bytes
         timestamptz creado_en
         timestamptz actualizado_en
-        timestamptz eliminado_en "eliminación lógica"
+        timestamptz eliminado_en "eliminación lógica: a la papelera"
+        uuid eliminado_por FK "quién lo eliminó"
+        timestamptz purgado_en "archivo borrado para siempre"
     }
     solicitudes {
         uuid id PK
@@ -205,10 +219,24 @@ Además, único (`id`, `empresa_id`), que necesitan las claves foráneas compues
 | nombre | varchar(80) | no | único en la empresa, sin distinguir mayúsculas | |
 | descripcion | varchar(255) | sí | | |
 | activa | boolean | no | por defecto, verdadero | Las inactivas no se ofrecen para documentos nuevos (RN08) |
+| restringida | boolean | no | por defecto, falso | Solo la ven los administradores y las personas de `categoria_accesos` (RN29) |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
 Además, único (`id`, `empresa_id`).
+
+### categoria_accesos
+
+Quién puede ver una categoría restringida (RF25). Es configuración, no un dato de negocio: es la única
+tabla en la que `app_empresa` puede borrar, porque quitar el acceso a alguien es borrar su fila. Cada
+cambio queda en el historial (`CATEGORIA_EDITADA`).
+
+| Campo | Tipo | Nulo | Restricciones | Descripción |
+|---|---|---|---|---|
+| categoria_id | uuid | no | PK; FK (`categoria_id`, `empresa_id`) → categorias | |
+| usuario_id | uuid | no | PK; FK (`usuario_id`, `empresa_id`) → usuarios | Solo personas de la misma empresa |
+| empresa_id | uuid | no | FK → empresas | |
+| creado_en | timestamptz | no | ahora | |
 
 ### documentos
 
@@ -227,7 +255,9 @@ Además, único (`id`, `empresa_id`).
 | archivo_peso_bytes | integer | no | entre 1 y 10 485 760 | |
 | creado_en | timestamptz | no | ahora | Instante de la subida |
 | actualizado_en | timestamptz | no | ahora | |
-| eliminado_en | timestamptz | sí | | Eliminación lógica (M5) |
+| eliminado_en | timestamptz | sí | | Eliminación lógica (M5): desde aquí, el documento está en la papelera (RN28) |
+| eliminado_por | uuid | sí | FK (`eliminado_por`, `empresa_id`) → usuarios | Quién lo eliminó; nulo en lo eliminado antes de la migración 005 |
+| purgado_en | timestamptz | sí | solo si `eliminado_en` no es nulo | El archivo ya no está en el almacenamiento; la fila queda como constancia y no se restaura |
 
 Además, único (`id`, `empresa_id`).
 
@@ -267,7 +297,7 @@ Además, único (`id`, `empresa_id`).
 | empresa_id | uuid | sí | FK → empresas | La del autor o, si actúa el Master, la de la empresa sobre la que actúa. Nulo en lo que no es de ninguna empresa: un correo desconocido, o el Master en su propia cuenta |
 | usuario_id | uuid | sí | FK → usuarios; su empresa debe ser la del asiento, salvo el Master (M11) | Quién; nulo si no hay autor |
 | rol_usuario | varchar(13) | sí | el rol actual del autor (M11) | Rol que tenía al actuar (indicador 6) |
-| accion | varchar(30) | no | una de las 27 de [Análisis §7](01-analisis.md) | Qué |
+| accion | varchar(30) | no | una de las 30 de [Análisis §7](01-analisis.md) | Qué |
 | entidad_tipo | varchar(12) | sí | `empresa`, `usuario`, `sesion`, `categoria`, `documento` o `solicitud` | Sobre qué |
 | entidad_id | uuid | sí | sin FK (M3) | |
 | detalle | jsonb | no | por defecto, `{}` | Lo propio de cada acción: antes → después, filtros, correo intentado, ruta denegada |
@@ -311,6 +341,9 @@ No dependen de que el código se acuerde de comprobarlas.
 | Coherencia de la solicitud | Pendiente si y solo si no tiene revisor ni fecha de resolución |
 | Peso máximo del archivo (RN09) | `archivo_peso_bytes` entre 1 y 10 485 760 |
 | Historial inalterable (RN17) | Trigger que rechaza UPDATE, DELETE y TRUNCATE |
+| Solo se autoriza a personas de la propia empresa (RN29) | Claves foráneas compuestas de `categoria_accesos` |
+| Una categoría restringida no se ve sin acceso (RN29) | Política RLS restrictiva con `puede_ver_categoria()` (§3.1) |
+| Solo se purga lo que está en la papelera (RN28) | `purgado_en` exige `eliminado_en` |
 | Nada se borra en cascada | Todas las claves foráneas restringen el borrado: empresas, usuarios y documentos no se borran |
 
 ### 3.1 Aislamiento con RLS (D17)
@@ -327,6 +360,17 @@ Si la transacción no fija empresa, `empresa_actual()` es nula y `app_empresa` n
 fallo es cerrado. Dos funciones `SECURITY DEFINER`, ejecutables solo por `app_plataforma`, hacen lo que
 el Master necesita y su rol no alcanza: `metricas_de_empresas()` devuelve conteos por empresa (nunca
 contenido) y `revocar_sesiones_de_empresa()` cierra las sesiones de todos sus usuarios al desactivarla.
+
+**Permisos por categoría (004, D22).** La transacción fija también quién actúa (`app.usuario_id`) y con
+qué rol (`app.rol`), que leen `usuario_actual()` y `rol_actual()`. Sobre `categorias` y `documentos` hay
+una política **restrictiva** —se suma con AND a la de aislamiento— que llama a `puede_ver_categoria()`
+(`SECURITY DEFINER`, ejecutable solo por `app_empresa`): un administrador ve todas; los demás, las
+abiertas y las restringidas en las que tienen acceso. La misma condición vale al insertar y al
+actualizar un documento, así que nadie sube a una categoría que no ve. `categoria_accesos` solo la leen
+y cambian los administradores. Sin persona fijada, nada restringido se abre.
+
+**Auditoría del Master (006, D24).** `app_plataforma` puede leer del historial los asientos sin empresa
+y los que tienen el rol `master`; nada más.
 
 ## 4. Índices
 
@@ -347,6 +391,9 @@ Además de los únicos de la sección anterior.
 | historial | empresa + `entidad_tipo` + `entidad_id` | Todo lo ocurrido a un documento concreto |
 | usuarios | empresa | Listado de usuarios |
 | recuperaciones_clave | usuario, solo no usadas | Anular los enlaces pendientes al pedir otro |
+| categoria_accesos | usuario | Qué categorías restringidas ve alguien |
+| documentos | empresa + `eliminado_en`, solo en la papelera (no purgados) | La papelera y la purga a los 30 días |
+| historial | correo del detalle + `creado_en`, solo `SESION_FALLIDA` | Contar los fallos recientes de un correo (RN27) |
 
 ## 5. Decisiones de modelado
 

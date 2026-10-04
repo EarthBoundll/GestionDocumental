@@ -86,7 +86,7 @@ describe('Autenticación (RF01–RF04)', () => {
 
     it('frena la fuerza bruta desde un mismo IP: el undécimo intento fallido en 15 minutos responde 429 (RN20)', async () => {
       const aislada = crearAppDePruebas(pool);
-      // Un correo distinto cada vez: el freno por IP actúa aunque nadie llegue al bloqueo por cuenta (RN21).
+      // Un correo distinto cada vez: el freno por IP actúa aunque nadie llegue al bloqueo por cuenta (RN27).
       const fallar = (intento = 0) =>
         request(aislada).post('/api/v1/auth/login').send({ email: `adivina${intento}.${Date.now()}@ejemplo.pe`, clave: 'adivinando' });
 
