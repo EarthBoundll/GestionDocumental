@@ -1,6 +1,6 @@
 import { Download, Eye, FileText, Search, SearchX, Upload } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
 import { categorias, documentos, type FiltrosDocumentos } from '../../api/recursos';
 import type { DocumentoResumen } from '../../api/tipos';
@@ -11,13 +11,14 @@ import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
 import { useMedicionDeListado } from '../../hooks/useMedicionDeListado';
+import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
 import { abrirArchivo } from '../../utilidades/archivos';
 import { formatearFecha, formatearPeso, nombreDeTipo } from '../../utilidades/formato';
 
 const FILTROS = ['q', 'categoriaId', 'desde', 'hasta', 'orden'] as const;
 
 export function ListaDocumentos() {
-  const [parametros, setParametros] = useSearchParams();
+  const [parametros, cambiarParametros] = useParametrosEnUrl();
   const filtros: FiltrosDocumentos = {
     q: parametros.get('q') ?? undefined,
     categoriaId: parametros.get('categoriaId') ?? undefined,
@@ -45,13 +46,13 @@ export function ListaDocumentos() {
 
   // Cambiar un filtro vuelve a la primera página.
   function aplicar(cambios: Partial<Record<(typeof FILTROS)[number] | 'pagina', string | undefined>>) {
-    const siguientes = new URLSearchParams(parametros);
-    for (const [clave, valor] of Object.entries(cambios)) {
-      if (valor) siguientes.set(clave, valor);
-      else siguientes.delete(clave);
-    }
-    if (!('pagina' in cambios)) siguientes.delete('pagina');
-    setParametros(siguientes);
+    cambiarParametros((siguientes) => {
+      for (const [clave, valor] of Object.entries(cambios)) {
+        if (valor) siguientes.set(clave, valor);
+        else siguientes.delete(clave);
+      }
+      if (!('pagina' in cambios)) siguientes.delete('pagina');
+    });
   }
 
   function buscar(evento: FormEvent) {
@@ -106,7 +107,7 @@ export function ListaDocumentos() {
             <EstadoVacio
               icono={SearchX}
               titulo="Ningún documento coincide"
-              accion={<Boton variante="secundario" onClick={() => { setTexto(''); setParametros(new URLSearchParams()); }}>Quitar los filtros</Boton>}
+              accion={<Boton variante="secundario" onClick={() => { setTexto(''); cambiarParametros((siguientes) => [...siguientes.keys()].forEach((clave) => siguientes.delete(clave))); }}>Quitar los filtros</Boton>}
             >
               Prueba con menos palabras o con otra categoría.
             </EstadoVacio>

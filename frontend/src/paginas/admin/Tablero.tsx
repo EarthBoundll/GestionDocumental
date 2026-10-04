@@ -1,6 +1,5 @@
 import { FileDown, LayoutDashboard } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
 import { historial, tablero } from '../../api/recursos';
 import type { Tablero as DatosDelTablero } from '../../api/tipos';
@@ -9,6 +8,7 @@ import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
+import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
 import { contar, formatearFecha, formatearPeso } from '../../utilidades/formato';
 
 const numero = (valor: number) => valor.toLocaleString('es-PE');
@@ -21,17 +21,17 @@ const enMs = (valor: number | null) => (valor === null ? '—' : `${numero(valor
  * lo pone el protocolo de prueba; el tablero lo dice en vez de inventarlo.
  */
 export function Tablero() {
-  const [parametros, setParametros] = useSearchParams();
+  const [parametros, cambiarParametros] = useParametrosEnUrl();
   const periodo = { desde: parametros.get('desde') ?? undefined, hasta: parametros.get('hasta') ?? undefined };
   const consulta = useConsulta((senal) => tablero.obtener(periodo, senal), [parametros.toString()]);
   const [exportando, setExportando] = useState(false);
   const [errorAlExportar, setErrorAlExportar] = useState<ErrorApi | null>(null);
 
   function cambiar(clave: 'desde' | 'hasta', valor: string) {
-    const siguientes = new URLSearchParams(parametros);
-    if (valor) siguientes.set(clave, valor);
-    else siguientes.delete(clave);
-    setParametros(siguientes);
+    cambiarParametros((siguientes) => {
+      if (valor) siguientes.set(clave, valor);
+      else siguientes.delete(clave);
+    });
   }
 
   async function exportar(datos: DatosDelTablero) {

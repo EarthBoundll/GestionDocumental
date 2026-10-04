@@ -134,8 +134,11 @@ test.describe('Documentos y categorías', () => {
     await subirDocumento(request, empresa.administrador, { nombre: 'Contrato de alquiler', archivo: 'contrato firmado.pdf' });
     await entrar(page, empresa.administrador);
 
+    // La pestaña nueva pide el enlace firmado. Se comprueba la petición y no la carga: un Chromium sin
+    // visor de PDF (el de la integración continua) convierte esa pestaña en una descarga.
+    const enlace = page.context().waitForEvent('request', (peticion) => peticion.url().startsWith(`${URL_API}/archivos/`));
     const [pestana] = await Promise.all([page.waitForEvent('popup'), page.getByRole('button', { name: 'Ver Contrato de alquiler' }).click()]);
-    await pestana.waitForURL((url) => url.href.startsWith(`${URL_API}/archivos/`));
+    expect(new URL((await enlace).url()).searchParams.get('firma')).toBeTruthy();
     await pestana.close();
 
     const [descarga] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Descargar Contrato de alquiler' }).click()]);

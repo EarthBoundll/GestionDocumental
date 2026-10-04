@@ -1,10 +1,10 @@
 import { ShieldCheck } from 'lucide-react';
-import { useSearchParams } from 'react-router';
 import { plataforma } from '../../api/recursos';
 import { Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Campo, Selector } from '../../componentes/Campos';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
+import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
 import { NOMBRES_DE_ACCIONES } from '../../utilidades/acciones';
 import { FilaDeHistorial } from '../admin/Historial';
 
@@ -22,18 +22,18 @@ type Filtro = 'empresaId' | 'accion' | 'desde' | 'hasta' | 'pagina';
  * de entrar con correos que no existen. La actividad de las personas de cada empresa no está aquí (D18).
  */
 export function Auditoria() {
-  const [parametros, setParametros] = useSearchParams();
+  const [parametros, cambiarParametros] = useParametrosEnUrl();
   const leer = (clave: Filtro) => parametros.get(clave) ?? undefined;
   const filtros = { empresaId: leer('empresaId'), accion: leer('accion'), desde: leer('desde'), hasta: leer('hasta'), pagina: Number(leer('pagina') ?? 1) };
   const consulta = useConsulta((senal) => plataforma.auditoria(filtros, senal), [parametros.toString()]);
   const { datos: empresas } = useConsulta((senal) => plataforma.empresas(senal), []);
 
   function filtrar(clave: Filtro, valor: string) {
-    const siguientes = new URLSearchParams(parametros);
-    if (valor) siguientes.set(clave, valor);
-    else siguientes.delete(clave);
-    if (clave !== 'pagina') siguientes.delete('pagina');
-    setParametros(siguientes);
+    cambiarParametros((siguientes) => {
+      if (valor) siguientes.set(clave, valor);
+      else siguientes.delete(clave);
+      if (clave !== 'pagina') siguientes.delete('pagina');
+    });
   }
 
   return (

@@ -1,6 +1,5 @@
 import { FileDown, History, Monitor, Smartphone } from 'lucide-react';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
 import { historial, usuarios, type FiltrosHistorial } from '../../api/recursos';
 import type { Asiento } from '../../api/tipos';
@@ -10,12 +9,13 @@ import { Campo, Selector } from '../../componentes/Campos';
 import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
+import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
 import { NOMBRES_DE_ACCIONES, resumirDetalle } from '../../utilidades/acciones';
 import { formatearFechaHora } from '../../utilidades/formato';
 import { NOMBRES_DE_ROLES } from '../../utilidades/roles';
 
 export function Historial() {
-  const [parametros, setParametros] = useSearchParams();
+  const [parametros, cambiarParametros] = useParametrosEnUrl();
   const filtros: FiltrosHistorial = {
     usuarioId: parametros.get('usuarioId') ?? undefined,
     accion: parametros.get('accion') ?? undefined,
@@ -29,11 +29,11 @@ export function Historial() {
   const [errorAlExportar, setErrorAlExportar] = useState<ErrorApi | null>(null);
 
   function filtrar(clave: keyof FiltrosHistorial, valor: string) {
-    const siguientes = new URLSearchParams(parametros);
-    if (valor) siguientes.set(clave, valor);
-    else siguientes.delete(clave);
-    if (clave !== 'pagina') siguientes.delete('pagina');
-    setParametros(siguientes);
+    cambiarParametros((siguientes) => {
+      if (valor) siguientes.set(clave, valor);
+      else siguientes.delete(clave);
+      if (clave !== 'pagina') siguientes.delete('pagina');
+    });
   }
 
   async function exportar() {

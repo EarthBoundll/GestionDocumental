@@ -105,6 +105,8 @@ export async function entrar(page: Page, cuenta: { email: string; clave: string 
 /** En el celular el menú está plegado; en el escritorio, a la vista. */
 export async function irDesdeElMenu(page: Page, enlace: string) {
   const abrir = page.getByRole('button', { name: 'Abrir el menú' });
+  // Se espera a que esté en pantalla uno de los dos: decidir antes de que cargue el marco elegiría mal.
+  await expect(abrir.or(page.getByRole('navigation', { name: 'Principal' })).first()).toBeVisible();
   if (await abrir.isVisible()) {
     await abrir.click();
     await page.getByRole('dialog', { name: 'Menú' }).getByRole('link', { name: enlace, exact: true }).click();
