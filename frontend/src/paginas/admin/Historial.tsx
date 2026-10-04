@@ -98,7 +98,8 @@ function autorDe(asiento: Asiento): string {
   return asiento.accion === 'DOCUMENTO_PURGADO' ? 'El sistema' : 'Correo desconocido';
 }
 
-function FilaDeHistorial({ asiento }: { asiento: Asiento }) {
+/** Una acción del historial. Con `conEmpresa`, dice además en qué empresa ocurrió (la auditoría del Master). */
+export function FilaDeHistorial({ asiento, conEmpresa = false }: { asiento: Asiento; conEmpresa?: boolean }) {
   const denegado = asiento.accion === 'ACCESO_DENEGADO' || asiento.accion === 'SESION_FALLIDA';
   const Dispositivo = asiento.esMovil ? Smartphone : Monitor;
   return (
@@ -110,6 +111,7 @@ function FilaDeHistorial({ asiento }: { asiento: Asiento }) {
             <Insignia tono={denegado ? 'peligro' : 'neutro'}>{NOMBRES_DE_ACCIONES[asiento.accion] ?? asiento.accion}</Insignia>
             <span className="font-medium text-slate-900">{autorDe(asiento)}</span>
             {asiento.rolUsuario && <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[asiento.rolUsuario]}</span>}
+            {conEmpresa && asiento.empresa && <Insignia tono="marca">{asiento.empresa.nombre}</Insignia>}
           </p>
           <Resumen asiento={asiento} />
         </div>

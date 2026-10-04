@@ -122,6 +122,8 @@ export interface Usuario {
 export interface Asiento {
   id: string;
   accion: string;
+  /** Null en lo que no pertenece a ninguna empresa (el Master en su cuenta, un correo desconocido). */
+  empresa: Referencia | null;
   usuario: (Referencia & { email: string }) | null;
   rolUsuario: Rol | null;
   entidad: { tipo: string; id: string } | null;

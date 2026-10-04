@@ -7,9 +7,10 @@ import {
 import type { ServicioPlataforma } from './plataforma.servicio.js';
 
 /** El área del Master. Todas sus rutas entran por la puerta de plataforma. */
-export function crearRutasPlataforma(servicio: ServicioPlataforma, entrar: RequestHandler): Router {
+export function crearRutasPlataforma(servicio: ServicioPlataforma, entrar: RequestHandler, auditoria: Router): Router {
   const rutas = Router();
   rutas.use(entrar);
+  rutas.use('/historial', auditoria);
 
   rutas.get('/metricas', async (req, res) => {
     res.json(await servicio.metricas(actorDe(req)));

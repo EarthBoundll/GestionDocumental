@@ -128,4 +128,7 @@ export const plataforma = {
     api<Administrador>(`/plataforma/administradores/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   cambiarEstadoAdministrador: (id: string, activo: boolean) =>
     api<Administrador>(`/plataforma/administradores/${id}/estado`, { metodo: 'PATCH', cuerpo: { activo } }),
+  /** RF27: lo que hizo la plataforma y los accesos sin empresa; nunca la actividad dentro de una empresa. */
+  auditoria: (filtros: { empresaId?: string; accion?: string; desde?: string; hasta?: string; pagina?: number }, senal?: AbortSignal) =>
+    api<Pagina<Asiento>>('/plataforma/historial', { consulta: { ...filtros }, senal }),
 };

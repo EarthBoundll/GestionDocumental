@@ -15,6 +15,8 @@ const esquemaFiltros = z
     accion: sinVacios(z.enum(ACCIONES).optional()),
     entidadTipo: sinVacios(z.enum(['empresa', 'usuario', 'sesion', 'categoria', 'documento', 'solicitud']).optional()),
     entidadId: sinVacios(z.uuid().optional()),
+    /** Solo en el historial de la plataforma: en el de una empresa, la empresa es siempre la del actor. */
+    empresaId: sinVacios(z.uuid().optional()),
     desde: sinVacios(fecha.optional()),
     hasta: sinVacios(fecha.optional()),
   })
@@ -29,16 +31,29 @@ type Filtros = z.infer<typeof esquemaFiltros>;
 const MAXIMO_EXPORTABLE = 50_000;
 
 /**
+ * De qué historial se trata. El de una empresa se filtra por su empresa; el de la plataforma (RF27) es
+ * la excepción del Master, escrita aquí igual que en su política RLS (006): sus propias acciones y lo
+ * que no pertenece a ninguna empresa, nunca la actividad de las personas de una empresa.
+ */
+type Ambito = { empresaId: string } | 'plataforma';
+
+/**
  * Las fechas del filtro son días de Lima: «hasta el 2 de octubre» incluye ese día entero en Lima,
  * aunque en UTC ya sea el 3 (M10).
  */
-function condiciones(empresaId: string, filtros: Filtros) {
-  const lista = ['h.empresa_id = $1'];
-  const parametros: unknown[] = [empresaId];
+function condiciones(ambito: Ambito, filtros: Filtros) {
+  const lista: string[] = [];
+  const parametros: unknown[] = [];
   const agregar = (condicion: (parametro: string) => string, valor: unknown) => {
     parametros.push(valor);
     lista.push(condicion(`$${parametros.length}`));
   };
+  if (ambito === 'plataforma') {
+    lista.push("(h.empresa_id IS NULL OR h.rol_usuario = 'master')");
+    if (filtros.empresaId) agregar((p) => `h.empresa_id = ${p}`, filtros.empresaId);
+  } else {
+    agregar((p) => `h.empresa_id = ${p}`, ambito.empresaId);
+  }
   if (filtros.usuarioId) agregar((p) => `h.usuario_id = ${p}`, filtros.usuarioId);
   if (filtros.accion) agregar((p) => `h.accion = ${p}`, filtros.accion);
   if (filtros.entidadTipo) agregar((p) => `h.entidad_tipo = ${p}`, filtros.entidadTipo);
@@ -51,6 +66,8 @@ function condiciones(empresaId: string, filtros: Filtros) {
 interface Asiento {
   id: string;
   accion: string;
+  /** La empresa del asiento; null en lo que no pertenece a ninguna (el Master en su cuenta). */
+  empresa: { id: string; nombre: string } | null;
   usuario: { id: string; nombre: string; email: string } | null;
   rolUsuario: string | null;
   entidad: { tipo: string; id: string } | null;
@@ -63,6 +80,8 @@ interface Asiento {
 interface FilaAsiento {
   id: string;
   accion: string;
+  empresa_id: string | null;
+  empresa_nombre: string | null;
   usuario_id: string | null;
   usuario_nombre: string | null;
   usuario_email: string | null;
@@ -77,13 +96,13 @@ interface FilaAsiento {
 }
 
 const SELECCION = `
-  SELECT h.id::text AS id, h.accion, h.usuario_id, u.nombre AS usuario_nombre, u.email AS usuario_email, h.rol_usuario,
+  SELECT h.id::text AS id, h.accion, h.empresa_id, e.nombre AS empresa_nombre, h.usuario_id, u.nombre AS usuario_nombre, u.email AS usuario_email, h.rol_usuario,
          h.entidad_tipo, h.entidad_id, h.detalle, h.user_agent, h.es_movil, h.creado_en,
          to_char(h.creado_en AT TIME ZONE 'America/Lima', 'YYYY-MM-DD HH24:MI:SS') AS creado_en_lima
-  FROM historial h LEFT JOIN usuarios u ON u.id = h.usuario_id`;
+  FROM historial h LEFT JOIN usuarios u ON u.id = h.usuario_id LEFT JOIN empresas e ON e.id = h.empresa_id`;
 
-async function consultar(db: Consultor, empresaId: string, filtros: Filtros, limite: number, desde = 0): Promise<FilaAsiento[]> {
-  const { where, parametros } = condiciones(empresaId, filtros);
+async function consultar(db: Consultor, ambito: Ambito, filtros: Filtros, limite: number, desde = 0): Promise<FilaAsiento[]> {
+  const { where, parametros } = condiciones(ambito, filtros);
   const { rows } = await db.query<FilaAsiento>(
     `${SELECCION} WHERE ${where} ORDER BY h.id DESC LIMIT $${parametros.length + 1} OFFSET $${parametros.length + 2}`,
     [...parametros, limite, desde],
@@ -101,6 +120,7 @@ function aAsiento(fila: FilaAsiento): Asiento {
   return {
     id: fila.id,
     accion: fila.accion,
+    empresa: fila.empresa_id && fila.empresa_nombre !== null ? { id: fila.empresa_id, nombre: fila.empresa_nombre } : null,
     usuario: fila.usuario_id && fila.usuario_nombre !== null
       ? { id: fila.usuario_id, nombre: fila.usuario_nombre, email: fila.usuario_email! }
       : null,
@@ -113,17 +133,23 @@ function aAsiento(fila: FilaAsiento): Asiento {
   };
 }
 
+async function listarEn(actor: Actor, ambito: Ambito, filtros: Filtros, paginacion: z.infer<typeof esquemaPaginacion>) {
+  const { where, parametros } = condiciones(ambito, filtros);
+  const { conteo, filas } = await actor.datos.ejecutar(async (db) => ({
+    conteo: (await db.query<{ total: number }>(`SELECT count(*)::int AS total FROM historial h WHERE ${where}`, parametros)).rows[0],
+    filas: await consultar(db, ambito, filtros, paginacion.porPagina, desplazamiento(paginacion)),
+  }));
+  return { datos: filas.map(aAsiento), paginacion: { ...paginacion, total: conteo?.total ?? 0 } };
+}
+
 export function crearServicioHistorial() {
   return {
-    async listar(actor: Actor, filtros: Filtros, paginacion: z.infer<typeof esquemaPaginacion>) {
-      const empresaId = empresaDe(actor);
-      const { where, parametros } = condiciones(empresaId, filtros);
-      const { conteo, filas } = await actor.datos.ejecutar(async (db) => ({
-        conteo: (await db.query<{ total: number }>(`SELECT count(*)::int AS total FROM historial h WHERE ${where}`, parametros)).rows[0],
-        filas: await consultar(db, empresaId, filtros, paginacion.porPagina, desplazamiento(paginacion)),
-      }));
-      return { datos: filas.map(aAsiento), paginacion: { ...paginacion, total: conteo?.total ?? 0 } };
-    },
+    listar: (actor: Actor, filtros: Filtros, paginacion: z.infer<typeof esquemaPaginacion>) =>
+      listarEn(actor, { empresaId: empresaDe(actor) }, filtros, paginacion),
+
+    /** RF27: la auditoría de la plataforma, para el Master. Su acceso (app_plataforma) no ve nada más. */
+    listarDePlataforma: (actor: Actor, filtros: Filtros, paginacion: z.infer<typeof esquemaPaginacion>) =>
+      listarEn(actor, 'plataforma', filtros, paginacion),
 
     /**
      * RF20: el historial en CSV, la evidencia del capítulo 3 (R3). Exportarlo también es una acción
@@ -132,7 +158,7 @@ export function crearServicioHistorial() {
     async exportar(actor: Actor, filtros: Filtros): Promise<string> {
       const { usuario } = actor.autenticacion;
       const filas = await actor.datos.ejecutar(async (cliente) => {
-        const filas = await consultar(cliente, empresaDe(actor), filtros, MAXIMO_EXPORTABLE);
+        const filas = await consultar(cliente, { empresaId: empresaDe(actor) }, filtros, MAXIMO_EXPORTABLE);
         await registrarAccion(cliente, {
           accion: 'HISTORIAL_EXPORTADO',
           autor: autorDe(usuario),
@@ -151,6 +177,17 @@ export function crearServicioHistorial() {
       );
     },
   };
+}
+
+/** Las rutas del historial de la plataforma: entran por la puerta del Master. */
+export function crearRutasAuditoria(servicio: ReturnType<typeof crearServicioHistorial>): Router {
+  const rutas = Router();
+  rutas.get('/', async (req, res) => {
+    const filtros = esquemaFiltros.parse(req.query);
+    const paginacion = esquemaPaginacion.parse(req.query);
+    res.json(await servicio.listarDePlataforma(actorDe(req), filtros, paginacion));
+  });
+  return rutas;
 }
 
 export function crearRutasHistorial(

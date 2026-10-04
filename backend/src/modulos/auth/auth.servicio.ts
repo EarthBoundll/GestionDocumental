@@ -11,13 +11,15 @@ import { correoDeRecuperacion } from './auth.correos.js';
 import type { DatosCambioClave, DatosConfirmacionRecuperacion, DatosInicioSesion } from './auth.esquemas.js';
 import {
   actualizarClaveHash, anularRecuperacionesDe, buscarClaveHash, buscarCuentaPorEmail, buscarDni, buscarPerfil,
-  consumirRecuperacion, insertarRecuperacion, insertarSesion, revocarOtrasSesiones, revocarSesion, revocarSesionesDe,
-  type Perfil,
+  consumirRecuperacion, fallosRecientes, insertarRecuperacion, insertarSesion, revocarOtrasSesiones, revocarSesion,
+  revocarSesionesDe, type Perfil,
 } from './auth.repositorio.js';
 
 const HORA = 3_600_000;
 /** CLAUDE.md v2: el enlace de recuperación vale 60 minutos. */
 export const MINUTOS_DE_RECUPERACION = 60;
+/** RN21: cinco contraseñas incorrectas para un correo en 15 minutos lo bloquean hasta que pasen. */
+export const BLOQUEO = { fallos: 5, minutos: 15 } as const;
 
 export type { Perfil };
 
@@ -36,7 +38,7 @@ export interface DependenciasAuth {
   urlFrontend: string;
 }
 
-type MotivoDeFallo = 'CORREO_DESCONOCIDO' | 'CLAVE_INCORRECTA' | 'USUARIO_INACTIVO' | 'EMPRESA_INACTIVA';
+type MotivoDeFallo = 'CORREO_DESCONOCIDO' | 'CLAVE_INCORRECTA' | 'USUARIO_INACTIVO' | 'EMPRESA_INACTIVA' | 'CUENTA_BLOQUEADA';
 
 export type ServicioAuth = ReturnType<typeof crearServicioAuth>;
 
@@ -70,6 +72,12 @@ export function crearServicioAuth({ pool, firmador, duracionHoras, correo, urlFr
   return {
     async iniciarSesion({ email, clave }: DatosInicioSesion, contexto: Contexto): Promise<SesionIniciada> {
       const cuenta = await buscarCuentaPorEmail(pool, email);
+      // El IP ya tiene su freno (RN20), pero desde otra red se podría seguir probando contra la misma cuenta.
+      if (await fallosRecientes(pool, email, cuenta?.id ?? null, BLOQUEO.minutos) >= BLOQUEO.fallos) {
+        await registrarIntentoFallido(contexto, email, 'CUENTA_BLOQUEADA', cuenta);
+        throw new ErrorAplicacion(429, 'CUENTA_BLOQUEADA',
+          `Demasiados intentos fallidos con este correo. Espera ${BLOQUEO.minutos} minutos o restablece tu contraseña`);
+      }
       // Se compara aunque la cuenta no exista, para que la respuesta tarde lo mismo en ambos casos.
       const coincide = await claveCoincide(clave, cuenta?.claveHash ?? null);
       if (!cuenta || !coincide) {

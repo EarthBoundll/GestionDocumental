@@ -13,6 +13,7 @@ import { ListaDocumentos } from './paginas/documentos/ListaDocumentos';
 import { SubirDocumento } from './paginas/documentos/SubirDocumento';
 import { NoEncontrado } from './paginas/errores/NoEncontrado';
 import { Notificaciones } from './paginas/notificaciones/Notificaciones';
+import { Auditoria } from './paginas/plataforma/Auditoria';
 import { DetalleEmpresa } from './paginas/plataforma/DetalleEmpresa';
 import { NuevaEmpresa } from './paginas/plataforma/NuevaEmpresa';
 import { Resumen } from './paginas/plataforma/Resumen';
@@ -56,6 +57,7 @@ export const rutas: RouteObject[] = [
               { path: '/admin/historial', element: <Historial /> },
               { path: '/admin/papelera', element: <Papelera /> },
               { path: '/plataforma', element: <Resumen /> },
+              { path: '/plataforma/auditoria', element: <Auditoria /> },
               { path: '/plataforma/empresas/nueva', element: <NuevaEmpresa /> },
               { path: '/plataforma/empresas/:id', element: <DetalleEmpresa /> },
               { path: '*', element: <NoEncontrado /> },

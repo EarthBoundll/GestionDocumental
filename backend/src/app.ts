@@ -20,7 +20,7 @@ import { crearServicioCategorias } from './modulos/categorias/categorias.servici
 import { crearControladorDocumentos } from './modulos/documentos/documentos.controlador.js';
 import { crearRutasDocumentos } from './modulos/documentos/documentos.rutas.js';
 import { crearServicioDocumentos } from './modulos/documentos/documentos.servicio.js';
-import { crearRutasHistorial, crearServicioHistorial } from './modulos/historial/historial.consulta.js';
+import { crearRutasAuditoria, crearRutasHistorial, crearServicioHistorial } from './modulos/historial/historial.consulta.js';
 import { crearRutasNotificaciones } from './modulos/notificaciones/notificaciones.rutas.js';
 import { crearRutasPlataforma } from './modulos/plataforma/plataforma.rutas.js';
 import { crearServicioPlataforma } from './modulos/plataforma/plataforma.servicio.js';
@@ -73,17 +73,18 @@ export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias
     urlFrontend: entorno.URL_FRONTEND,
   });
   const servicioDocumentos = crearServicioDocumentos({ almacenamiento });
+  const servicioHistorial = crearServicioHistorial();
 
   app.use('/api/v1/salud', crearRutasSalud(pool, { diagnosticoRed: entorno.DIAGNOSTICO_RED }));
   app.use('/api/v1/auth', crearRutasAuth(crearControladorAuth(servicioAuth), autenticar, crearLimitadores()));
-  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma(), plataforma));
+  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma(), plataforma, crearRutasAuditoria(servicioHistorial)));
   app.use('/api/v1/categorias', crearRutasCategorias(crearControladorCategorias(crearServicioCategorias()), empresa, exigir));
   app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios()), empresa, exigir));
   // Antes que /documentos: una de sus rutas es /documentos/:id/solicitudes, y así no se autentica dos veces.
   app.use('/api/v1', crearRutasSolicitudes(crearServicioSolicitudes(), empresa, exigir));
   app.use('/api/v1/documentos', crearRutasDocumentos(crearControladorDocumentos(servicioDocumentos, tiempos), empresa, exigir));
   app.use('/api/v1/notificaciones', crearRutasNotificaciones(empresa));
-  app.use('/api/v1/historial', crearRutasHistorial(crearServicioHistorial(), empresa, exigir));
+  app.use('/api/v1/historial', crearRutasHistorial(servicioHistorial, empresa, exigir));
   app.use('/api/v1/tiempos-respuesta', crearRutasTiempos(tiempos, empresa));
   if (almacenamiento instanceof AlmacenamientoEnDisco) app.use('/api/v1/archivos', almacenamiento.rutas());
 
