@@ -130,5 +130,10 @@ test.describe('Plataforma: el Administrador Master', () => {
     await expect(page.getByText(/^Respaldo guardado/)).toBeVisible();
     await expect(page.getByRole('listitem')).not.toHaveCount(0);
     await expect(page.getByRole('link', { name: /descargar/i })).toHaveCount(0);
+
+    // La portada lo resume: el último respaldo y el espacio frente al límite gratuito.
+    await irDesdeElMenu(page, 'Empresas');
+    await expect(page.getByText(/respaldos? guardados?/)).toBeVisible();
+    await expect(page.getByRole('meter', { name: 'Espacio de archivos usado' })).toBeVisible();
   });
 });

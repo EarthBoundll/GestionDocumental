@@ -14,6 +14,7 @@ Sistema web de gestión documental para micro y pequeñas empresas de Lima — t
 | 7 · Pantallas conectadas a la API | Terminada el 3 de octubre de 2026: cada pantalla recorrida en un navegador con los tres roles, también con la compilación de producción y la CSP de Vercel. Se corrigieron diez fallos; el más grave solo aparecía en producción (las primeras peticiones al recargar salían sin token) |
 | 8 · Responsive, pruebas y despliegue | Terminada: las pantallas sin desbordes a 360 y 768 px; [pruebas funcionales](evidencias/pruebas-funcionales.md) en un navegador real; desplegado el 3 de octubre de 2026 ([07 · Despliegue](07-despliegue.md)) |
 | A · Mejoras de la auditoría técnica | Terminada el 4 de octubre de 2026: categorías restringidas (RF25), papelera con purga a 30 días (RF26), auditoría del Master (RF27), tablero con los indicadores (RF28), respaldo nocturno con restauración probada (RF29), bloqueo por cuenta (RN27), modo demostración de las pruebas e integración continua (D22–D26). 288 pruebas del backend, 42 del frontend y 39 de 39 ejecuciones funcionales |
+| B · Ganancias rápidas de la segunda auditoría | Terminada el 4 de octubre de 2026: actividad de cada documento en su ficha (RF30, D27), tablero con flujo de aprobación y actividad reciente, último respaldo y espacio frente al GB gratuito en la portada del Master, ruta de navegación en la ficha, ayudas en el tablero y la auditoría, y una prueba que exige RLS en toda tabla con `empresa_id`. 298 pruebas del backend, 48 del frontend y 41 de 41 ejecuciones funcionales |
 
 Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CLAUDE.md` v2, que es la vigente.
 
@@ -22,11 +23,13 @@ Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CL
 | [01 · Análisis](01-analisis.md) | Problema, actores (tres roles), requisitos, reglas de negocio, matriz de permisos, acciones auditables y de dónde sale cada indicador |
 | [02 · Arquitectura](02-arquitectura.md) | Diagrama, capas, la capa de acceso a datos, flujos críticos, despliegue, seguridad, decisiones técnicas, riesgos y encaje con Cloud Computing |
 | [03 · Modelo de datos](03-modelo-datos.md) | Diagrama entidad-relación, diccionario de datos, restricciones, RLS e índices |
-| [04 · API](04-api.md) | Convenciones, formato de errores, los 45 endpoints y qué pantalla usa cada uno |
+| [04 · API](04-api.md) | Convenciones, formato de errores, los 46 endpoints y qué pantalla usa cada uno |
 | [05 · Estructura](05-estructura.md) | Carpetas de backend y frontend, dependencias y variables de entorno |
 | [06 · Migración a v2](06-migracion-v2.md) | El diagnóstico de la v1 frente a la v2, las decisiones A–G y el plan que se siguió |
 | [07 · Despliegue](07-despliegue.md) | Supabase, Brevo, Render y Vercel paso a paso, la creación del Master, el monitor y las tareas programadas, cómo restaurar un respaldo, la comprobación, la integración continua y qué hacer durante la evaluación |
 | [08 · Indicadores](08-indicadores.md) | Las consultas que sacan del sistema cada uno de los siete indicadores al cerrar una sesión de evaluación |
+| [09 · Protocolo de evaluación](09-protocolo-evaluacion.md) | Borrador para el asesor: diseño, participantes, materiales, sesiones, la tarea de cada indicador con su inicio y su fin, sesgos, ficha de observación y análisis |
+| [10 · Consentimiento informado](10-consentimiento-informado.md) | La hoja que firma cada participante, con la transferencia de datos a EE. UU., y la autorización de la empresa |
 | [Evidencias: aislamiento](evidencias/aislamiento-entre-empresas.md) | Informe de aislamiento entre empresas, generado por `npm run informe:aislamiento` (indicador 6) |
 | [Evidencias: pruebas funcionales](evidencias/pruebas-funcionales.md) | Cada requisito funcional probado en un navegador real, en escritorio y celular, generado por `npm run pruebas:funcionales` |
 
@@ -51,11 +54,12 @@ solo aparecen al desplegar. Con la v2 se aprobaron las decisiones A–G de
 
 ## Pendiente de decidir o de hacer
 
-1. **Rotar las claves** que pasaron por una conversación (Brevo, Supabase) desde sus paneles, y cambiar la
-   contraseña temporal del Master en *Mi cuenta*.
-2. **La prueba de humo con personas** de [07 · Despliegue §8](07-despliegue.md): subir desde un celular y
-   recibir el correo de recuperación.
-3. **Una o varias MYPEs en la evaluación.** No cambia el diseño, pero sí cómo se preparan los datos.
-4. **El protocolo de la preprueba y la posprueba:** las tareas cronometradas, la lista de documentos que
-   se pedirán (indicador 3) y el guion de acciones (indicador 4). El sistema mide; qué se le pide a cada
-   persona lo fija el protocolo.
+1. **Los datos de la evaluación:** cuántas MYPEs, cuántos participantes, las fechas y si habrá un periodo
+   de uso antes de la posprueba. Es lo marcado **[Por definir]** en [09 · Protocolo](09-protocolo-evaluacion.md).
+2. **Revisar el protocolo y el consentimiento con el asesor**, y probarlos en el piloto con una persona
+   fuera de la muestra.
+3. **El procedimiento de cierre del estudio:** eliminar los datos de la empresa evaluada en la fecha que
+   promete el consentimiento. El historial es inmutable para la aplicación (RN17), así que hace falta un
+   procedimiento manual del dueño de la base, escrito y probado antes de la preprueba.
+4. **La prueba de humo con personas** de [07 · Despliegue §8](07-despliegue.md): subir desde un celular y
+   recibir el correo de recuperación. Va en el congelamiento, antes de la capacitación.

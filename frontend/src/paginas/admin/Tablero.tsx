@@ -1,15 +1,17 @@
-import { FileDown, LayoutDashboard } from 'lucide-react';
+import { ChevronRight, FileDown, History, LayoutDashboard } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
 import { historial, tablero } from '../../api/recursos';
 import type { Tablero as DatosDelTablero } from '../../api/tipos';
-import { Aviso, Cargando } from '../../componentes/Avisos';
+import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
 import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
 import { contar, formatearFecha, formatearPeso } from '../../utilidades/formato';
+import { FilaDeHistorial } from './Historial';
 
 const numero = (valor: number) => valor.toLocaleString('es-PE');
 const enPorcentaje = (valor: number | null) => (valor === null ? '—' : `${valor.toLocaleString('es-PE')} %`);
@@ -53,9 +55,11 @@ export function Tablero() {
         )}
       />
       {errorAlExportar && <div className="mb-4"><Aviso tipo="error">{errorAlExportar.mensaje}</Aviso></div>}
-      <Tarjeta className="mb-4 grid grid-cols-2 gap-3 p-4 sm:max-w-md">
-        <Campo etiqueta="Desde" type="date" value={datos?.periodo.desde ?? periodo.desde ?? ''} onChange={(e) => cambiar('desde', e.target.value)} />
-        <Campo etiqueta="Hasta" type="date" value={datos?.periodo.hasta ?? periodo.hasta ?? ''} onChange={(e) => cambiar('hasta', e.target.value)} />
+      <Tarjeta className="mb-4 grid grid-cols-2 items-start gap-3 p-4 sm:max-w-md">
+        <Campo etiqueta="Desde" type="date" value={datos?.periodo.desde ?? periodo.desde ?? ''} onChange={(e) => cambiar('desde', e.target.value)}
+          ayuda="Sin fechas, los últimos 30 días." />
+        <Campo etiqueta="Hasta" type="date" value={datos?.periodo.hasta ?? periodo.hasta ?? ''} onChange={(e) => cambiar('hasta', e.target.value)}
+          ayuda="Días completos, en hora de Lima." />
       </Tarjeta>
       {consulta.error ? (
         <ErrorDeCarga error={consulta.error} alReintentar={consulta.recargar} />
@@ -116,10 +120,50 @@ function Contenido({ datos }: { datos: DatosDelTablero }) {
         </dl>
       </Tarjeta>
 
-      <Tarjeta className="p-4">
-        <h2 className="text-sm font-semibold text-slate-900">Actividad diaria</h2>
-        <Actividad dias={datos.actividad} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Tarjeta className="p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Flujo de aprobación</h2>
+          <p className="mt-1 text-xs text-slate-500">Solicitudes del periodo y cómo se resolvieron.</p>
+          <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
+            <Resultado titulo="Solicitadas" valor={datos.aprobacion.solicitadas} />
+            <Resultado titulo="Aprobadas" valor={datos.aprobacion.aprobadas} tono="text-emerald-700" />
+            <Resultado titulo="Rechazadas" valor={datos.aprobacion.rechazadas} tono="text-red-700" />
+          </dl>
+          <Link to="/solicitudes" className="mt-4 inline-flex min-h-10 items-center gap-1 text-sm font-medium text-marca-700 hover:text-marca-800">
+            {contar(resumen.solicitudesPendientes, 'solicitud pendiente', 'solicitudes pendientes')} ahora <ChevronRight aria-hidden className="size-4" />
+          </Link>
+        </Tarjeta>
+
+        <Tarjeta className="p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Actividad diaria</h2>
+          <Actividad dias={datos.actividad} />
+        </Tarjeta>
+      </div>
+
+      <Tarjeta>
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-slate-900">Actividad reciente</h2>
+          <Link to="/admin/historial" className="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-marca-700 hover:text-marca-800">
+            Todo el historial <ChevronRight aria-hidden className="size-4" />
+          </Link>
+        </div>
+        {datos.recientes.length === 0 ? (
+          <EstadoVacio icono={History} titulo="Todavía no hay actividad" />
+        ) : (
+          <ul className="divide-y divide-slate-100" aria-label="Actividad reciente">
+            {datos.recientes.map((asiento) => <FilaDeHistorial key={asiento.id} asiento={asiento} />)}
+          </ul>
+        )}
       </Tarjeta>
+    </div>
+  );
+}
+
+function Resultado({ titulo, valor, tono = 'text-slate-900' }: { titulo: string; valor: number; tono?: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 p-3">
+      <dt className="text-xs font-medium text-slate-500">{titulo}</dt>
+      <dd className={`mt-1 text-2xl font-semibold tabular-nums ${tono}`}>{numero(valor)}</dd>
     </div>
   );
 }

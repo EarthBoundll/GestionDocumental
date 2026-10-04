@@ -6,11 +6,7 @@ import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton } from '../../componentes/Boton';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
-import { formatearFechaHora, formatearPeso } from '../../utilidades/formato';
-
-/** «respaldo-2026-10-04T08-00-00Z.json.gz» → el instante en que se hizo. */
-const instanteDe = (nombre: string) =>
-  nombre.replace(/^respaldo-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.json\.gz$/, '$1T$2:$3:$4Z');
+import { formatearFechaHora, formatearPeso, instanteDeRespaldo } from '../../utilidades/formato';
 
 /**
  * RF29: los respaldos de la base. El Master ve que existen y pide uno cuando quiera; no los descarga,
@@ -53,7 +49,7 @@ export function Respaldos() {
           <ul className="divide-y divide-slate-100">
             {consulta.datos.datos.map((respaldo) => (
               <li key={respaldo.nombre} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                <span className="font-medium text-slate-900">{formatearFechaHora(instanteDe(respaldo.nombre))}</span>
+                <span className="font-medium text-slate-900">{formatearFechaHora(instanteDeRespaldo(respaldo.nombre))}</span>
                 <span className="text-slate-500">{formatearPeso(respaldo.bytes)}</span>
               </li>
             ))}

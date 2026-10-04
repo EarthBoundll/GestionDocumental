@@ -1,9 +1,12 @@
 import { empresaDe, type Actor } from '../../compartido/peticion.js';
 import { z } from '../../compartido/validacion.js';
 import type { Consultor } from '../../db/pool.js';
+import { asientosRecientes } from '../historial/historial.consulta.js';
 
 const fecha = z.iso.date('Usa el formato AAAA-MM-DD');
 const DIA_MS = 86_400_000;
+/** Las acciones que caben de un vistazo en la tarjeta de actividad reciente; el resto está en el Historial. */
+const ACTIVIDAD_RECIENTE = 8;
 /** Un año como mucho: el tablero se lee de un vistazo, y la serie diaria tiene un punto por día. */
 const MAXIMO_DE_DIAS = 366;
 
@@ -132,6 +135,7 @@ export function crearServicioTablero() {
         const denegados = await denegadosPorPermiso(db, empresaId, periodo);
         const tiempos = await tiemposDeRespuesta(db, empresaId, periodo);
         const actividad = await actividadDiaria(db, empresaId, periodo);
+        const recientes = await asientosRecientes(db, empresaId, ACTIVIDAD_RECIENTE);
         const sesiones = acciones.de('SESION_INICIADA');
         const fallidas = acciones.de('SESION_FALLIDA');
         return {
@@ -157,7 +161,14 @@ export function crearServicioTablero() {
             accesosPorRol: { denegados: acciones.de('ACCESO_DENEGADO').total, porPermiso: denegados },
             tiempoRespuesta: tiempos,
           },
+          // El flujo de aprobación (RF16) en el periodo: que la revisión filtra de verdad se ve en los rechazos.
+          aprobacion: {
+            solicitadas: acciones.de('SOLICITUD_CREADA').total,
+            aprobadas: acciones.de('SOLICITUD_APROBADA').total,
+            rechazadas: acciones.de('SOLICITUD_RECHAZADA').total,
+          },
           actividad,
+          recientes,
         };
       });
     },

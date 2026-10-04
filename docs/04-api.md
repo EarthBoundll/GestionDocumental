@@ -139,6 +139,7 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 | PATCH | `/documentos/:id` | Propietario o admin | `nombre?`, `categoriaId?`, `fechaDocumento?`, `descripcion?` | 200 con el documento | `DOCUMENTO_EDITADO` |
 | DELETE | `/documentos/:id` | Propietario o admin | — | 204 | `DOCUMENTO_ELIMINADO` |
 | GET | `/documentos/:id/archivo` | Empresa | `?modo=ver` o `?modo=descargar` | 200 `{ url, expiraEn }` | `DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO` |
+| GET | `/documentos/:id/actividad` | Empresa; solo de un documento que ve | Paginación | 200 paginado, lo más reciente primero: los asientos del documento y de sus solicitudes, con `usuario { id, nombre }` (sin correo). Quien puede consultar el historial recibe además vistas, descargas y accesos denegados (RF30, D27). 404 si no lo ve | — |
 | GET | `/documentos/papelera` | Admin | Paginación | 200 paginado, más `diasEnPapelera`: cada documento con `eliminadoPor`, `eliminadoEn` y `purgaEn` | — |
 | POST | `/documentos/papelera/:id/restauracion` | Admin | — | 200 con el documento, tal como estaba | `DOCUMENTO_RESTAURADO` |
 | DELETE | `/documentos/papelera/:id` | Admin | — | 204; borra el archivo y deja la fila como constancia. 404 si no está en la papelera | `DOCUMENTO_PURGADO` |
@@ -174,7 +175,7 @@ categoría no existe». Lo decide la base (D22).
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
-| GET | `/tablero` | Admin | `?desde`, `hasta` (días de Lima; por defecto, los últimos 30; como mucho 366) | 200 `{ periodo, resumen, indicadores, actividad }`: el estado de la empresa, lo que registra cada uno de los siete indicadores en el periodo y las acciones por día | — |
+| GET | `/tablero` | Admin | `?desde`, `hasta` (días de Lima; por defecto, los últimos 30; como mucho 366) | 200 `{ periodo, resumen, indicadores, aprobacion, actividad, recientes }`: el estado de la empresa, lo que registra cada uno de los siete indicadores en el periodo, las solicitudes del periodo y cómo se resolvieron, las acciones por día y las 8 últimas acciones | — |
 
 ### Tiempos de respuesta
 
@@ -182,8 +183,9 @@ categoría no existe». Lo decide la base (D22).
 |---|---|---|---|---|---|
 | PATCH | `/tiempos-respuesta/:id` | Empresa; solo el suyo, y una vez | `duracionClienteMs` | 204 | — |
 
-En total, 45 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
-plataforma, y los siete que añadió la auditoría (papelera, tablero, auditoría y respaldos del Master).
+En total, 46 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
+plataforma, los siete que añadió la auditoría (papelera, tablero, auditoría y respaldos del Master) y la
+actividad de un documento, de la segunda.
 
 ## 4. Respuestas de ejemplo
 
@@ -281,12 +283,12 @@ lo usa alguien.
 | Recuperar la contraseña | `/recuperar-clave` | Visitante | `POST /auth/recuperacion` |
 | Definir una contraseña nueva | `/restablecer-clave` | Quien abre el enlace | `POST /auth/recuperacion/confirmar` |
 | Marco común: barras lateral y superior | — | Todos; las notificaciones, solo Administrador y Usuario | `GET /auth/yo`, `GET /notificaciones`, `POST /auth/logout` |
-| Plataforma: cifras y empresas | `/plataforma` | Master | `GET /plataforma/metricas`, `GET /plataforma/empresas` |
+| Plataforma: cifras y empresas | `/plataforma` | Master | `GET /plataforma/metricas`, `GET /plataforma/empresas`, `GET /plataforma/respaldos` (el último respaldo y lo que ocupan, frente al GB gratuito) |
 | Nueva empresa | `/plataforma/empresas/nueva` | Master | `POST /plataforma/empresas` |
 | Ficha de una empresa | `/plataforma/empresas/:id` | Master | `GET /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id/estado`, `POST /plataforma/empresas/:id/administradores`, `PATCH /plataforma/administradores/:id`, `PATCH /plataforma/administradores/:id/estado` |
 | Documentos: listado y búsqueda | `/documentos` | Administrador y Usuario | `GET /documentos`, `GET /categorias`, `PATCH /tiempos-respuesta/:id` |
 | Subir documento | `/documentos/nuevo` | Administrador y Usuario | `GET /categorias`, `POST /documentos` |
-| Detalle de documento | `/documentos/:id` | Administrador y Usuario; las acciones, según `permisos` | `GET /documentos/:id`, `GET /documentos/:id/archivo`, `PATCH /documentos/:id`, `DELETE /documentos/:id`, `POST /documentos/:id/solicitudes`, `POST /solicitudes/:id/resolucion`, `GET /categorias` |
+| Detalle de documento | `/documentos/:id` | Administrador y Usuario; las acciones, según `permisos` | `GET /documentos/:id`, `GET /documentos/:id/actividad`, `GET /documentos/:id/archivo`, `PATCH /documentos/:id`, `DELETE /documentos/:id`, `POST /documentos/:id/solicitudes`, `POST /solicitudes/:id/resolucion`, `GET /categorias` |
 | Solicitudes | `/solicitudes` | Administrador y Usuario; el administrador ve la bandeja de toda su empresa | `GET /solicitudes` |
 | Notificaciones | `/notificaciones` | Administrador y Usuario | `GET /notificaciones`, `PATCH /notificaciones/:id/leida`, `PATCH /notificaciones/leidas` |
 | Mi cuenta | `/cuenta` | Todos | `GET /auth/yo`, `PUT /auth/clave` |

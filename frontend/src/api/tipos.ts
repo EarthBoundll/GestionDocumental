@@ -133,6 +133,17 @@ export interface Asiento {
   creadoEn: string;
 }
 
+/** Un paso en la vida de un documento (RF30). Sin correo: la ficha la ve cualquiera de la empresa. */
+export interface ActividadDeDocumento {
+  id: string;
+  accion: string;
+  usuario: Referencia | null;
+  rolUsuario: Rol | null;
+  detalle: Record<string, unknown>;
+  esMovil: boolean | null;
+  creadoEn: string;
+}
+
 // La plataforma: lo que ve el Administrador Master. Cifras de cada empresa, nunca su contenido.
 
 export interface Metricas {
@@ -191,5 +202,9 @@ export interface Tablero {
       mediciones: number; servidorMediana: number | null; servidorP95: number | null; navegadorMediana: number | null; navegadorP95: number | null;
     };
   };
+  /** El flujo de aprobación en el periodo (RF16); las pendientes de ahora están en el resumen. */
+  aprobacion: { solicitadas: number; aprobadas: number; rechazadas: number };
   actividad: { dia: string; acciones: number }[];
+  /** Las últimas acciones de la empresa, sin importar el periodo. */
+  recientes: Asiento[];
 }

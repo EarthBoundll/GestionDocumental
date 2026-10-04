@@ -51,3 +51,7 @@ export function nombreSugerido(nombreArchivo: string): string {
 export function contar(cantidad: number, singular: string, plural = `${singular}s`): string {
   return `${cantidad.toLocaleString('es-PE')} ${cantidad === 1 ? singular : plural}`;
 }
+
+/** «respaldo-2026-10-04T08-00-00Z.json.gz» → el instante en que se hizo, el mismo en disco y en Supabase. */
+export const instanteDeRespaldo = (nombre: string) =>
+  nombre.replace(/^respaldo-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.json\.gz$/, '$1T$2:$3:$4Z');

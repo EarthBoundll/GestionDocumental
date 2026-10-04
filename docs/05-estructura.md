@@ -132,11 +132,11 @@ frontend/
 │   │   ├── Layout.tsx            barra lateral en escritorio, menú plegable en el celular, barra superior
 │   │   ├── Navegacion.tsx        los grupos del menú y qué rol ve cada uno
 │   │   └── Campana.tsx           las notificaciones de la barra superior (no para el Master)
-│   ├── componentes/              piezas reutilizables sin lógica de negocio: botón, campos, diálogo, avisos, página
+│   ├── componentes/              piezas reutilizables sin lógica de negocio: botón, campos, diálogo, avisos, página, ruta (Migas)
 │   ├── paginas/
 │   │   ├── auth/                 IniciarSesion, RecuperarClave, RestablecerClave
 │   │   ├── plataforma/           Resumen, NuevaEmpresa, DetalleEmpresa (solo el Master)
-│   │   ├── documentos/           ListaDocumentos, SubirDocumento, DetalleDocumento
+│   │   ├── documentos/           ListaDocumentos, SubirDocumento, DetalleDocumento y su ActividadDelDocumento
 │   │   ├── solicitudes/
 │   │   ├── notificaciones/
 │   │   ├── cuenta/

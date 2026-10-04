@@ -20,6 +20,10 @@ test.describe('Tablero del administrador', () => {
     }
     await expect(page.getByText('1 documento subido')).toBeVisible();
     await expect(page.getByRole('list', { name: 'Acciones registradas por día' })).toBeVisible();
+    // El flujo de aprobación del periodo y lo último que pasó, con enlace al historial completo.
+    await expect(page.getByRole('heading', { name: 'Flujo de aprobación' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Actividad reciente' }).getByRole('listitem').filter({ hasText: 'Documento subido' }))
+      .toContainText('Factura F001-120');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 });

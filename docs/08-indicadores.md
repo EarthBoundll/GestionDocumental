@@ -104,6 +104,10 @@ where h.empresa_id = p.empresa and h.creado_en between p.desde and p.hasta
 group by h.accion order by h.accion;
 ```
 
+Para mostrarlo durante la sustentación, la ficha de cada documento tiene su **Actividad** (RF30): lo que se
+hizo con ese documento, con su autor y su hora, sacado del mismo historial. Sirve para enseñar que una
+acción del guion quedó registrada; para el cálculo vale la consulta de arriba.
+
 ## 5 · Accesibilidad remota
 
 Inicios de sesión exitosos desde un móvil ÷ intentos desde un móvil. Los intentos que nunca llegaron

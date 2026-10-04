@@ -106,6 +106,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     ['ver la ficha de un documento', 'GET', `/api/v1/documentos/${b.documentoId}`, undefined],
     ['ver el archivo de un documento', 'GET', `/api/v1/documentos/${b.documentoId}/archivo`, undefined],
     ['descargar el archivo de un documento', 'GET', `/api/v1/documentos/${b.documentoId}/archivo?modo=descargar`, undefined],
+    ['ver la actividad de un documento', 'GET', `/api/v1/documentos/${b.documentoId}/actividad`, undefined],
     ['editar un documento', 'PATCH', `/api/v1/documentos/${b.documentoId}`, { nombre: 'Lo cambió A' }],
     ['eliminar un documento', 'DELETE', `/api/v1/documentos/${b.documentoId}`, undefined],
     ['pedir la aprobación de un documento', 'POST', `/api/v1/documentos/${b.documentoId}/solicitudes`, {}],
@@ -240,7 +241,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
 
   it('el Master tampoco lee el contenido de B: ni documentos ni sus archivos (decisión E)', async () => {
     const master = await tokenDelMaster(app);
-    for (const ruta of [`/api/v1/documentos/${b.documentoId}`, `/api/v1/documentos/${b.documentoId}/archivo?modo=descargar`, '/api/v1/documentos']) {
+    for (const ruta of [`/api/v1/documentos/${b.documentoId}`, `/api/v1/documentos/${b.documentoId}/archivo?modo=descargar`, `/api/v1/documentos/${b.documentoId}/actividad`, '/api/v1/documentos']) {
       const respuesta = await request(app).get(ruta).set('Authorization', `Bearer ${master}`);
       anotar({ quien: 'Administrador Master', operacion: 'leer documentos de una empresa', metodo: 'GET', ruta: ruta.split('?')[0]!.replace(b.documentoId, ':id'), esperado: '403', obtenido: respuesta.status }, respuesta.status === 403);
       expect.soft(respuesta.status, ruta).toBe(403);

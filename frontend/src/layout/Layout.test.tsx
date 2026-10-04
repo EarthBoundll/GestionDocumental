@@ -36,6 +36,35 @@ describe('Marco común según el rol', () => {
     expect(peticiones.some((p) => p.ruta === '/notificaciones')).toBe(false);
   });
 
+  it('el Master ve el espacio frente al límite gratuito y el último respaldo, sin ver el contenido de nadie', async () => {
+    abrirComo('master', '/plataforma', {
+      'GET /plataforma/metricas': { cuerpo: { ...METRICAS, almacenamientoBytes: 900 * 1024 ** 2 } },
+      'GET /plataforma/respaldos': {
+        cuerpo: {
+          datos: [
+            { nombre: 'respaldo-2026-10-04T08-00-00Z.json.gz', bytes: 2 * 1024 ** 2, creadoEn: '2026-10-04T08:00:01Z' },
+            { nombre: 'respaldo-2026-10-03T08-00-00Z.json.gz', bytes: 2 * 1024 ** 2, creadoEn: '2026-10-03T08:00:01Z' },
+          ],
+          diasDeRetencion: 30,
+        },
+      },
+    });
+
+    const medidor = await screen.findByRole('meter', { name: 'Espacio de archivos usado' });
+    // 900 MB de documentos y 4 MB de respaldos: el 88 % del GB gratuito, ya en zona de aviso.
+    expect(medidor).toHaveAttribute('aria-valuenow', '88');
+    expect(screen.getByText(/Conviene liberar espacio/)).toBeInTheDocument();
+    expect(screen.getByText('04/10/2026 03:00')).toBeInTheDocument();
+    expect(screen.getByText(/2 respaldos guardados/)).toBeInTheDocument();
+  });
+
+  it('si el depósito de respaldos no responde, el resumen del Master se muestra igual', async () => {
+    abrirComo('master', '/plataforma', { 'GET /plataforma/respaldos': { estado: 503, cuerpo: { error: { codigo: 'ERROR', mensaje: 'No disponible' } } } });
+
+    expect(await screen.findByText(/No se pudo consultar el depósito de respaldos/)).toBeInTheDocument();
+    expect(screen.getByText(/los respaldos no se pudieron consultar/)).toBeInTheDocument();
+  });
+
   it('el usuario ve documentos y aprobaciones, pero no la administración', async () => {
     abrirComo('usuario', '/documentos');
 

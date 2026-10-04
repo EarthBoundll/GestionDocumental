@@ -259,6 +259,48 @@ describe('Aislamiento en la base: RLS y roles (D17, indicador 6)', () => {
     });
   });
 
+  describe('toda tabla con empresa_id, también las que se añadan (D17)', () => {
+    /**
+     * Las tablas de public con una columna empresa_id, con su RLS y si tienen la política de aislamiento:
+     * una permisiva para app_empresa, en todas las operaciones, que filtra y comprueba por empresa_actual().
+     * Una tabla nueva sin ella fallaría cerrada (nadie vería nada), pero la función rota llevaría a
+     * «arreglarlo» con una política floja: esta prueba lo frena antes.
+     */
+    const tablasDeEmpresa = async () => (await db.query<{ tabla: string; rls: boolean; aislada: boolean }>(`
+      SELECT c.relname AS tabla, c.relrowsecurity AS rls,
+             EXISTS (SELECT 1 FROM pg_policies p
+                     WHERE p.schemaname = 'public' AND p.tablename = c.relname AND p.permissive = 'PERMISSIVE'
+                       AND 'app_empresa'::name = ANY (p.roles) AND p.cmd = 'ALL'
+                       AND p.qual LIKE '%empresa_id = empresa_actual()%'
+                       AND p.with_check LIKE '%empresa_id = empresa_actual()%') AS aislada
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r'
+        AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'empresa_id' AND NOT a.attisdropped)
+      ORDER BY 1`)).rows;
+
+    it('cada una tiene RLS activo y su política de aislamiento por empresa', async () => {
+      const tablas = await tablasDeEmpresa();
+
+      expect(tablas.map((t) => t.tabla)).toEqual(expect.arrayContaining([
+        'categoria_accesos', 'categorias', 'documentos', 'historial', 'notificaciones', 'solicitudes',
+        'tiempos_respuesta', 'usuarios',
+      ]));
+      expect(tablas.filter((t) => !t.rls || !t.aislada)).toEqual([]);
+    });
+
+    it('en ninguna una empresa ve filas de otra, aunque la consulta no filtre', async () => {
+      const adminDeA = { id: adminA, rol: 'administrador' };
+      for (const { tabla } of await tablasDeEmpresa()) {
+        const ajenas = await como('app_empresa', empresaA,
+          `SELECT count(*)::int AS n FROM ${tabla} WHERE empresa_id IS DISTINCT FROM $1`, [empresaA], adminDeA);
+        expect({ tabla, ajenas: ajenas[0].n }).toEqual({ tabla, ajenas: 0 });
+      }
+      // La consulta no es vacía: sin RLS, como dueño de las tablas, sí hay filas de otra empresa.
+      expect((await db.query('SELECT count(*)::int AS n FROM documentos WHERE empresa_id <> $1', [empresaA])).rows[0].n)
+        .toBeGreaterThan(0);
+    });
+  });
+
   describe('la API automática de Supabase (D14)', () => {
     /** Los roles de esa API, que en local no existen. Son de todo el servidor: pueden estar ya creados. */
     async function crearRolesDeSupabase() {

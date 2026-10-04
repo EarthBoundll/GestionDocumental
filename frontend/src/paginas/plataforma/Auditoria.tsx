@@ -42,8 +42,9 @@ export function Auditoria() {
         titulo="Auditoría de la plataforma"
         descripcion="Lo que hizo la administración de la plataforma y los intentos de acceso sin empresa. La actividad dentro de cada empresa solo la ve esa empresa."
       />
-      <Tarjeta className="mb-4 grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
-        <Selector etiqueta="Empresa" value={filtros.empresaId ?? ''} onChange={(e) => filtrar('empresaId', e.target.value)}>
+      <Tarjeta className="mb-4 grid grid-cols-2 items-start gap-3 p-4 md:grid-cols-4">
+        <Selector etiqueta="Empresa" value={filtros.empresaId ?? ''} onChange={(e) => filtrar('empresaId', e.target.value)}
+          ayuda="Lo que hizo la plataforma con esa empresa, nunca lo que hicieron sus personas.">
           <option value="">Todas</option>
           {empresas?.datos.map((empresa) => <option key={empresa.id} value={empresa.id}>{empresa.nombre}</option>)}
         </Selector>

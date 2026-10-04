@@ -142,6 +142,69 @@ async function listarEn(actor: Actor, ambito: Ambito, filtros: Filtros, paginaci
   return { datos: filas.map(aAsiento), paginacion: { ...paginacion, total: conteo?.total ?? 0 } };
 }
 
+/** Lo último que pasó en una empresa, para el tablero (RF28): el «centro de actividad» sin un módulo aparte. */
+export async function asientosRecientes(db: Consultor, empresaId: string, limite: number): Promise<Asiento[]> {
+  return (await consultar(db, { empresaId }, {}, limite)).map(aAsiento);
+}
+
+/** El ciclo de vida de un documento: lo que lo cambia y lo que pasa con sus solicitudes de aprobación. */
+const CICLO_DE_VIDA = [
+  'DOCUMENTO_SUBIDO', 'DOCUMENTO_EDITADO', 'DOCUMENTO_ELIMINADO', 'DOCUMENTO_RESTAURADO',
+  'SOLICITUD_CREADA', 'SOLICITUD_APROBADA', 'SOLICITUD_RECHAZADA',
+] as const;
+
+/**
+ * Lo que además ve quien puede consultar el historial: quién lo vio, quién lo descargó y quién intentó lo
+ * que no podía. A un usuario no se le muestra, para que la ficha no sea una vigilancia entre compañeros.
+ */
+const CONSULTAS = ['DOCUMENTO_VISUALIZADO', 'DOCUMENTO_DESCARGADO', 'ACCESO_DENEGADO'] as const;
+
+export interface ActividadDeDocumento {
+  id: string;
+  accion: string;
+  usuario: { id: string; nombre: string } | null;
+  rolUsuario: string | null;
+  detalle: Record<string, unknown>;
+  esMovil: boolean | null;
+  creadoEn: Date;
+}
+
+/**
+ * La línea de tiempo de un documento: sus asientos y los de sus solicitudes, lo más reciente primero. Quien
+ * llama ya comprobó que el documento existe y que el actor lo ve (RLS y categorías restringidas).
+ */
+export async function actividadDeDocumento(
+  db: Consultor,
+  empresaId: string,
+  documentoId: string,
+  { conConsultas, paginacion }: { conConsultas: boolean; paginacion: z.infer<typeof esquemaPaginacion> },
+): Promise<{ filas: ActividadDeDocumento[]; total: number }> {
+  const acciones = conConsultas ? [...CICLO_DE_VIDA, ...CONSULTAS] : [...CICLO_DE_VIDA];
+  const where = `h.empresa_id = $1 AND h.accion = ANY ($3::text[]) AND (
+      (h.entidad_tipo = 'documento' AND h.entidad_id = $2)
+      OR (h.entidad_tipo = 'solicitud' AND h.entidad_id IN (
+        SELECT s.id FROM solicitudes s WHERE s.empresa_id = $1 AND s.documento_id = $2)))`;
+  const parametros = [empresaId, documentoId, acciones];
+  const { rows: [conteo] } = await db.query<{ total: number }>(
+    `SELECT count(*)::int AS total FROM historial h WHERE ${where}`, parametros);
+  const { rows } = await db.query<FilaAsiento>(
+    `${SELECCION} WHERE ${where} ORDER BY h.id DESC LIMIT $4 OFFSET $5`,
+    [...parametros, paginacion.porPagina, desplazamiento(paginacion)],
+  );
+  return {
+    total: conteo?.total ?? 0,
+    filas: rows.map((fila) => ({
+      id: fila.id,
+      accion: fila.accion,
+      usuario: fila.usuario_id && fila.usuario_nombre !== null ? { id: fila.usuario_id, nombre: fila.usuario_nombre } : null,
+      rolUsuario: fila.rol_usuario,
+      detalle: fila.detalle,
+      esMovil: fila.es_movil,
+      creadoEn: fila.creado_en,
+    })),
+  };
+}
+
 export function crearServicioHistorial() {
   return {
     listar: (actor: Actor, filtros: Filtros, paginacion: z.infer<typeof esquemaPaginacion>) =>

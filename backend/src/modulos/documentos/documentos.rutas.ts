@@ -22,5 +22,6 @@ export function crearRutasDocumentos(
   rutas.patch('/:id', controlador.editar);
   rutas.delete('/:id', controlador.eliminar);
   rutas.get('/:id/archivo', controlador.archivo);
+  rutas.get('/:id/actividad', controlador.actividad);
   return rutas;
 }

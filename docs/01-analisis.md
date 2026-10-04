@@ -36,7 +36,8 @@ administrador de cada empresa evaluada, y con consultas de solo lectura a la bas
 
 La columna «Fase» indica cuándo se construyó en la API; las pantallas llegan en la Fase 6. «v2» marca lo que
 añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md)); «A» lo que se añadió tras la
-auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervisión, D22–D26).
+auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervisión, D22–D26); «B», lo que se añadió tras
+la segunda auditoría, para hacer visible la trazabilidad (D27).
 
 | ID | Requisito | Quién | Fase |
 |---|---|---|---|
@@ -63,12 +64,13 @@ auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervis
 | RF21 | Recuperar la contraseña con un enlace de un solo uso enviado al correo | Visitante | v2 |
 | RF22 | Listar, editar, desactivar y reactivar empresas | Master | v2 |
 | RF23 | Añadir, editar, desactivar y reactivar a los administradores de una empresa | Master | v2 |
-| RF24 | Consultar las cifras de la plataforma y de cada empresa: usuarios, documentos, almacenamiento y último acceso | Master | v2 |
+| RF24 | Consultar las cifras de la plataforma y de cada empresa: usuarios, documentos, almacenamiento y último acceso; y, de la plataforma, el espacio de archivos frente al límite gratuito y el último respaldo | Master | v2 y B |
 | RF25 | Restringir una categoría, y sus documentos, a personas concretas de la empresa | Administrador | A |
 | RF26 | Restaurar lo eliminado desde la papelera durante 30 días, o eliminarlo para siempre | Administrador | A |
 | RF27 | Auditar la plataforma: las acciones del Master y los accesos que no son de ninguna empresa | Master | A |
-| RF28 | Ver el tablero de la empresa: su estado y lo que el sistema registra de cada indicador en un periodo | Administrador | A |
+| RF28 | Ver el tablero de la empresa: su estado, el flujo de aprobación, las últimas acciones y lo que el sistema registra de cada indicador en un periodo | Administrador | A y B |
 | RF29 | Respaldar la base cada noche y a petición, y restaurarla en una base vacía | Sistema, Master | A |
+| RF30 | Ver en la ficha de un documento su actividad: su ciclo de vida para todos y, para el administrador, también quién lo vio y lo descargó | Todos | B |
 
 ## 4. Requisitos no funcionales
 
@@ -197,6 +199,8 @@ El visitante solo puede iniciar sesión y pedir la recuperación de su contrase�
 | Restringir una categoría y elegir quién la ve | ✘ | ✔ | ✘ |
 | Ver la papelera, restaurar y eliminar para siempre | ✘ | ✔ | ✘ |
 | Ver el tablero de su empresa | ✘ | ✔ | ✘ |
+| Ver la actividad de un documento: subidas, ediciones, eliminaciones y aprobaciones | ✔ | ✔ | ✘ |
+| …y además quién lo vio, quién lo descargó y quién intentó lo que no podía | ✘ | ✔ | ✘ |
 | Solicitar aprobación | de los suyos | de los suyos | ✘ |
 | Consultar solicitudes | las suyas | todas las de su empresa | ✘ |
 | Aprobar o rechazar | ✘ | todas menos las suyas | ✘ |
@@ -256,7 +260,7 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 Son 30 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
 motivo `CUENTA_BLOQUEADA`. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
 buscar; su tiempo de respuesta sí se mide), ver la ficha de un documento (no entrega el archivo),
-leer notificaciones (no cambia nada), las peticiones con datos inválidos (400) o sin sesión (401)
+leer notificaciones (no cambia nada), consultar la actividad de un documento (es parte de su ficha), las peticiones con datos inválidos (400) o sin sesión (401)
 —no hubo acción, o no hay autor—, las frenadas por el límite de intentos por IP (429) y los 404 por un
 recurso de otra empresa (para quien pregunta, ese recurso no existe).
 
