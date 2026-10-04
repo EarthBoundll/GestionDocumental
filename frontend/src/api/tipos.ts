@@ -39,6 +39,10 @@ export interface Categoria {
   nombre: string;
   descripcion: string | null;
   activa: boolean;
+  /** Solo la ven los administradores y las personas autorizadas (RF25). */
+  restringida: boolean;
+  /** Las personas autorizadas. Solo llega llena para los administradores. */
+  usuariosAutorizados: string[];
   documentos: number;
 }
 

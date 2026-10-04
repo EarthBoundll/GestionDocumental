@@ -46,8 +46,11 @@ export const tiemposRespuesta = {
 export const categorias = {
   listar: (incluirInactivas = false, senal?: AbortSignal) =>
     api<{ datos: Categoria[] }>('/categorias', { consulta: { incluirInactivas: incluirInactivas || undefined }, senal }),
-  crear: (datos: { nombre: string; descripcion?: string }) => api<Categoria>('/categorias', { metodo: 'POST', cuerpo: datos }),
-  editar: (id: string, cambios: Partial<{ nombre: string; descripcion: string | null; activa: boolean }>) =>
+  crear: (datos: { nombre: string; descripcion?: string; restringida?: boolean; usuariosAutorizados?: string[] }) =>
+    api<Categoria>('/categorias', { metodo: 'POST', cuerpo: datos }),
+  editar: (id: string, cambios: Partial<{
+    nombre: string; descripcion: string | null; activa: boolean; restringida: boolean; usuariosAutorizados: string[];
+  }>) =>
     api<Categoria>(`/categorias/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
 };
 

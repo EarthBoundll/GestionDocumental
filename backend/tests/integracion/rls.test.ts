@@ -19,12 +19,22 @@ describe('Aislamiento en la base: RLS y roles (D17, indicador 6)', () => {
   let adminB: string;
   let master: string;
 
-  /** Ejecuta una sentencia como lo hace la API: en una transacción, con un rol y una empresa activa. */
-  async function como(rol: 'app_empresa' | 'app_plataforma', empresa: string | null, sql: string, parametros: unknown[] = []) {
+  /**
+   * Ejecuta una sentencia como lo hace la API: en una transacción, con un rol, una empresa activa y, si
+   * se indica, la persona que actúa (004).
+   */
+  async function como(
+    rol: 'app_empresa' | 'app_plataforma', empresa: string | null, sql: string, parametros: unknown[] = [],
+    persona: { id: string; rol: string } | null = null,
+  ) {
     const cliente = await db.connect();
     try {
       await cliente.query('BEGIN');
-      await cliente.query("SELECT set_config('role', $1, true), set_config('app.empresa_id', $2, true)", [rol, empresa ?? '']);
+      await cliente.query(
+        `SELECT set_config('role', $1, true), set_config('app.empresa_id', $2, true),
+                set_config('app.usuario_id', $3, true), set_config('app.rol', $4, true)`,
+        [rol, empresa ?? '', persona?.id ?? '', persona?.rol ?? ''],
+      );
       const { rows } = await cliente.query(sql, parametros);
       await cliente.query('COMMIT');
       return rows;
@@ -102,6 +112,60 @@ describe('Aislamiento en la base: RLS y roles (D17, indicador 6)', () => {
     });
   });
 
+  describe('las categorías restringidas (004, RF25)', () => {
+    let empresa: string;
+    let admin: { id: string; rol: string };
+    let autorizada: { id: string; rol: string };
+    let ajena: { id: string; rol: string };
+    let restringida: string;
+
+    beforeAll(async () => {
+      empresa = (await db.query("INSERT INTO empresas (nombre) VALUES ('Empresa C') RETURNING id")).rows[0].id;
+      admin = { id: await insertarUsuario(empresa, 'administrador', 'admin@c.pe'), rol: 'administrador' };
+      autorizada = { id: await insertarUsuario(empresa, 'usuario', 'autorizada@c.pe'), rol: 'usuario' };
+      ajena = { id: await insertarUsuario(empresa, 'usuario', 'ajena@c.pe'), rol: 'usuario' };
+      restringida = (await db.query(
+        "INSERT INTO categorias (empresa_id, nombre, restringida) VALUES ($1, 'Planillas', true) RETURNING id", [empresa])).rows[0].id;
+      await db.query('INSERT INTO categoria_accesos (empresa_id, categoria_id, usuario_id) VALUES ($1, $2, $3)', [empresa, restringida, autorizada.id]);
+      await db.query(
+        `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento, archivo_nombre_original,
+           archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
+         VALUES ($1::uuid, $2, $3, 'Planilla', '2026-01-01', 'p.pdf', $1::text || '/p.pdf', 'application/pdf', 2048)`,
+        [empresa, restringida, admin.id],
+      );
+    });
+
+    const documentosQueVe = async (persona: { id: string; rol: string } | null) =>
+      (await como('app_empresa', empresa, 'SELECT nombre FROM documentos', [], persona)).map((d) => d.nombre);
+
+    it('la base decide quién ve sus documentos aunque la consulta no lo pregunte', async () => {
+      expect(await documentosQueVe(admin)).toEqual(['Planilla']);
+      expect(await documentosQueVe(autorizada)).toEqual(['Planilla']);
+      expect(await documentosQueVe(ajena)).toEqual([]);
+      // Sin persona fijada no se abre nada restringido: si la API olvidara fijarla, fallaría cerrado.
+      expect(await documentosQueVe(null)).toEqual([]);
+    });
+
+    it('quien no tiene acceso no puede escribir en ella ni modificar sus documentos', async () => {
+      await expect(como('app_empresa', empresa,
+        `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento, archivo_nombre_original,
+           archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
+         VALUES ($1::uuid, $2, $3, 'Intrusa', '2026-01-01', 'i.pdf', 'x/i.pdf', 'application/pdf', 1)`,
+        [empresa, restringida, ajena.id], ajena)).rejects.toMatchObject({ code: '42501' });
+      expect(await como('app_empresa', empresa, "UPDATE documentos SET nombre = 'Alterado' RETURNING id", [], ajena)).toEqual([]);
+    });
+
+    it('solo un administrador lee o cambia los accesos, y solo con personas de su empresa', async () => {
+      expect(await como('app_empresa', empresa, 'SELECT usuario_id FROM categoria_accesos', [], autorizada)).toEqual([]);
+      await expect(como('app_empresa', empresa,
+        'INSERT INTO categoria_accesos (empresa_id, categoria_id, usuario_id) VALUES ($1, $2, $3)', [empresa, restringida, ajena.id], ajena))
+        .rejects.toMatchObject({ code: '42501' });
+      await expect(como('app_empresa', empresa,
+        'INSERT INTO categoria_accesos (empresa_id, categoria_id, usuario_id) VALUES ($1, $2, $3)', [empresa, restringida, adminA], admin))
+        .rejects.toMatchObject({ code: '23503', constraint: 'categoria_accesos_usuario_de_su_empresa' });
+    });
+  });
+
   describe('el historial', () => {
     it('acepta asientos de un autor de la empresa, con su rol', async () => {
       await expect(como('app_empresa', empresaA,
@@ -129,7 +193,7 @@ describe('Aislamiento en la base: RLS y roles (D17, indicador 6)', () => {
 
   describe('el Master (app_plataforma)', () => {
     it('gestiona empresas y ve solo a sus administradores', async () => {
-      expect((await como('app_plataforma', null, 'SELECT nombre FROM empresas ORDER BY nombre')).map((e) => e.nombre)).toEqual(['Empresa A', 'Empresa B']);
+      expect((await como('app_plataforma', null, 'SELECT nombre FROM empresas ORDER BY nombre')).map((e) => e.nombre)).toEqual(['Empresa A', 'Empresa B', 'Empresa C']);
       expect(await como('app_plataforma', null, 'SELECT DISTINCT rol FROM usuarios')).toEqual([{ rol: 'administrador' }]);
     });
 

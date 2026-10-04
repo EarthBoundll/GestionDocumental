@@ -78,6 +78,13 @@ describe('historial', () => {
     expect(resumirDetalle({ permiso: 'GESTIONAR_USUARIOS', metodo: 'GET', ruta: '/api/v1/usuarios' })).toEqual(['exigía gestionar usuarios en /usuarios']);
   });
 
+  it('una categoría restringida dice para quién, y un cambio de accesos a quién se dio y a quién se quitó (RF25)', () => {
+    expect(resumirDetalle({ nombre: 'Planillas', restringida: true, autorizados: ['Ana', 'Luis'] }))
+      .toEqual(['«Planillas»', 'restringida', 'para Ana, Luis']);
+    expect(resumirDetalle({ cambios: {}, accesos: { anadidos: ['Ana'], quitados: ['Luis'] } }))
+      .toEqual(['dio acceso a Ana', 'quitó acceso a Luis']);
+  });
+
   it('las sesiones cerradas solo se mencionan si hubo alguna', () => {
     expect(resumirDetalle({ nombre: 'Ana', sesionesCerradas: 0 })).toEqual(['«Ana»']);
     expect(resumirDetalle({ nombre: 'Ana', sesionesCerradas: 2 })).toEqual(['«Ana»', '2 sesiones cerradas']);

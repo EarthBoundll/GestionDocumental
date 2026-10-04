@@ -37,7 +37,9 @@ describe('Categorías (RF06)', () => {
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.datos.map((c: { nombre: string }) => c.nombre))
       .toEqual(['Área legal', 'Contratos', 'Cotizaciones', 'Facturas y boletas', 'Otros', 'Recursos humanos']);
-    expect(respuesta.body.datos[0]).toEqual({ id: expect.any(String), nombre: 'Área legal', descripcion: null, activa: true, documentos: 0 });
+    expect(respuesta.body.datos[0]).toEqual({
+      id: expect.any(String), nombre: 'Área legal', descripcion: null, activa: true, restringida: false, usuariosAutorizados: [], documentos: 0,
+    });
   });
 
   it('el administrador crea, renombra y desactiva, y cada cambio queda registrado', async () => {

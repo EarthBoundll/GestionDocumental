@@ -39,6 +39,7 @@ const NOMBRES_DE_CAMPOS: Record<string, string> = {
   fechaDocumento: 'fecha',
   activa: 'estado',
   activo: 'estado',
+  restringida: 'restricción',
   rol: 'rol',
   dni: 'DNI',
   clave: 'contraseña',
@@ -68,6 +69,13 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
   if (detalle.cambios && typeof detalle.cambios === 'object') {
     const campos = Object.keys(detalle.cambios).map((campo) => NOMBRES_DE_CAMPOS[campo] ?? campo);
     if (campos.length > 0) partes.push(`cambió ${campos.join(', ')}`);
+  }
+  if (detalle.restringida === true) partes.push('restringida');
+  if (Array.isArray(detalle.autorizados) && detalle.autorizados.length > 0) partes.push(`para ${detalle.autorizados.join(', ')}`);
+  if (detalle.accesos && typeof detalle.accesos === 'object') {
+    const { anadidos = [], quitados = [] } = detalle.accesos as { anadidos?: string[]; quitados?: string[] };
+    if (anadidos.length > 0) partes.push(`dio acceso a ${anadidos.join(', ')}`);
+    if (quitados.length > 0) partes.push(`quitó acceso a ${quitados.join(', ')}`);
   }
   if (typeof detalle.permiso === 'string') {
     const ruta = typeof detalle.ruta === 'string' ? ` en ${detalle.ruta.replace(/^\/api\/v1/, '')}` : '';
