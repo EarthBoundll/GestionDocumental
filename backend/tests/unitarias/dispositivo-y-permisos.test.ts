@@ -25,7 +25,7 @@ describe('esMovil (indicador 5)', () => {
 describe('tienePermiso (docs/01-analisis.md §6)', () => {
   it.each([
     'GESTIONAR_USUARIOS', 'GESTIONAR_CATEGORIAS', 'VER_CATEGORIAS_INACTIVAS', 'GESTIONAR_CUALQUIER_DOCUMENTO',
-    'VER_TODAS_LAS_SOLICITUDES', 'RESOLVER_SOLICITUDES', 'CONSULTAR_HISTORIAL',
+    'GESTIONAR_PAPELERA', 'VER_TODAS_LAS_SOLICITUDES', 'RESOLVER_SOLICITUDES', 'CONSULTAR_HISTORIAL',
   ] as const)('%s es solo del administrador', (permiso) => {
     expect(tienePermiso('administrador', permiso)).toBe(true);
     expect(tienePermiso('usuario', permiso)).toBe(false);

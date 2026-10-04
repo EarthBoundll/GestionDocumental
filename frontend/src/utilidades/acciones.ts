@@ -29,6 +29,8 @@ export const NOMBRES_DE_ACCIONES: Record<string, string> = {
   SOLICITUD_RECHAZADA: 'Solicitud rechazada',
   ACCESO_DENEGADO: 'Acceso denegado',
   HISTORIAL_EXPORTADO: 'Historial exportado',
+  DOCUMENTO_RESTAURADO: 'Documento restaurado',
+  DOCUMENTO_PURGADO: 'Documento eliminado para siempre',
 };
 
 /** Los campos que aparecen en «cambios», como los entiende quien lee el historial. */

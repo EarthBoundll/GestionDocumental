@@ -1,6 +1,6 @@
 import { api, descargar } from './cliente';
 import type {
-  Administrador, Asiento, Categoria, Documento, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
+  Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
   Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Usuario,
 } from './tipos';
 
@@ -36,6 +36,10 @@ export const documentos = {
   enlace: (id: string, modo: 'ver' | 'descargar') => api<{ url: string; expiraEn: string }>(`/documentos/${id}/archivo`, { consulta: { modo } }),
   solicitarAprobacion: (id: string, comentario: string) =>
     api<Solicitud>(`/documentos/${id}/solicitudes`, { metodo: 'POST', cuerpo: { comentario } }),
+  papelera: (filtros: { pagina?: number }, senal?: AbortSignal) =>
+    api<Pagina<DocumentoEnPapelera> & { diasEnPapelera: number }>('/documentos/papelera', { consulta: { ...filtros }, senal }),
+  restaurar: (id: string) => api<Documento>(`/documentos/papelera/${id}/restauracion`, { metodo: 'POST' }),
+  purgar: (id: string) => api<void>(`/documentos/papelera/${id}`, { metodo: 'DELETE' }),
 };
 
 export const tiemposRespuesta = {

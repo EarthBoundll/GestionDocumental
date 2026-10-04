@@ -62,8 +62,8 @@ describe('roles', () => {
 });
 
 describe('historial', () => {
-  it('nombra las 27 acciones auditables de docs/01-analisis.md §7', () => {
-    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(27);
+  it('nombra las 29 acciones auditables de docs/01-analisis.md §7', () => {
+    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(29);
   });
 
   it('resume el detalle en frases: qué documento, qué buscó, qué cambió', () => {

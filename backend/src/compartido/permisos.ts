@@ -16,6 +16,7 @@ const PERMISOS = {
   GESTIONAR_CATEGORIAS: ['administrador'],
   VER_CATEGORIAS_INACTIVAS: ['administrador'],
   GESTIONAR_CUALQUIER_DOCUMENTO: ['administrador'],
+  GESTIONAR_PAPELERA: ['administrador'],
   VER_TODAS_LAS_SOLICITUDES: ['administrador'],
   RESOLVER_SOLICITUDES: ['administrador'],
   CONSULTAR_HISTORIAL: ['administrador'],

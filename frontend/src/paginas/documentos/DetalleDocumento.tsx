@@ -231,7 +231,8 @@ function DialogoEliminar({ documento, alCerrar }: { documento: Documento; alCerr
     >
       {error && <Aviso tipo="error">{error.mensaje}</Aviso>}
       <p className="text-sm text-slate-700">
-        «{documento.nombre}» dejará de aparecer en las búsquedas. Queda constancia en el historial de quién lo eliminó y cuándo.
+        «{documento.nombre}» dejará de aparecer en las búsquedas y pasará a la papelera, donde un administrador puede
+        restaurarlo durante 30 días. Queda constancia en el historial de quién lo eliminó y cuándo.
       </p>
     </Modal>
   );

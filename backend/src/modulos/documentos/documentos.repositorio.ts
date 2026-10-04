@@ -212,9 +212,124 @@ export async function actualizarDocumento(db: Consultor, empresaId: string, id: 
   );
 }
 
-export async function marcarEliminado(db: Consultor, empresaId: string, id: string): Promise<void> {
+export async function marcarEliminado(db: Consultor, empresaId: string, id: string, eliminadoPor: string): Promise<void> {
   await db.query(
-    'UPDATE documentos SET eliminado_en = now() WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NULL',
+    'UPDATE documentos SET eliminado_en = now(), eliminado_por = $3 WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NULL',
+    [empresaId, id, eliminadoPor],
+  );
+}
+
+/** Un documento de la papelera: eliminado y aún no purgado (RF26). */
+export interface DocumentoEnPapelera {
+  id: string;
+  nombre: string;
+  categoria: { id: string; nombre: string };
+  subidoPor: { id: string; nombre: string };
+  /** Null en lo eliminado antes de la 005, cuando aún no se guardaba quién. */
+  eliminadoPor: { id: string; nombre: string } | null;
+  eliminadoEn: Date;
+  /** Cuándo se purgará solo si nadie lo restaura. */
+  purgaEn: Date;
+  archivo: { tipoMime: string; pesoBytes: number };
+}
+
+interface FilaPapelera {
+  id: string;
+  nombre: string;
+  categoria_id: string;
+  categoria_nombre: string;
+  subido_por: string;
+  subido_por_nombre: string;
+  eliminado_por: string | null;
+  eliminado_por_nombre: string | null;
+  eliminado_en: Date;
+  purga_en: Date;
+  archivo_tipo_mime: string;
+  archivo_peso_bytes: number;
+}
+
+export async function listarPapelera(
+  db: Consultor,
+  empresaId: string,
+  { pagina, porPagina, dias }: { pagina: number; porPagina: number; dias: number },
+): Promise<{ filas: DocumentoEnPapelera[]; total: number }> {
+  const condicion = 'd.empresa_id = $1 AND d.eliminado_en IS NOT NULL AND d.purgado_en IS NULL';
+  const { rows: [conteo] } = await db.query<{ total: number }>(
+    `SELECT count(*)::int AS total FROM documentos d WHERE ${condicion}`, [empresaId]);
+  const { rows } = await db.query<FilaPapelera>(
+    `SELECT d.id, d.nombre, d.categoria_id, c.nombre AS categoria_nombre, d.subido_por, u.nombre AS subido_por_nombre,
+            d.eliminado_por, e.nombre AS eliminado_por_nombre, d.eliminado_en,
+            d.eliminado_en + make_interval(days => $2) AS purga_en, d.archivo_tipo_mime, d.archivo_peso_bytes
+     FROM documentos d
+     JOIN categorias c ON c.id = d.categoria_id
+     JOIN usuarios u ON u.id = d.subido_por
+     LEFT JOIN usuarios e ON e.id = d.eliminado_por
+     WHERE ${condicion}
+     ORDER BY d.eliminado_en DESC, d.id
+     LIMIT $3 OFFSET $4`,
+    [empresaId, dias, porPagina, desplazamiento({ pagina, porPagina })],
+  );
+  return {
+    filas: rows.map((fila) => ({
+      id: fila.id,
+      nombre: fila.nombre,
+      categoria: { id: fila.categoria_id, nombre: fila.categoria_nombre },
+      subidoPor: { id: fila.subido_por, nombre: fila.subido_por_nombre },
+      eliminadoPor: fila.eliminado_por ? { id: fila.eliminado_por, nombre: fila.eliminado_por_nombre! } : null,
+      eliminadoEn: fila.eliminado_en,
+      purgaEn: fila.purga_en,
+      archivo: { tipoMime: fila.archivo_tipo_mime, pesoBytes: fila.archivo_peso_bytes },
+    })),
+    total: conteo?.total ?? 0,
+  };
+}
+
+/** Lo que hace falta para restaurar o purgar un documento de la papelera, bloqueado hasta terminar. */
+export async function bloquearEnPapelera(
+  db: Consultor,
+  empresaId: string,
+  id: string,
+): Promise<{ id: string; nombre: string; archivoRuta: string } | null> {
+  const { rows } = await db.query<{ id: string; nombre: string; archivoRuta: string }>(
+    `SELECT id, nombre, archivo_ruta AS "archivoRuta" FROM documentos
+     WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NOT NULL AND purgado_en IS NULL
+     FOR UPDATE`,
+    [empresaId, id],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Los documentos de la papelera de la empresa que llevan más de `dias` eliminados. SKIP LOCKED: si dos
+ * instancias purgan a la vez, cada documento lo purga una sola.
+ */
+export async function bloquearVencidos(
+  db: Consultor,
+  empresaId: string,
+  { dias, limite }: { dias: number; limite: number },
+): Promise<{ id: string; nombre: string; archivoRuta: string }[]> {
+  const { rows } = await db.query<{ id: string; nombre: string; archivoRuta: string }>(
+    `SELECT id, nombre, archivo_ruta AS "archivoRuta" FROM documentos
+     WHERE empresa_id = $1 AND eliminado_en IS NOT NULL AND purgado_en IS NULL
+       AND eliminado_en < now() - make_interval(days => $2)
+     ORDER BY eliminado_en
+     LIMIT $3
+     FOR UPDATE SKIP LOCKED`,
+    [empresaId, dias, limite],
+  );
+  return rows;
+}
+
+export async function restaurarDocumento(db: Consultor, empresaId: string, id: string): Promise<void> {
+  await db.query(
+    'UPDATE documentos SET eliminado_en = NULL, eliminado_por = NULL WHERE empresa_id = $1 AND id = $2 AND purgado_en IS NULL',
+    [empresaId, id],
+  );
+}
+
+export async function marcarPurgado(db: Consultor, empresaId: string, id: string): Promise<void> {
+  await db.query(
+    'UPDATE documentos SET purgado_en = now() WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NOT NULL',
     [empresaId, id],
   );
 }

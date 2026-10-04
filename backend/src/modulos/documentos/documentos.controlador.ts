@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores.js';
+import { esquemaPaginacion } from '../../compartido/paginacion.js';
 import { actorDe, idDeRuta } from '../../compartido/peticion.js';
 import type { ServicioTiempos } from '../tiempos-respuesta/tiempos-respuesta.servicio.js';
 import { esquemaBusqueda, esquemaCambiosDocumento, esquemaModoArchivo, esquemaNuevoDocumento } from './documentos.esquemas.js';
@@ -53,5 +54,18 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
     res.json(await servicio.enlaceArchivo(actorDe(req), id, modo));
   };
 
-  return { listar, subir, obtener, editar, eliminar, archivo };
+  const papelera: RequestHandler = async (req, res) => {
+    res.json(await servicio.papelera(actorDe(req), esquemaPaginacion.parse(req.query)));
+  };
+
+  const restaurar: RequestHandler = async (req, res) => {
+    res.json(await servicio.restaurar(actorDe(req), idDeRuta(req)));
+  };
+
+  const purgar: RequestHandler = async (req, res) => {
+    await servicio.purgar(actorDe(req), idDeRuta(req));
+    res.status(204).end();
+  };
+
+  return { listar, subir, obtener, editar, eliminar, archivo, papelera, restaurar, purgar };
 }

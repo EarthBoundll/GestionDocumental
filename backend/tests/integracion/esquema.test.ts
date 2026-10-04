@@ -17,6 +17,7 @@ const ACCIONES_DEL_CATALOGO = [
   'CATEGORIA_EDITADA', 'DOCUMENTO_SUBIDO', 'DOCUMENTO_EDITADO', 'DOCUMENTO_ELIMINADO', 'DOCUMENTO_VISUALIZADO',
   'DOCUMENTO_DESCARGADO', 'BUSQUEDA_REALIZADA', 'SOLICITUD_CREADA', 'SOLICITUD_APROBADA',
   'SOLICITUD_RECHAZADA', 'ACCESO_DENEGADO', 'HISTORIAL_EXPORTADO',
+  'DOCUMENTO_RESTAURADO', 'DOCUMENTO_PURGADO',
 ];
 
 describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () => {
@@ -170,7 +171,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
       expect(rows).toEqual([{ detalle: {} }]);
     });
 
-    it('solo acepta las 22 acciones del catálogo (docs/01-analisis.md §7)', async () => {
+    it('solo acepta las 29 acciones del catálogo (docs/01-analisis.md §7)', async () => {
       const a = await crearEscenario(db);
       const autor = { empresaId: a.empresaId, usuarioId: a.usuarioId, rol: 'usuario' as const };
 
@@ -248,7 +249,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
       WHERE n.nspname = 'public' AND c.relkind = 'r'
       ORDER BY 1`);
 
-    expect(rows).toHaveLength(11);
+    expect(rows).toHaveLength(12);
     expect(rows.filter((fila) => !fila.rls)).toEqual([]);
   });
 });

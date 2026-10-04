@@ -81,7 +81,7 @@ export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias
   app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios()), empresa, exigir));
   // Antes que /documentos: una de sus rutas es /documentos/:id/solicitudes, y así no se autentica dos veces.
   app.use('/api/v1', crearRutasSolicitudes(crearServicioSolicitudes(), empresa, exigir));
-  app.use('/api/v1/documentos', crearRutasDocumentos(crearControladorDocumentos(servicioDocumentos, tiempos), empresa));
+  app.use('/api/v1/documentos', crearRutasDocumentos(crearControladorDocumentos(servicioDocumentos, tiempos), empresa, exigir));
   app.use('/api/v1/notificaciones', crearRutasNotificaciones(empresa));
   app.use('/api/v1/historial', crearRutasHistorial(crearServicioHistorial(), empresa, exigir));
   app.use('/api/v1/tiempos-respuesta', crearRutasTiempos(tiempos, empresa));

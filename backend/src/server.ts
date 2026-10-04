@@ -3,11 +3,14 @@ import { crearApp } from './app.js';
 import { leerEntorno } from './config/entorno.js';
 import { crearCorreo } from './correo/crear.js';
 import { crearPool } from './db/pool.js';
+import { programarPurga } from './tareas/purgar-papelera.js';
 
 function arrancar(): void {
   const entorno = leerEntorno();
   const pool = crearPool(entorno);
-  const app = crearApp({ pool, entorno, almacenamiento: crearAlmacenamiento(entorno), correo: crearCorreo(entorno) });
+  const almacenamiento = crearAlmacenamiento(entorno);
+  const app = crearApp({ pool, entorno, almacenamiento, correo: crearCorreo(entorno) });
+  const detenerPurga = programarPurga(pool, almacenamiento);
   const servidor = app.listen(entorno.PORT, (error) => {
     if (error) {
       console.error(`No se pudo escuchar en el puerto ${entorno.PORT}: ${error.message}`);
@@ -19,6 +22,7 @@ function arrancar(): void {
   // Render envía SIGTERM antes de sustituir la instancia en cada despliegue: se dejan terminar
   // las peticiones en curso y después se cierran las conexiones a la base.
   process.once('SIGTERM', () => {
+    detenerPurga();
     servidor.close(() => void pool.end());
   });
 }

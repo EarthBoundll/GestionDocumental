@@ -87,10 +87,15 @@ export function Historial() {
   );
 }
 
-/** El Master no es de la empresa y su cuenta no se ve desde ella: sus acciones salen como de la plataforma. */
+/**
+ * El Master no es de la empresa y su cuenta no se ve desde ella: sus acciones salen como de la plataforma.
+ * Sin autor ni correo, quien actuó fue el propio sistema (la purga de la papelera).
+ */
 function autorDe(asiento: Asiento): string {
   if (asiento.rolUsuario === 'master') return 'Administración de la plataforma';
-  return asiento.usuario?.nombre ?? String(asiento.detalle.email ?? 'Correo desconocido');
+  if (asiento.usuario) return asiento.usuario.nombre;
+  if (asiento.detalle.email) return String(asiento.detalle.email);
+  return asiento.accion === 'DOCUMENTO_PURGADO' ? 'El sistema' : 'Correo desconocido';
 }
 
 function FilaDeHistorial({ asiento }: { asiento: Asiento }) {

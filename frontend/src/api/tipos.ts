@@ -75,6 +75,18 @@ export interface Documento extends Omit<DocumentoResumen, 'archivo'> {
   permisos: { editar: boolean; eliminar: boolean; solicitarAprobacion: boolean; resolverSolicitud: boolean };
 }
 
+/** Un documento de la papelera (RF26): eliminado y aún restaurable. */
+export interface DocumentoEnPapelera {
+  id: string;
+  nombre: string;
+  categoria: Referencia;
+  subidoPor: Referencia;
+  eliminadoPor: Referencia | null;
+  eliminadoEn: string;
+  purgaEn: string;
+  archivo: { tipoMime: string; pesoBytes: number };
+}
+
 export interface Solicitud {
   id: string;
   estado: EstadoSolicitud;
