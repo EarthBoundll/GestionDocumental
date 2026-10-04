@@ -133,6 +133,9 @@ export const plataforma = {
   cambiarEstadoAdministrador: (id: string, activo: boolean) =>
     api<Administrador>(`/plataforma/administradores/${id}/estado`, { metodo: 'PATCH', cuerpo: { activo } }),
   /** RF27: lo que hizo la plataforma y los accesos sin empresa; nunca la actividad dentro de una empresa. */
+  respaldos: (senal?: AbortSignal) =>
+    api<{ datos: { nombre: string; bytes: number; creadoEn: string }[]; diasDeRetencion: number }>('/plataforma/respaldos', { senal }),
+  generarRespaldo: () => api<{ nombre: string; bytes: number }>('/plataforma/respaldos', { metodo: 'POST' }),
   auditoria: (filtros: { empresaId?: string; accion?: string; desde?: string; hasta?: string; pagina?: number }, senal?: AbortSignal) =>
     api<Pagina<Asiento>>('/plataforma/historial', { consulta: { ...filtros }, senal }),
 };

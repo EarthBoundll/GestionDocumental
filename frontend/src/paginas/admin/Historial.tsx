@@ -95,7 +95,7 @@ function autorDe(asiento: Asiento): string {
   if (asiento.rolUsuario === 'master') return 'Administración de la plataforma';
   if (asiento.usuario) return asiento.usuario.nombre;
   if (asiento.detalle.email) return String(asiento.detalle.email);
-  return asiento.accion === 'DOCUMENTO_PURGADO' ? 'El sistema' : 'Correo desconocido';
+  return asiento.accion === 'DOCUMENTO_PURGADO' || asiento.accion === 'RESPALDO_GENERADO' ? 'El sistema' : 'Correo desconocido';
 }
 
 /** Una acción del historial. Con `conEmpresa`, dice además en qué empresa ocurrió (la auditoría del Master). */

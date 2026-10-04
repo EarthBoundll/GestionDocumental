@@ -28,6 +28,8 @@ describe('leerEntorno', () => {
       SUPABASE_URL: undefined,
       SUPABASE_CLAVE_SECRETA: undefined,
       STORAGE_BUCKET: 'documentos',
+      RESPALDOS_BUCKET: 'respaldos',
+      DIRECTORIO_RESPALDOS: 'respaldos',
       CORREO: 'archivo',
       DIRECTORIO_CORREOS: 'correos',
       BREVO_CLAVE_API: undefined,

@@ -1,5 +1,6 @@
 import {
-  Bell, Building2, ClipboardCheck, FileText, History, LayoutDashboard, ShieldCheck, Tags, Trash2, Upload, Users, type LucideIcon,
+  Bell, Building2, ClipboardCheck, DatabaseBackup, FileText, History, LayoutDashboard, ShieldCheck, Tags, Trash2, Upload, Users,
+  type LucideIcon,
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router';
 import type { Rol } from '../api/tipos';
@@ -22,6 +23,7 @@ const GRUPOS: { titulo: string; roles: readonly Rol[]; enlaces: Enlace[] }[] = [
     enlaces: [
       { a: '/plataforma', texto: 'Empresas', icono: Building2 },
       { a: '/plataforma/auditoria', texto: 'Auditoría', icono: ShieldCheck },
+      { a: '/plataforma/respaldos', texto: 'Respaldos', icono: DatabaseBackup },
     ],
   },
   {
@@ -57,8 +59,9 @@ export function Navegacion({ alNavegar }: { alNavegar?: () => void }) {
   const { sesion } = useSesion();
   const { pathname } = useLocation();
   const rol = sesion?.usuario.rol;
-  // «Empresas» sigue marcado dentro de una empresa (/plataforma/empresas/…), pero no en la auditoría.
-  const marcado = (a: string, isActive: boolean) => isActive && !(a === '/plataforma' && pathname.startsWith('/plataforma/auditoria'));
+  // «Empresas» sigue marcado dentro de una empresa (/plataforma/empresas/…), pero no en las otras secciones.
+  const marcado = (a: string, isActive: boolean) =>
+    isActive && !(a === '/plataforma' && /^\/plataforma\/(auditoria|respaldos)/.test(pathname));
   return (
     <nav aria-label="Principal" className="space-y-6">
       {GRUPOS.filter((grupo) => rol && grupo.roles.includes(rol)).map(({ titulo, enlaces }) => (

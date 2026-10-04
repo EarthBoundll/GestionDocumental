@@ -30,7 +30,7 @@ describe('Marco común según el rol', () => {
     const { peticiones } = abrirComo('master', '/plataforma');
 
     await screen.findByRole('heading', { name: 'Plataforma', level: 1 });
-    expect(enlacesDelMenu()).toEqual(['Empresas', 'Auditoría']);
+    expect(enlacesDelMenu()).toEqual(['Empresas', 'Auditoría', 'Respaldos']);
     expect(screen.queryByRole('button', { name: /Notificaciones/ })).not.toBeInTheDocument();
     // Su marco no pide notificaciones: la API le respondería 403 y lo registraría como acceso denegado.
     expect(peticiones.some((p) => p.ruta === '/notificaciones')).toBe(false);

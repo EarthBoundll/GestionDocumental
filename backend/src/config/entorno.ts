@@ -37,6 +37,9 @@ const esquema = z
     SUPABASE_URL: opcional(z.url().optional()),
     SUPABASE_CLAVE_SECRETA: opcional(z.string().min(20).optional()),
     STORAGE_BUCKET: opcional(z.string().default('documentos')),
+    // Respaldos de la base (D25): un bucket privado aparte en producción y una carpeta en desarrollo.
+    RESPALDOS_BUCKET: opcional(z.string().default('respaldos')),
+    DIRECTORIO_RESPALDOS: opcional(z.string().default('respaldos')),
     // Correos de recuperación de contraseña (D19). En local se guardan en una carpeta; en producción, Brevo.
     CORREO: opcional(z.enum(['archivo', 'brevo']).default('archivo')),
     DIRECTORIO_CORREOS: opcional(z.string().default('correos')),

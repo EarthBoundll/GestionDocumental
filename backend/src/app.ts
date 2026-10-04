@@ -34,16 +34,19 @@ import { crearServicioTiempos } from './modulos/tiempos-respuesta/tiempos-respue
 import { crearControladorUsuarios } from './modulos/usuarios/usuarios.controlador.js';
 import { crearRutasUsuarios } from './modulos/usuarios/usuarios.rutas.js';
 import { crearServicioUsuarios } from './modulos/usuarios/usuarios.servicio.js';
+import type { DepositoDeRespaldos } from './respaldos/deposito.js';
+import { crearRutasRespaldos } from './respaldos/respaldos.rutas.js';
 
 export interface Dependencias {
   pool: pg.Pool;
   entorno: Entorno;
   almacenamiento: Almacenamiento;
   correo: Correo;
+  respaldos: DepositoDeRespaldos;
 }
 
 /** Ensambla la API sin ponerla a escuchar: así las pruebas la usan con su propia base. */
-export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias): express.Express {
+export function crearApp({ pool, entorno, almacenamiento, correo, respaldos }: Dependencias): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', entorno.PROXIES_DE_CONFIANZA);
@@ -79,7 +82,11 @@ export function crearApp({ pool, entorno, almacenamiento, correo }: Dependencias
 
   app.use('/api/v1/salud', crearRutasSalud(pool, { diagnosticoRed: entorno.DIAGNOSTICO_RED }));
   app.use('/api/v1/auth', crearRutasAuth(crearControladorAuth(servicioAuth), autenticar, crearLimitadores()));
-  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma(), plataforma, crearRutasAuditoria(servicioHistorial)));
+  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma(), plataforma, {
+    historial: crearRutasAuditoria(servicioHistorial),
+    // Los respaldos leen como dueños de las tablas (D25): es la única ruta del Master que recibe el pool.
+    respaldos: crearRutasRespaldos(pool, respaldos),
+  }));
   app.use('/api/v1/categorias', crearRutasCategorias(crearControladorCategorias(crearServicioCategorias()), empresa, exigir));
   app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios()), empresa, exigir));
   // Antes que /documentos: una de sus rutas es /documentos/:id/solicitudes, y así no se autentica dos veces.

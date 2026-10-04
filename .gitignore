@@ -4,6 +4,9 @@ dist/
 backend/archivos/
 # Correos de recuperación en desarrollo (CORREO=archivo): llevan enlaces válidos.
 backend/correos/
+# Respaldos de la base en desarrollo: llevan datos de todas las empresas.
+backend/respaldos/
+backend/respaldo-*.json.gz
 # Base y archivos de «npm run local».
 backend/.local/
 coverage/

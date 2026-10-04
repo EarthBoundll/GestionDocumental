@@ -1,4 +1,4 @@
-import { contar, formatearFecha } from './formato';
+import { contar, formatearFecha, formatearPeso } from './formato';
 
 /** Cómo se lee cada acción del historial (docs/01-analisis.md §7). */
 export const NOMBRES_DE_ACCIONES: Record<string, string> = {
@@ -31,6 +31,7 @@ export const NOMBRES_DE_ACCIONES: Record<string, string> = {
   HISTORIAL_EXPORTADO: 'Historial exportado',
   DOCUMENTO_RESTAURADO: 'Documento restaurado',
   DOCUMENTO_PURGADO: 'Documento eliminado para siempre',
+  RESPALDO_GENERADO: 'Respaldo de la base generado',
 };
 
 /** Los campos que aparecen en «cambios», como los entiende quien lee el historial. */
@@ -66,6 +67,7 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
     else if (hasta) partes.push(`hasta el ${formatearFecha(hasta)}`);
   }
   if (typeof detalle.resultados === 'number') partes.push(contar(detalle.resultados, 'resultado'));
+  if (typeof detalle.archivo === 'string' && typeof detalle.bytes === 'number') partes.push(formatearPeso(detalle.bytes));
   if (typeof detalle.filas === 'number') partes.push(contar(detalle.filas, 'fila exportada', 'filas exportadas'));
   if (typeof detalle.comentario === 'string' && detalle.comentario) partes.push(`comentario: «${detalle.comentario}»`);
   if (detalle.cambios && typeof detalle.cambios === 'object') {

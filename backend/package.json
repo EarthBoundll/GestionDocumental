@@ -16,7 +16,8 @@
     "comprobar-despliegue": "tsx scripts/comprobar-despliegue.ts",
     "test": "vitest run",
     "typecheck": "tsc",
-    "informe:aislamiento": "tsx scripts/informe-aislamiento.ts"
+    "informe:aislamiento": "tsx scripts/informe-aislamiento.ts",
+    "respaldo": "tsx --env-file-if-exists=.env scripts/respaldo.ts"
   },
   "dependencies": {
     "@supabase/storage-js": "^2.117.2",

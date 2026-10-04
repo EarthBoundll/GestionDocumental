@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type pg from 'pg';
@@ -10,6 +11,7 @@ import type { Rol } from '../../src/compartido/permisos.js';
 import { leerEntorno, type Entorno } from '../../src/config/entorno.js';
 import type { Correo, Mensaje } from '../../src/correo/correo.js';
 import { crearMaster } from '../../src/modulos/auth/master.js';
+import { DepositoEnDisco, type DepositoDeRespaldos } from '../../src/respaldos/deposito.js';
 
 export const SECRETO_DE_PRUEBAS = 'secreto-de-pruebas-con-mas-de-32-caracteres';
 export const CLAVE = 'clave-de-prueba-1';
@@ -49,13 +51,19 @@ type App = ReturnType<typeof crearApp>;
 const pools = new WeakMap<App, pg.Pool>();
 const tokensDelMaster = new WeakMap<App, string>();
 
+/** Los respaldos de las pruebas, en una carpeta temporal propia de cada app. */
+export function depositoDePruebas(): DepositoEnDisco {
+  return new DepositoEnDisco(join(tmpdir(), `gestion-documental-respaldos-${randomUUID()}`));
+}
+
 export function crearAppDePruebas(
   pool: pg.Pool,
   cambios: Record<string, string> = {},
   almacenamiento: Almacenamiento = almacenamientoDePruebas(),
   correo: Correo = new CorreoDePruebas(),
+  respaldos: DepositoDeRespaldos = depositoDePruebas(),
 ) {
-  const app = crearApp({ pool, entorno: entornoDePruebas(cambios), almacenamiento, correo });
+  const app = crearApp({ pool, entorno: entornoDePruebas(cambios), almacenamiento, correo, respaldos });
   pools.set(app, pool);
   return app;
 }
