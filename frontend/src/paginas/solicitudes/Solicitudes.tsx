@@ -41,7 +41,7 @@ export function Solicitudes() {
             aria-selected={estado === pestana.estado}
             onClick={() => setParametros(pestana.estado ? { estado: pestana.estado } : {})}
             className={`min-h-10 rounded-lg px-3 text-sm font-medium whitespace-nowrap ${
-              estado === pestana.estado ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200' : 'text-slate-600 hover:bg-slate-100'
+              estado === pestana.estado ? 'bg-superficie text-slate-900 shadow-xs ring-1 ring-slate-200' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
             {pestana.texto}

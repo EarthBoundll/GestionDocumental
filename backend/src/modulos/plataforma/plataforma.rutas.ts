@@ -1,5 +1,10 @@
 import { Router, type RequestHandler } from 'express';
 import { actorDe, idDeRuta } from '../../compartido/peticion.js';
+import { recibirArchivo } from '../../middlewares/recibir-archivo.js';
+import { autorDelMasterSobre } from '../historial/historial.registro.js';
+import { esquemaIdentidad } from '../identidad/identidad.esquemas.js';
+import { logoDe } from '../identidad/identidad.rutas.js';
+import type { ServicioIdentidad } from '../identidad/identidad.servicio.js';
 import {
   esquemaCambiosAdministrador, esquemaCambiosEmpresa, esquemaEstadoAdministrador, esquemaEstadoEmpresa,
   esquemaNuevaEmpresa, esquemaNuevoAdministrador,
@@ -10,7 +15,7 @@ import type { ServicioPlataforma } from './plataforma.servicio.js';
 export function crearRutasPlataforma(
   servicio: ServicioPlataforma,
   entrar: RequestHandler,
-  { historial, respaldos }: { historial: Router; respaldos: Router },
+  { historial, respaldos, identidad }: { historial: Router; respaldos: Router; identidad: ServicioIdentidad },
 ): Router {
   const rutas = Router();
   rutas.use(entrar);
@@ -31,7 +36,30 @@ export function crearRutasPlataforma(
   });
 
   rutas.get('/empresas/:id', async (req, res) => {
-    res.json(await servicio.obtenerEmpresa(actorDe(req), idDeRuta(req)));
+    const actor = actorDe(req);
+    const id = idDeRuta(req);
+    const empresa = await servicio.obtenerEmpresa(actor, id);
+    res.json({ ...empresa, marca: await identidad.obtener(actor, id) });
+  });
+
+  // RF31: el Master también da identidad a una empresa, con su acceso y quedando como autor (D18).
+  rutas.patch('/empresas/:id/identidad', async (req, res) => {
+    const actor = actorDe(req);
+    const id = idDeRuta(req);
+    const cambios = esquemaIdentidad.parse(req.body);
+    res.json(await identidad.editar(actor, id, autorDelMasterSobre(actor.autenticacion.usuario, id), cambios));
+  });
+
+  rutas.put('/empresas/:id/identidad/logo', recibirArchivo, async (req, res) => {
+    const actor = actorDe(req);
+    const id = idDeRuta(req);
+    res.json(await identidad.cambiarLogo(actor, id, autorDelMasterSobre(actor.autenticacion.usuario, id), logoDe(req)));
+  });
+
+  rutas.delete('/empresas/:id/identidad/logo', async (req, res) => {
+    const actor = actorDe(req);
+    const id = idDeRuta(req);
+    res.json(await identidad.quitarLogo(actor, id, autorDelMasterSobre(actor.autenticacion.usuario, id)));
   });
 
   rutas.patch('/empresas/:id', async (req, res) => {

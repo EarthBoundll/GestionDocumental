@@ -43,6 +43,9 @@ erDiagram
         varchar nombre
         char ruc UK "opcional, 11 dígitos"
         boolean activa
+        varchar nombre_comercial "opcional"
+        char color_primario "opcional, #rrggbb"
+        varchar logo_ruta "opcional, en su carpeta"
         timestamptz creado_en
         timestamptz actualizado_en
     }
@@ -55,6 +58,7 @@ erDiagram
         char clave_hash "bcrypt"
         varchar rol "master, administrador o usuario"
         boolean activo
+        varchar tema "sistema, claro u oscuro"
         timestamptz creado_en
         timestamptz actualizado_en
     }
@@ -168,6 +172,9 @@ erDiagram
 | nombre | varchar(150) | no | | Razón social o nombre comercial |
 | ruc | char(11) | sí | 11 dígitos; único | Informativo; no se valida contra SUNAT |
 | activa | boolean | no | por defecto, verdadero | Desactivada, nadie de ella puede entrar (RN24) |
+| nombre_comercial | varchar(60) | sí | no vacío | El que se ve en el menú; sin él, el nombre (RN31) |
+| color_primario | char(7) | sí | `#rrggbb` en minúsculas | El de botones y enlaces; el contraste lo valida la API (RN31) |
+| logo_ruta | varchar(255) | sí | `<empresa>/<uuid>.png` o `.jpg`, en la carpeta de esta empresa | En el bucket privado de los documentos (RN31) |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
@@ -183,6 +190,7 @@ erDiagram
 | clave_hash | char(60) | no | | Hash bcrypt; la contraseña nunca se guarda |
 | rol | varchar(13) | no | `master`, `administrador` o `usuario`; un solo `master` | |
 | activo | boolean | no | por defecto, verdadero | |
+| tema | varchar(7) | no | `sistema`, `claro` u `oscuro`; por defecto, `sistema` | El de su interfaz, en cualquier dispositivo (RN32) |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
@@ -344,6 +352,8 @@ No dependen de que el código se acuerde de comprobarlas.
 | Solo se autoriza a personas de la propia empresa (RN29) | Claves foráneas compuestas de `categoria_accesos` |
 | Una categoría restringida no se ve sin acceso (RN29) | Política RLS restrictiva con `puede_ver_categoria()` (§3.1) |
 | Solo se purga lo que está en la papelera (RN28) | `purgado_en` exige `eliminado_en` |
+| Solo el administrador cambia la identidad de su empresa, y nada más de ella (RN31) | `app_empresa` solo puede actualizar `nombre_comercial`, `color_primario` y `logo_ruta`, y una política de UPDATE exige su empresa y el rol `administrador` (§3.1) |
+| El logo de una empresa está en su carpeta | `logo_ruta` debe empezar por el `id` de la empresa |
 | Nada se borra en cascada | Todas las claves foráneas restringen el borrado: empresas, usuarios y documentos no se borran |
 
 ### 3.1 Aislamiento con RLS (D17)
@@ -368,6 +378,12 @@ una política **restrictiva** —se suma con AND a la de aislamiento— que llam
 abiertas y las restringidas en las que tienen acceso. La misma condición vale al insertar y al
 actualizar un documento, así que nadie sube a una categoría que no ve. `categoria_accesos` solo la leen
 y cambian los administradores. Sin persona fijada, nada restringido se abre.
+
+**Identidad de la empresa (008, D28).** Hasta la 008, `app_empresa` solo leía su fila de `empresas`.
+Ahora puede actualizar tres columnas de ella —`nombre_comercial`, `color_primario` y `logo_ruta`, por
+permiso de columna— y una política de UPDATE exige que sea su empresa y que quien actúa sea
+administrador. Un usuario que lo intente por debajo de la API cambia cero filas; el nombre, el RUC o el
+estado no los puede tocar nadie de la empresa (error 42501).
 
 **Auditoría del Master (006, D24).** `app_plataforma` puede leer del historial los asientos sin empresa
 y los que tienen el rol `master`; nada más.

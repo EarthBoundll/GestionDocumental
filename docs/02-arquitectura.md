@@ -231,7 +231,8 @@ se suspende en vez de cobrar.
 | El Master leyendo el contenido de una empresa | Su rol de base (`app_plataforma`) no tiene permisos sobre documentos, solicitudes, notificaciones ni tiempos de respuesta; sus cifras salen de una función que solo devuelve conteos (decisión E); del historial solo lee sus propias acciones y lo que no es de ninguna empresa (D24); los respaldos no se descargan por la API (D25) |
 | Recuperación de contraseña como oráculo de cuentas o puerta trasera | Misma respuesta y mismo tiempo exista o no el correo; token de 256 bits, de un solo uso, 60 minutos, guardado como huella SHA-256 y enviado en el fragmento del enlace; límite de peticiones por IP |
 | Inyección SQL | Solo consultas parametrizadas |
-| Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación |
+| Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación. El logo de una empresa, además, solo PNG o JPG (un SVG puede llevar scripts) de hasta 256 KB, comprobado por su contenido, y la CSP solo admite imágenes de ese dominio (D28) |
+| Un empleado cambiando la identidad de su empresa, o una empresa la de otra | La API exige ser administrador, y la base también: el rol de empresa solo puede actualizar esas tres columnas de su propia fila y solo si quien actúa es administrador (migración 008); el logo debe estar en la carpeta de su empresa (D28) |
 | Lectura de tablas por la API automática de Supabase | Data API desactivada; RLS activo en todas las tablas, con políticas solo para los roles propios de la API (D14, D17); y la migración 002 quita a `anon` y `authenticated` los permisos que Supabase les concede por defecto, también sobre las funciones, que RLS no cubre; la 003 quita a todos la ejecución directa de los triggers y fija el `search_path` de cada función |
 | Secretos en el repositorio | Variables de entorno; `.env` ignorado por git; la clave secreta de Supabase y la de Brevo solo existen en Render; los datos del Master solo en el `.env` de quien ejecuta el script |
 | Manipulación del historial | Solo inserción, impuesto por un trigger (M4) |
@@ -468,6 +469,23 @@ sin reglas nuevas. Para que las tablas que vengan (versiones, identidad) no lleg
 prueba recorre el catálogo y exige RLS y la política de aislamiento en toda tabla con `empresa_id`.
 *Descartado:* una tabla de eventos propia (duplicaría el historial) y mostrar todo a todos (la ficha se
 volvería una vigilancia entre compañeros: quién abrió qué y cuándo).
+
+**D28 · Identidad por empresa reducida y tema por persona, sobre variables de CSS.** Cada empresa puede
+tener un nombre comercial, un color y un logo (RF31); cada persona, su tema (RF32). Tailwind compila cada
+color a una variable de CSS, así que un solo color (`--marca`) da todos los tonos con `color-mix`, y el
+modo oscuro redefine las variables bajo `<html data-tema="oscuro">`: ningún componente cambió de clases y
+las pantallas futuras heredan los dos sin trabajo. Como el color decide la legibilidad de botones y
+enlaces, la API solo acepta los que alcanzan 4,5:1 con el texto blanco (WCAG 2.1 AA); los tonos del modo
+oscuro se mezclan con blanco y superan 6:1 sobre su fondo con cualquier color aceptado (comprobado con
+diez colores, desde el negro hasta los más claros que se aceptan). El logo vive en el almacenamiento
+privado, en la carpeta de la empresa, y llega con un enlace firmado que dura lo que la sesión. La
+identidad la cambia el administrador, y también la base lo exige (migración 008); queda en el historial
+como `EMPRESA_EDITADA`. El tema se guarda en la cuenta, no en el navegador, para que siga a la persona
+del celular al ordenador; no se audita porque no toca datos.
+*Descartado:* un bucket público para los logos (sería la única puerta pública del almacenamiento),
+admitir SVG (puede llevar scripts), una paleta completa o un segundo color por empresa (más campos que
+validar sin valor para la tesis), y guardar el tema solo en el navegador (se perdería al cambiar de
+dispositivo, y la evaluación usa celular y ordenador).
 
 ## 8. Riesgos
 

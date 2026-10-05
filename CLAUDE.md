@@ -175,8 +175,8 @@ permisos dentro de una empresa.
 
 - Actividad de cada documento en su ficha, y tablero con flujo de aprobación y actividad reciente (hecho)
 - Identidad visual por empresa reducida: nombre comercial, logo y un color primario; solo la cambian el
-  Administrador de Empresa y el Master (siguiente fase)
-- Modo oscuro, elegido por cada persona y guardado en su cuenta (siguiente fase, con la identidad visual)
+  Administrador de Empresa y el Master (hecho)
+- Modo oscuro, elegido por cada persona y guardado en su cuenta (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -282,6 +282,11 @@ mostrar todo a todos: la ficha sería una vigilancia entre compañeros.
 preprueba no usa el sistema, así que puede adelantarse; desde la capacitación hasta terminar la posprueba el sistema no
 cambia (etiqueta de versión y respaldo restaurado). Se descartó congelar desde la preprueba: frenaba el desarrollo sin
 proteger ninguna medición (`docs/09-protocolo-evaluacion.md`).
+
+**Identidad y tema sobre variables de CSS.** Un solo color por empresa da todos los tonos con `color-mix`, y el modo
+oscuro redefine las variables de Tailwind: ningún componente cambió de clases. La API solo acepta colores con 4,5:1 frente
+al texto blanco, y el logo (PNG o JPG) vive en el bucket privado con enlace firmado; el tema se guarda en la cuenta (D28).
+Se descartaron un bucket público para los logos, admitir SVG y guardar el tema solo en el navegador.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

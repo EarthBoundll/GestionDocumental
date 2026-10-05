@@ -4,6 +4,8 @@ export type Rol = 'master' | 'administrador' | 'usuario';
 /** Los roles que existen dentro de una empresa. El Master no es uno de ellos. */
 export type RolDeEmpresa = Exclude<Rol, 'master'>;
 export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada';
+/** RF32: «sistema» sigue al dispositivo. */
+export type Tema = 'sistema' | 'claro' | 'oscuro';
 
 export interface Referencia {
   id: string;
@@ -21,12 +23,20 @@ export interface UsuarioDeSesion {
   email: string;
   rol: Rol;
   dni: string | null;
+  tema: Tema;
+}
+
+/** RF31: la identidad de una empresa, con el enlace del logo ya firmado. Null es «la de la plataforma». */
+export interface Marca {
+  nombreComercial: string | null;
+  colorPrimario: string | null;
+  logoUrl: string | null;
 }
 
 export interface Perfil {
   usuario: UsuarioDeSesion;
   /** Null solo para el Master, que no pertenece a ninguna empresa. */
-  empresa: Referencia | null;
+  empresa: (Referencia & { marca: Marca }) | null;
 }
 
 export interface SesionIniciada extends Perfil {

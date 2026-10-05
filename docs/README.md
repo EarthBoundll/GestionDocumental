@@ -15,6 +15,7 @@ Sistema web de gestión documental para micro y pequeñas empresas de Lima — t
 | 8 · Responsive, pruebas y despliegue | Terminada: las pantallas sin desbordes a 360 y 768 px; [pruebas funcionales](evidencias/pruebas-funcionales.md) en un navegador real; desplegado el 3 de octubre de 2026 ([07 · Despliegue](07-despliegue.md)) |
 | A · Mejoras de la auditoría técnica | Terminada el 4 de octubre de 2026: categorías restringidas (RF25), papelera con purga a 30 días (RF26), auditoría del Master (RF27), tablero con los indicadores (RF28), respaldo nocturno con restauración probada (RF29), bloqueo por cuenta (RN27), modo demostración de las pruebas e integración continua (D22–D26). 288 pruebas del backend, 42 del frontend y 39 de 39 ejecuciones funcionales |
 | B · Ganancias rápidas de la segunda auditoría | Terminada el 4 de octubre de 2026: actividad de cada documento en su ficha (RF30, D27), tablero con flujo de aprobación y actividad reciente, último respaldo y espacio frente al GB gratuito en la portada del Master, ruta de navegación en la ficha, ayudas en el tablero y la auditoría, y una prueba que exige RLS en toda tabla con `empresa_id`. 298 pruebas del backend, 48 del frontend y 41 de 41 ejecuciones funcionales |
+| B · Identidad visual y modo oscuro | Terminada el 5 de octubre de 2026: nombre comercial, color y logo por empresa, que cambian su administrador y el Master (RF31), y tema claro, oscuro o del dispositivo guardado en la cuenta de cada persona (RF32), sobre variables de CSS y con el contraste validado (D28, migración 008). 319 pruebas del backend, 61 del frontend y 45 de 45 ejecuciones funcionales |
 
 Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CLAUDE.md` v2, que es la vigente.
 
@@ -23,7 +24,7 @@ Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CL
 | [01 · Análisis](01-analisis.md) | Problema, actores (tres roles), requisitos, reglas de negocio, matriz de permisos, acciones auditables y de dónde sale cada indicador |
 | [02 · Arquitectura](02-arquitectura.md) | Diagrama, capas, la capa de acceso a datos, flujos críticos, despliegue, seguridad, decisiones técnicas, riesgos y encaje con Cloud Computing |
 | [03 · Modelo de datos](03-modelo-datos.md) | Diagrama entidad-relación, diccionario de datos, restricciones, RLS e índices |
-| [04 · API](04-api.md) | Convenciones, formato de errores, los 46 endpoints y qué pantalla usa cada uno |
+| [04 · API](04-api.md) | Convenciones, formato de errores, los 54 endpoints y qué pantalla usa cada uno |
 | [05 · Estructura](05-estructura.md) | Carpetas de backend y frontend, dependencias y variables de entorno |
 | [06 · Migración a v2](06-migracion-v2.md) | El diagnóstico de la v1 frente a la v2, las decisiones A–G y el plan que se siguió |
 | [07 · Despliegue](07-despliegue.md) | Supabase, Brevo, Render y Vercel paso a paso, la creación del Master, el monitor y las tareas programadas, cómo restaurar un respaldo, la comprobación, la integración continua y qué hacer durante la evaluación |

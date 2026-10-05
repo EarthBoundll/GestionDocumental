@@ -121,12 +121,27 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     ['resolver una solicitud de aprobación', 'POST', `/api/v1/solicitudes/${b.solicitudId}/resolucion`, { decision: 'aprobada' }],
   ];
 
+  // Las rutas del Master reciben la empresa en la URL: para cualquiera de una empresa, la puerta se cierra antes.
+  const ataquesPorLaPlataforma = (): [string, 'GET' | 'PATCH' | 'DELETE', string, object | undefined][] => [
+    ['ver la ficha de B en la plataforma', 'GET', `/api/v1/plataforma/empresas/${b.empresaId}`, undefined],
+    ['cambiar la identidad de B por la ruta del Master', 'PATCH', `/api/v1/plataforma/empresas/${b.empresaId}/identidad`, { colorPrimario: '#000000' }],
+    ['quitar el logo de B por la ruta del Master', 'DELETE', `/api/v1/plataforma/empresas/${b.empresaId}/identidad/logo`, undefined],
+  ];
+
   describe.each(['administrador de A', 'usuario de A'] as const)('el %s', (quien) => {
     it('no puede leer, modificar ni descargar ningún recurso de B por su id: 404, como si no existiera', async () => {
       for (const [operacion, metodo, ruta, cuerpo] of ataquesDirectos()) {
         const respuesta = await intentar(quien, operacion, metodo, ruta, cuerpo);
         anotar({ quien, operacion, metodo, ruta, esperado: '404', obtenido: respuesta.status }, respuesta.status === 404);
         expect.soft(respuesta.status, `${operacion} (${metodo} ${ruta})`).toBe(404);
+      }
+    });
+
+    it('ni por la puerta del Master: 403, y queda registrado', async () => {
+      for (const [operacion, metodo, ruta, cuerpo] of ataquesPorLaPlataforma()) {
+        const respuesta = await intentar(quien, operacion, metodo, ruta, cuerpo);
+        anotar({ quien, operacion, metodo, ruta, esperado: '403', obtenido: respuesta.status }, respuesta.status === 403);
+        expect.soft(respuesta.status, `${operacion} (${metodo} ${ruta})`).toBe(403);
       }
     });
 
@@ -148,6 +163,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     const { rows: [aviso] } = await pool.query('SELECT leida_en FROM notificaciones WHERE id = $1', [b.notificacionId]);
     const { rows: [medicion] } = await pool.query('SELECT duracion_cliente_ms FROM tiempos_respuesta WHERE id = $1', [b.medicionId]);
     const { rows: solicitudesDeB } = await pool.query('SELECT 1 FROM solicitudes WHERE documento_id = $1', [b.documentoId]);
+    const { rows: [identidad] } = await pool.query('SELECT nombre_comercial, color_primario, logo_ruta FROM empresas WHERE id = $1', [b.empresaId]);
 
     expect(documento).toEqual({ nombre: b.documentoNombre, eliminado_en: null });
     expect(categoria).toEqual({ nombre: 'Confidencial de B' });
@@ -157,6 +173,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     expect(aviso).toEqual({ leida_en: null });
     expect(medicion).toEqual({ duracion_cliente_ms: null });
     expect(solicitudesDeB).toHaveLength(1);
+    expect(identidad).toEqual({ nombre_comercial: null, color_primario: null, logo_ruta: null });
     expect(await iniciarSesion(app, (await pool.query('SELECT email FROM usuarios WHERE id = $1', [b.adminId])).rows[0].email))
       .toMatch(/^ey/);
   });

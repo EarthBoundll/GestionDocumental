@@ -1,13 +1,53 @@
-import { KeyRound } from 'lucide-react';
+import { KeyRound, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { ErrorApi } from '../../api/cliente';
 import { auth } from '../../api/recursos';
+import type { Tema } from '../../api/tipos';
 import { Aviso } from '../../componentes/Avisos';
 import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
 import { EncabezadoDePagina, Tarjeta } from '../../componentes/Pagina';
 import { useSesion } from '../../sesion/SesionContext';
 import { NOMBRES_DE_ROLES } from '../../utilidades/roles';
+
+const TEMAS: { valor: Tema; texto: string; icono: LucideIcon }[] = [
+  { valor: 'sistema', texto: 'Del dispositivo', icono: Monitor },
+  { valor: 'claro', texto: 'Claro', icono: Sun },
+  { valor: 'oscuro', texto: 'Oscuro', icono: Moon },
+];
+
+/** RF32: se ve al instante y se guarda en la cuenta, así que sigue a la persona en cualquier dispositivo. */
+function Apariencia({ tema }: { tema: Tema }) {
+  const { cambiarTema } = useSesion();
+  const [error, setError] = useState<string | null>(null);
+
+  function elegir(valor: Tema) {
+    setError(null);
+    cambiarTema(valor).catch((causa: unknown) => setError((causa as ErrorApi).mensaje));
+  }
+
+  return (
+    <Tarjeta className="p-4 sm:p-6 lg:col-span-2">
+      <fieldset>
+        <legend className="mb-1 font-semibold text-slate-900">Apariencia</legend>
+        <p className="mb-4 text-sm text-slate-600">
+          Se guarda en tu cuenta: la verás igual en el celular y en el ordenador. «Del dispositivo» sigue el modo claro u oscuro de cada uno.
+        </p>
+        {error && <div className="mb-4"><Aviso tipo="error">No se pudo guardar el tema: {error}</Aviso></div>}
+        <div className="grid grid-cols-3 gap-2 sm:max-w-md">
+          {TEMAS.map(({ valor, texto, icono: Icono }) => (
+            <label key={valor}
+              className="flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center text-sm font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 has-checked:bg-marca-50 has-checked:text-marca-800 has-checked:ring-2 has-checked:ring-marca-600 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-marca-600">
+              <input type="radio" name="tema" value={valor} checked={tema === valor} onChange={() => elegir(valor)} className="sr-only" />
+              <Icono aria-hidden className="size-5" />
+              {texto}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    </Tarjeta>
+  );
+}
 
 export function MiCuenta() {
   const { sesion } = useSesion();
@@ -70,6 +110,8 @@ export function MiCuenta() {
             <Boton type="submit" icono={KeyRound} cargando={enviando}>Cambiar contraseña</Boton>
           </form>
         </Tarjeta>
+
+        <Apariencia tema={usuario.tema} />
       </div>
     </>
   );

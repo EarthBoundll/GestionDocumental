@@ -67,17 +67,19 @@ test.describe('Plataforma: el Administrador Master', () => {
     await page.getByLabel('Repite la contraseña').fill(CLAVE);
     await page.getByRole('button', { name: 'Registrar empresa' }).click();
 
+    // Los campos se buscan en el diálogo: detrás, la ficha tiene los de su identidad («Nombre comercial»).
+    const dialogo = page.getByRole('dialog');
     await page.getByRole('button', { name: 'Nuevo administrador' }).click();
-    await page.getByLabel('Nombre').fill('Luis Huamán');
-    await page.getByLabel('Correo').fill(`luis.${sufijo}@e2e.pe`);
-    await page.getByLabel(/^DNI/).fill('45678912');
-    await page.getByLabel('Contraseña inicial').fill(CLAVE);
+    await dialogo.getByLabel('Nombre').fill('Luis Huamán');
+    await dialogo.getByLabel('Correo').fill(`luis.${sufijo}@e2e.pe`);
+    await dialogo.getByLabel(/^DNI/).fill('45678912');
+    await dialogo.getByLabel('Contraseña inicial').fill(CLAVE);
     await page.getByRole('button', { name: 'Crear administrador' }).click();
     const fila = page.getByRole('listitem').filter({ hasText: `luis.${sufijo}@e2e.pe` });
     await expect(fila).toContainText('DNI 45678912');
 
     await fila.getByRole('button', { name: 'Editar' }).click();
-    await page.getByLabel('Nombre').fill('Luis Huamán Rojas');
+    await dialogo.getByLabel('Nombre').fill('Luis Huamán Rojas');
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(fila).toContainText('Luis Huamán Rojas');
 

@@ -37,7 +37,7 @@ administrador de cada empresa evaluada, y con consultas de solo lectura a la bas
 La columna «Fase» indica cuándo se construyó en la API; las pantallas llegan en la Fase 6. «v2» marca lo que
 añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md)); «A» lo que se añadió tras la
 auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervisión, D22–D26); «B», lo que se añadió tras
-la segunda auditoría, para hacer visible la trazabilidad (D27).
+la segunda auditoría: hacer visible la trazabilidad (D27) y adaptar la interfaz a cada empresa y a cada persona (D28).
 
 | ID | Requisito | Quién | Fase |
 |---|---|---|---|
@@ -71,6 +71,8 @@ la segunda auditoría, para hacer visible la trazabilidad (D27).
 | RF28 | Ver el tablero de la empresa: su estado, el flujo de aprobación, las últimas acciones y lo que el sistema registra de cada indicador en un periodo | Administrador | A y B |
 | RF29 | Respaldar la base cada noche y a petición, y restaurarla en una base vacía | Sistema, Master | A |
 | RF30 | Ver en la ficha de un documento su actividad: su ciclo de vida para todos y, para el administrador, también quién lo vio y lo descargó | Todos | B |
+| RF31 | Dar a la empresa una identidad visual (nombre comercial, color principal y logo) que ven todas sus personas | Administrador, Master | B |
+| RF32 | Elegir el tema de la interfaz (el del dispositivo, claro u oscuro) y que se guarde en la cuenta | Todos | B |
 
 ## 4. Requisitos no funcionales
 
@@ -86,6 +88,7 @@ la segunda auditoría, para hacer visible la trazabilidad (D27).
 | RNF08 | Portabilidad | Cambiar de proveedor no toca la lógica de negocio | PostgreSQL estándar; almacenamiento detrás de una interfaz |
 | RNF09 | Mantenibilidad | Código tipado, modular y con pruebas de reglas y permisos | TypeScript y módulos por funcionalidad (E2, E3) |
 | RNF10 | Privacidad | Guardar el mínimo de datos personales (Ley 29733) | Sin IP en el historial (M9) |
+| RNF11 | Legibilidad | Texto legible en claro y en oscuro, con cualquier color de empresa (WCAG 2.1 AA, 4,5:1) | La API rechaza los colores sin contraste con el blanco y la interfaz deriva de él los demás tonos (D28) |
 
 ## 5. Reglas de negocio
 
@@ -186,6 +189,18 @@ la segunda auditoría, para hacer visible la trazabilidad (D27).
   descargarlos: contienen los datos de todas las empresas (RN25). Un respaldo solo se restaura en una
   base vacía con las mismas migraciones, y no incluye sesiones ni enlaces de recuperación.
 
+**Tras la segunda auditoría (B)**
+
+- **RN31** La identidad de una empresa es un nombre comercial (de 2 a 60 caracteres), un color principal
+  y un logo; cualquiera de los tres puede faltar, y entonces valen la razón social, el color y el icono de
+  la plataforma. La cambian su administrador y el Master, y la ven todas sus personas. El color solo se
+  acepta si el texto blanco encima se lee (contraste de 4,5:1, WCAG 2.1 AA). El logo es PNG o JPG de hasta
+  256 KB, se guarda en el almacenamiento privado, en la carpeta de la empresa, y se entrega con un enlace
+  firmado que dura lo que la sesión. La razón social no cambia con ella: es un dato legal que cambia el Master.
+- **RN32** Cada persona elige su tema: el del dispositivo (por defecto), claro u oscuro. Se guarda en su
+  cuenta, así que la sigue a cualquier dispositivo, y no se registra en el historial: es una preferencia
+  de presentación, no una acción sobre los datos.
+
 ## 6. Matriz de permisos
 
 El visitante solo puede iniciar sesión y pedir la recuperación de su contraseña.
@@ -214,6 +229,8 @@ El visitante solo puede iniciar sesión y pedir la recuperación de su contrase�
 | Ver las cifras de la plataforma y de cada empresa | ✘ | ✘ | ✔ |
 | Auditar la plataforma (sus acciones y los accesos sin empresa) | ✘ | ✘ | ✔ |
 | Ver los respaldos y pedir uno (no descargarlos) | ✘ | ✘ | ✔ |
+| Cambiar la identidad visual (nombre comercial, color y logo) | ✘ | la de su empresa | la de cualquier empresa |
+| Elegir su tema: el del dispositivo, claro u oscuro | ✔ | ✔ | ✔ |
 | Cualquier cosa de **otra** empresa | ✘ | ✘ | — |
 | Cambiar su contraseña, recuperarla y cerrar sesión | ✔ | ✔ | ✔ |
 
@@ -238,7 +255,7 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `RECUPERACION_SOLICITADA` | alguien pide un enlace de recuperación, exista o no la cuenta | usuario, si existe | correo, si se envió y por qué no |
 | `CLAVE_RESTABLECIDA` | se define una contraseña nueva con un enlace | usuario | sesiones cerradas |
 | `EMPRESA_CREADA` | el Master da de alta una empresa | empresa | nombre y RUC |
-| `EMPRESA_EDITADA` | el Master cambia su nombre o RUC | empresa | antes → después |
+| `EMPRESA_EDITADA` | el Master cambia su nombre o RUC, o su administrador o el Master su identidad visual | empresa | antes → después; del logo, si había y si hay, y el nombre del archivo subido |
 | `EMPRESA_DESACTIVADA` · `EMPRESA_REACTIVADA` | el Master cambia su estado | empresa | sesiones cerradas |
 | `USUARIO_CREADO` | un administrador crea un usuario, el Master un administrador o el script al Master | usuario | nombre, correo y rol |
 | `USUARIO_EDITADO` | se cambian nombre, rol, DNI o contraseña | usuario | antes → después; del DNI y la contraseña, solo que cambiaron |
@@ -260,7 +277,8 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 Son 30 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
 motivo `CUENTA_BLOQUEADA`. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
 buscar; su tiempo de respuesta sí se mide), ver la ficha de un documento (no entrega el archivo),
-leer notificaciones (no cambia nada), consultar la actividad de un documento (es parte de su ficha), las peticiones con datos inválidos (400) o sin sesión (401)
+leer notificaciones (no cambia nada), consultar la actividad de un documento (es parte de su ficha), cambiar el tema
+(es una preferencia de presentación, RN32), las peticiones con datos inválidos (400) o sin sesión (401)
 —no hubo acción, o no hay autor—, las frenadas por el límite de intentos por IP (429) y los 404 por un
 recurso de otra empresa (para quien pregunta, ese recurso no existe).
 

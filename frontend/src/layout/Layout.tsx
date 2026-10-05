@@ -6,19 +6,32 @@ import { inicioDe, NOMBRES_DE_ROLES } from '../utilidades/roles';
 import { Campana } from './Campana';
 import { Navegacion } from './Navegacion';
 
-/** El icono, el producto y la empresa. En la barra del celular no cabe todo: queda la empresa, que es lo que orienta. */
+/**
+ * El logo (o el icono), el producto y la empresa, con su nombre comercial si lo tiene (RF31). En la barra del
+ * celular no cabe todo: queda la empresa, que es lo que orienta.
+ */
 function Marca({ compacta = false }: { compacta?: boolean }) {
   const { sesion } = useSesion();
-  const empresa = sesion?.empresa?.nombre ?? 'Administración de la plataforma';
+  // El enlace del logo caduca con la sesión: si falla, vuelve el icono en lugar de una imagen rota.
+  const [logoFallido, setLogoFallido] = useState<string | null>(null);
+  const empresa = sesion?.empresa;
+  const nombre = empresa ? (empresa.marca.nombreComercial ?? empresa.nombre) : 'Administración de la plataforma';
+  const logo = empresa?.marca.logoUrl;
   return (
     <Link to={sesion ? inicioDe(sesion.usuario.rol) : '/'} className="flex min-w-0 items-center gap-3 rounded-lg px-1">
-      <img src="/icono.svg" alt="" className={`shrink-0 ${compacta ? 'size-8' : 'size-9'}`} />
+      {logo && logo !== logoFallido ? (
+        // Sobre blanco también en el modo oscuro: un logo con letras oscuras y fondo transparente no desaparece.
+        <img src={logo} alt="" onError={() => setLogoFallido(logo)}
+          className={`shrink-0 rounded-md bg-white object-contain p-0.5 ring-1 ring-slate-200 ${compacta ? 'h-8 max-w-20' : 'h-9 max-w-24'}`} />
+      ) : (
+        <img src="/icono.svg" alt="" className={`shrink-0 ${compacta ? 'size-8' : 'size-9'}`} />
+      )}
       {compacta ? (
-        <p className="truncate text-sm font-semibold text-slate-900">{empresa}</p>
+        <p className="truncate text-sm font-semibold text-slate-900">{nombre}</p>
       ) : (
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-slate-900">Gestión documental</p>
-          <p className="truncate text-xs text-slate-500">{empresa}</p>
+          <p className="truncate text-xs text-slate-500">{nombre}</p>
         </div>
       )}
     </Link>
@@ -53,11 +66,11 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh lg:pl-64">
-      <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2">
+      <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-superficie focus:px-3 focus:py-2">
         Saltar al contenido
       </a>
 
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 border-r border-slate-200 bg-white px-4 py-5 lg:flex">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 border-r border-slate-200 bg-superficie px-4 py-5 lg:flex">
         <Marca />
         <Navegacion />
         <Link to="/cuenta" className="mt-auto rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Mi cuenta</Link>
@@ -65,8 +78,8 @@ export function Layout() {
 
       {menuAbierto && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menú">
-          <button type="button" aria-label="Cerrar el menú" className="absolute inset-0 bg-slate-900/40" onClick={() => setMenuAbierto(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-6 overflow-y-auto bg-white px-4 py-5 shadow-xl">
+          <button type="button" aria-label="Cerrar el menú" className="absolute inset-0 bg-black/40" onClick={() => setMenuAbierto(false)} />
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-6 overflow-y-auto bg-superficie px-4 py-5 shadow-xl">
             <div className="flex items-center justify-between">
               <Marca />
               <button type="button" onClick={() => setMenuAbierto(false)} aria-label="Cerrar el menú" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100">
@@ -79,7 +92,7 @@ export function Layout() {
         </div>
       )}
 
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6">
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-slate-200 bg-superficie/95 px-4 backdrop-blur sm:px-6">
         <button type="button" onClick={() => setMenuAbierto(true)} aria-label="Abrir el menú" className="-ml-1 rounded-lg p-2.5 text-slate-600 hover:bg-slate-100 lg:hidden">
           <Menu aria-hidden className="size-5" />
         </button>

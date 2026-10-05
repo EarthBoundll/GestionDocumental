@@ -9,7 +9,8 @@ Administrador de Empresa, que gestiona su equipo, sus categorías (también las 
 ven las personas que elija), las aprobaciones, la papelera, el historial y un tablero con los
 indicadores; y el Usuario, que sube, busca, ve y descarga documentos y pide su aprobación. Toda acción
 queda registrada en un historial inalterable, del que salen los indicadores de la tesis, y la base se
-respalda cada noche.
+respalda cada noche. Cada empresa puede llevar su nombre comercial, su color y su logo, y cada persona
+elige el modo claro u oscuro, que la sigue de un dispositivo a otro.
 
 | Carpeta | Qué hay | Despliegue |
 |---|---|---|
@@ -37,10 +38,10 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 
 | Dónde | Comando | Qué prueba |
 |---|---|---|
-| `backend/` | `npm test` | 298 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad de cada documento y la ida y vuelta de un respaldo |
+| `backend/` | `npm test` | 319 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad de cada documento, la identidad de cada empresa (con su contraste y su logo), el tema de cada persona y la ida y vuelta de un respaldo |
 | `backend/` | `npm run informe:aislamiento` | La batería A contra B, con su informe en [`docs/evidencias/`](docs/evidencias/aislamiento-entre-empresas.md) (indicador 6) |
-| `frontend/` | `npm test` | 48 pruebas de pantallas, sesión, roles y cliente HTTP |
-| `frontend/` | `npm run pruebas:funcionales` | Los 30 requisitos en un navegador real (33 casos, 41 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
+| `frontend/` | `npm test` | 61 pruebas de pantallas, sesión, roles, tema, identidad y cliente HTTP |
+| `frontend/` | `npm run pruebas:funcionales` | Los 32 requisitos en un navegador real (35 casos, 45 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
 | `frontend/` | `npm run pruebas:demo` | El guion de la sustentación: los casos marcados `@demo`, en un navegador visible y a velocidad de lectura |
 
 GitHub Actions ejecuta las tres primeras filas y las funcionales en cada push a `main` y en cada pull

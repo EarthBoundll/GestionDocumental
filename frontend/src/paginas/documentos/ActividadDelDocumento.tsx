@@ -74,7 +74,7 @@ function Paso({ paso }: { paso: ActividadDeDocumento }) {
   const Dispositivo = paso.esMovil ? Smartphone : Monitor;
   return (
     <li className="mb-4 ml-4 last:mb-2">
-      <span aria-hidden className={`absolute -left-1.5 mt-1.5 size-3 rounded-full ring-4 ring-white ${tonoDe(paso.accion)}`} />
+      <span aria-hidden className={`absolute -left-1.5 mt-1.5 size-3 rounded-full ring-4 ring-superficie ${tonoDe(paso.accion)}`} />
       <p className="text-sm text-slate-800">
         <span className="font-medium text-slate-900">{autorDe(paso)}</span> {fraseDeActividad(paso.accion, paso.detalle)}
       </p>

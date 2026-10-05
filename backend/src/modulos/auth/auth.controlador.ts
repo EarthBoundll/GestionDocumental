@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express';
 import { actorDe } from '../../compartido/peticion.js';
 import {
-  esquemaCambioClave, esquemaConfirmacionRecuperacion, esquemaInicioSesion, esquemaSolicitudRecuperacion,
+  esquemaCambioClave, esquemaConfirmacionRecuperacion, esquemaInicioSesion, esquemaPreferencias, esquemaSolicitudRecuperacion,
 } from './auth.esquemas.js';
 import { MINUTOS_DE_RECUPERACION, type ServicioAuth } from './auth.servicio.js';
 
@@ -26,6 +26,12 @@ export function crearControladorAuth(servicio: ServicioAuth) {
     res.status(204).end();
   };
 
+  const cambiarPreferencias: RequestHandler = async (req, res) => {
+    const { tema } = esquemaPreferencias.parse(req.body);
+    await servicio.cambiarTema(actorDe(req), tema);
+    res.json({ tema });
+  };
+
   // La misma respuesta exista o no el correo (CLAUDE.md v2): no revela qué cuentas hay.
   const solicitarRecuperacion: RequestHandler = async (req, res) => {
     const { email } = esquemaSolicitudRecuperacion.parse(req.body);
@@ -41,5 +47,5 @@ export function crearControladorAuth(servicio: ServicioAuth) {
     res.status(204).end();
   };
 
-  return { iniciarSesion, cerrarSesion, perfil, cambiarClave, solicitarRecuperacion, confirmarRecuperacion };
+  return { iniciarSesion, cerrarSesion, perfil, cambiarClave, cambiarPreferencias, solicitarRecuperacion, confirmarRecuperacion };
 }

@@ -13,6 +13,7 @@ export function crearRutasAuth(
   rutas.post('/logout', autenticar, controlador.cerrarSesion);
   rutas.get('/yo', autenticar, controlador.perfil);
   rutas.put('/clave', autenticar, controlador.cambiarClave);
+  rutas.put('/preferencias', autenticar, controlador.cambiarPreferencias);
   rutas.post('/recuperacion', limitadores.recuperacion, controlador.solicitarRecuperacion);
   rutas.post('/recuperacion/confirmar', limitadores.confirmacion, controlador.confirmarRecuperacion);
   return rutas;
