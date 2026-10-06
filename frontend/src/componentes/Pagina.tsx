@@ -17,7 +17,7 @@ export function EncabezadoDePagina({ titulo, descripcion, acciones }: { titulo: 
 }
 
 export function Tarjeta({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-xl bg-white shadow-xs ring-1 ring-slate-200 ${className}`}>{children}</section>;
+  return <section className={`rounded-xl bg-superficie shadow-xs ring-1 ring-slate-200 ${className}`}>{children}</section>;
 }
 
 /**

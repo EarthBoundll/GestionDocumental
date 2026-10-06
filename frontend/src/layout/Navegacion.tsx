@@ -1,5 +1,5 @@
 import {
-  Bell, Building2, ClipboardCheck, DatabaseBackup, FileText, History, LayoutDashboard, ShieldCheck, Tags, Trash2, Upload, Users,
+  Bell, Building2, ClipboardCheck, DatabaseBackup, FileText, History, LayoutDashboard, Palette, ShieldCheck, Tags, Trash2, Upload, Users,
   type LucideIcon,
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router';
@@ -51,6 +51,7 @@ const GRUPOS: { titulo: string; roles: readonly Rol[]; enlaces: Enlace[] }[] = [
       { a: '/admin/categorias', texto: 'Categorías', icono: Tags },
       { a: '/admin/historial', texto: 'Historial', icono: History },
       { a: '/admin/papelera', texto: 'Papelera', icono: Trash2 },
+      { a: '/admin/identidad', texto: 'Identidad', icono: Palette },
     ],
   },
 ];

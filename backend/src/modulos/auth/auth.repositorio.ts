@@ -3,6 +3,7 @@ import type { Rol } from '../../compartido/permisos.js';
 import type { Credencial } from '../../compartido/tokens.js';
 import { primeraFila } from '../../db/filas.js';
 import type { Consultor } from '../../db/pool.js';
+import type { FilaIdentidad } from '../identidad/identidad.repositorio.js';
 
 /*
  * La capa de identidad. Averigua quién es alguien antes de saber a qué empresa pertenece, así que no
@@ -22,9 +23,13 @@ export interface CuentaParaIniciarSesion extends UsuarioAutenticado {
   empresa: (Empresa & { activa: boolean }) | null;
 }
 
-export interface Perfil {
-  usuario: { id: string; nombre: string; email: string; rol: Rol; dni: string | null };
-  empresa: Empresa | null;
+export const TEMAS = ['sistema', 'claro', 'oscuro'] as const;
+export type Tema = (typeof TEMAS)[number];
+
+/** Lo que la base sabe de alguien al entrar: su cuenta, su tema y su empresa con su identidad (008). */
+export interface FilaPerfil {
+  usuario: { id: string; nombre: string; email: string; rol: Rol; dni: string | null; tema: Tema };
+  empresa: (Empresa & { identidad: FilaIdentidad }) | null;
 }
 
 interface FilaUsuario {
@@ -79,9 +84,12 @@ export async function buscarCuentaPorEmail(db: Consultor, email: string): Promis
   };
 }
 
-export async function buscarPerfil(db: Consultor, usuarioId: string): Promise<Perfil | null> {
-  const { rows } = await db.query<FilaUsuario & { dni: string | null; empresa_nombre: string | null }>(
-    `SELECT ${COLUMNAS_USUARIO}, u.dni, e.nombre AS empresa_nombre
+export async function buscarPerfil(db: Consultor, usuarioId: string): Promise<FilaPerfil | null> {
+  const { rows } = await db.query<FilaUsuario & {
+    dni: string | null; tema: Tema; empresa_nombre: string | null;
+    nombre_comercial: string | null; color_primario: string | null; logo_ruta: string | null;
+  }>(
+    `SELECT ${COLUMNAS_USUARIO}, u.dni, u.tema, e.nombre AS empresa_nombre, e.nombre_comercial, e.color_primario, e.logo_ruta
      FROM usuarios u LEFT JOIN empresas e ON e.id = u.empresa_id
      WHERE u.id = $1`,
     [usuarioId],
@@ -89,9 +97,18 @@ export async function buscarPerfil(db: Consultor, usuarioId: string): Promise<Pe
   const fila = rows[0];
   if (!fila) return null;
   return {
-    usuario: { id: fila.id, nombre: fila.nombre, email: fila.email, rol: fila.rol, dni: fila.dni },
-    empresa: fila.empresa_id === null ? null : { id: fila.empresa_id, nombre: fila.empresa_nombre ?? '' },
+    usuario: { id: fila.id, nombre: fila.nombre, email: fila.email, rol: fila.rol, dni: fila.dni, tema: fila.tema },
+    empresa: fila.empresa_id === null ? null : {
+      id: fila.empresa_id,
+      nombre: fila.empresa_nombre ?? '',
+      identidad: { nombreComercial: fila.nombre_comercial, colorPrimario: fila.color_primario, logoRuta: fila.logo_ruta },
+    },
   };
+}
+
+/** El tema es de la persona: solo cambia el suyo, y no pasa por el historial (RF32). */
+export async function actualizarTema(db: Consultor, usuarioId: string, tema: Tema): Promise<void> {
+  await db.query('UPDATE usuarios SET tema = $2 WHERE id = $1', [usuarioId, tema]);
 }
 
 export async function buscarClaveHash(db: Consultor, usuarioId: string): Promise<string | null> {

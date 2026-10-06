@@ -9,4 +9,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   localStorage.clear();
+  // El tema y el color se ponen en <html>, que sobrevive entre pruebas.
+  delete document.documentElement.dataset.tema;
+  document.documentElement.removeAttribute('style');
 });

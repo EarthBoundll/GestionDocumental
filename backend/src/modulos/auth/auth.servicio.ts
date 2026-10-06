@@ -7,12 +7,13 @@ import type { Firmador } from '../../compartido/tokens.js';
 import type { Correo } from '../../correo/correo.js';
 import { conTransaccion } from '../../db/transaccion.js';
 import { autorDe, registrarAccion, SIN_AUTOR } from '../historial/historial.registro.js';
+import type { Marca, ServicioIdentidad } from '../identidad/identidad.servicio.js';
 import { correoDeRecuperacion } from './auth.correos.js';
 import type { DatosCambioClave, DatosConfirmacionRecuperacion, DatosInicioSesion } from './auth.esquemas.js';
 import {
-  actualizarClaveHash, anularRecuperacionesDe, buscarClaveHash, buscarCuentaPorEmail, buscarDni, buscarPerfil,
+  actualizarClaveHash, actualizarTema, anularRecuperacionesDe, buscarClaveHash, buscarCuentaPorEmail, buscarDni, buscarPerfil,
   consumirRecuperacion, fallosRecientes, insertarRecuperacion, insertarSesion, revocarOtrasSesiones, revocarSesion,
-  revocarSesionesDe, type Perfil,
+  revocarSesionesDe, type Empresa, type FilaPerfil, type Tema,
 } from './auth.repositorio.js';
 
 const HORA = 3_600_000;
@@ -21,7 +22,11 @@ export const MINUTOS_DE_RECUPERACION = 60;
 /** RN27: cinco contraseñas incorrectas para un correo en 15 minutos lo bloquean hasta que pasen. */
 export const BLOQUEO = { fallos: 5, minutos: 15 } as const;
 
-export type { Perfil };
+/** Lo que recibe el frontend al entrar y al recargar: la cuenta, su tema y la marca de su empresa. */
+export interface Perfil {
+  usuario: FilaPerfil['usuario'];
+  empresa: (Empresa & { marca: Marca }) | null;
+}
 
 export interface SesionIniciada extends Perfil {
   token: string;
@@ -36,6 +41,8 @@ export interface DependenciasAuth {
   correo: Correo;
   /** Dónde vive el frontend: el enlace del correo de recuperación apunta allí. */
   urlFrontend: string;
+  /** Firma el enlace del logo de la empresa, que el marco muestra desde que la persona entra. */
+  identidad: ServicioIdentidad;
 }
 
 type MotivoDeFallo = 'CORREO_DESCONOCIDO' | 'CLAVE_INCORRECTA' | 'USUARIO_INACTIVO' | 'EMPRESA_INACTIVA' | 'CUENTA_BLOQUEADA';
@@ -45,11 +52,13 @@ export type ServicioAuth = ReturnType<typeof crearServicioAuth>;
 /** El token viaja en el enlace; en la base solo queda su huella, que no sirve para entrar. */
 const huella = (token: string) => createHash('sha256').update(token).digest('hex');
 
-export function crearServicioAuth({ pool, firmador, duracionHoras, correo, urlFrontend }: DependenciasAuth) {
+export function crearServicioAuth({ pool, firmador, duracionHoras, correo, urlFrontend, identidad }: DependenciasAuth) {
   async function perfilDe(usuarioId: string): Promise<Perfil> {
-    const perfil = await buscarPerfil(pool, usuarioId);
-    if (!perfil) throw new Error(`El usuario ${usuarioId} ya no existe`);
-    return perfil;
+    const fila = await buscarPerfil(pool, usuarioId);
+    if (!fila) throw new Error(`El usuario ${usuarioId} ya no existe`);
+    if (!fila.empresa) return { usuario: fila.usuario, empresa: null };
+    const { identidad: datos, ...empresa } = fila.empresa;
+    return { usuario: fila.usuario, empresa: { ...empresa, marca: await identidad.marcaDe(datos) } };
   }
 
   async function registrarIntentoFallido(
@@ -146,6 +155,11 @@ export function crearServicioAuth({ pool, firmador, duracionHoras, correo, urlFr
     },
 
     obtenerPerfil: ({ autenticacion }: Actor): Promise<Perfil> => perfilDe(autenticacion.usuario.id),
+
+    /** RF32: el tema de la interfaz. Es de la cuenta, para que siga a la persona en cualquier dispositivo. */
+    async cambiarTema({ autenticacion }: Actor, tema: Tema): Promise<void> {
+      await actualizarTema(pool, autenticacion.usuario.id, tema);
+    },
 
     /**
      * Pide un enlace de recuperación (CLAUDE.md v2). Responda lo que responda la base, quien llama no se

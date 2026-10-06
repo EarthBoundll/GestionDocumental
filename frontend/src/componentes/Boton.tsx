@@ -5,9 +5,9 @@ type Variante = 'primario' | 'secundario' | 'peligro' | 'fantasma';
 type Tamano = 'normal' | 'pequeno';
 
 const VARIANTES: Record<Variante, string> = {
-  primario: 'bg-marca-700 text-white hover:bg-marca-800 disabled:bg-marca-700/60',
-  secundario: 'bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 disabled:text-slate-400',
-  peligro: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/60',
+  primario: 'bg-accion text-white hover:bg-accion-hover disabled:bg-accion/60',
+  secundario: 'bg-superficie text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 disabled:text-slate-400',
+  peligro: 'bg-peligro text-white hover:bg-peligro-hover disabled:bg-peligro/60',
   fantasma: 'text-slate-600 hover:bg-slate-100 disabled:text-slate-400',
 };
 

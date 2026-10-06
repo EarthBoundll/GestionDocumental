@@ -81,6 +81,7 @@ backend/
 │       ├── historial/            incluye registrarAccion(), que usan los demás servicios
 │       ├── tiempos-respuesta/
 │       ├── tablero/              el estado de la empresa y sus indicadores (RF28)
+│       ├── identidad/            nombre comercial, color (con su contraste WCAG) y logo de una empresa (RF31)
 │       └── salud/
 ├── tests/
 │   ├── apoyo/                    PostgreSQL de pruebas y datos de ejemplo (E7)
@@ -120,13 +121,14 @@ frontend/
 ├── src/
 │   ├── main.tsx                  monta React y el enrutador
 │   ├── rutas.tsx                 mapa de rutas: públicas y con sesión
-│   ├── estilos.css               Tailwind y las variables del tema
+│   ├── estilos.css               Tailwind, los tonos de la marca a partir de un color y el modo oscuro (D28)
 │   ├── api/
 │   │   ├── cliente.ts            fetch con el token, errores uniformes, 401 → sesión terminada
 │   │   ├── recursos.ts           una función por endpoint de docs/04-api.md, agrupadas por recurso
 │   │   └── tipos.ts              forma de las respuestas de la API
 │   ├── sesion/
-│   │   ├── SesionContext.tsx     usuario, empresa y token; iniciar, cerrar y caducar la sesión
+│   │   ├── SesionContext.tsx     usuario, empresa y token; iniciar, cerrar y caducar la sesión; tema y marca
+│   │   ├── apariencia.ts         pone el tema en <html data-tema> y el color de la empresa en --marca
 │   │   └── Rutas.tsx             sin sesión → /login; la primera pantalla según el rol; el permiso lo decide la API (D8)
 │   ├── layout/
 │   │   ├── Layout.tsx            barra lateral en escritorio, menú plegable en el celular, barra superior
@@ -139,13 +141,14 @@ frontend/
 │   │   ├── documentos/           ListaDocumentos, SubirDocumento, DetalleDocumento y su ActividadDelDocumento
 │   │   ├── solicitudes/
 │   │   ├── notificaciones/
-│   │   ├── cuenta/
-│   │   ├── admin/                Usuarios, Categorias, Historial
+│   │   ├── cuenta/               MiCuenta: datos, contraseña y tema
+│   │   ├── identidad/            EditorDeIdentidad, que usan el administrador y el Master
+│   │   ├── admin/                Tablero, Usuarios, Categorias, Historial, Papelera, Identidad
 │   │   └── errores/              NoEncontrado (el 403 lo explica ErrorDeCarga, en componentes/Pagina)
 │   ├── hooks/                    useConsulta (cancela la petición anterior) y la medición del listado (indicador 7)
 │   ├── utilidades/               fechas en hora de Lima, pesos de archivo, resumen del historial…
 │   ├── pruebas/                  preparación de Vitest y una API simulada en memoria
-│   └── **/*.test.ts(x)           pruebas junto a lo que prueban: sesión, marco, documentos, cliente
+│   └── **/*.test.ts(x)           pruebas junto a lo que prueban: sesión, marco, documentos, apariencia, cliente
 ├── e2e/                          pruebas funcionales de punta a punta (E8)
 │   ├── *.spec.ts                 un caso por requisito, con su código RF en el título
 │   ├── apoyo.ts                  datos de partida por la API, inicio de sesión, correos

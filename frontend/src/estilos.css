@@ -1,17 +1,101 @@
 @import "tailwindcss";
 
+/*
+ * La apariencia sale de dos datos (RF31, RF32, D28): el color de la empresa, en --marca, y el tema de la
+ * persona, en data-tema de <html>. Tailwind compila cada color a una variable (bg-slate-50 es
+ * var(--color-slate-50)), así que el modo oscuro redefine variables y ningún componente cambia de clases.
+ */
+
 @theme {
-  /* La marca, en un solo sitio: el verde azulado del icono. */
-  --color-marca-50: var(--color-teal-50);
-  --color-marca-100: var(--color-teal-100);
-  --color-marca-200: var(--color-teal-200);
-  --color-marca-500: var(--color-teal-500);
-  --color-marca-600: var(--color-teal-600);
-  --color-marca-700: var(--color-teal-700);
-  --color-marca-800: var(--color-teal-800);
-  --color-marca-900: var(--color-teal-900);
+  /*
+   * La marca se deriva de un solo color, el de los botones (700). La API solo acepta colores con los que el
+   * texto blanco encima se lee (4,5:1), así que los tonos claros y oscuros se calculan mezclándolo.
+   */
+  --color-marca-50: color-mix(in srgb, var(--marca) 8%, white);
+  --color-marca-100: color-mix(in srgb, var(--marca) 15%, white);
+  --color-marca-200: color-mix(in srgb, var(--marca) 30%, white);
+  --color-marca-500: color-mix(in srgb, var(--marca) 70%, white);
+  --color-marca-600: color-mix(in srgb, var(--marca) 85%, white);
+  --color-marca-700: var(--marca);
+  --color-marca-800: color-mix(in srgb, var(--marca) 80%, black);
+  --color-marca-900: color-mix(in srgb, var(--marca) 62%, black);
+  /* Los botones principales: el color de la empresa tal cual, también en el modo oscuro. */
+  --color-accion: var(--marca);
+  --color-accion-hover: color-mix(in srgb, var(--marca) 80%, black);
+  /* Fijos: en el modo oscuro red-700 se aclara para leerse como texto, y un botón no puede aclararse. */
+  --color-peligro: oklch(57.7% 0.245 27.325);
+  --color-peligro-hover: oklch(50.5% 0.213 27.518);
+  /* Tarjetas, menús, campos y diálogos: blanco en claro. El blanco de verdad (texto de botones, fondo del logo) no cambia. */
+  --color-superficie: #fff;
   /* Fuentes del sistema: nada que descargar antes de mostrar la primera pantalla (indicador 7). */
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* El verde azulado del icono, mientras la empresa no elija otro o no haya sesión. */
+:root {
+  --marca: #0f766e;
+  color-scheme: light;
+}
+
+/*
+ * Modo oscuro. La escala slate se invierte con valores literales (redefinir slate-50 como var(slate-950)
+ * y viceversa sería un ciclo). Los textos secundarios quedan por encima de 4,5:1 sobre las superficies.
+ */
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+  --color-superficie: oklch(20.8% 0.042 265.755);
+  --color-slate-50: oklch(16% 0.035 264);
+  --color-slate-100: oklch(27.9% 0.041 260.031);
+  --color-slate-200: oklch(32% 0.042 259);
+  --color-slate-300: oklch(44.6% 0.043 257.281);
+  --color-slate-400: oklch(58% 0.045 257);
+  --color-slate-500: oklch(70% 0.04 257);
+  --color-slate-600: oklch(76% 0.035 256);
+  --color-slate-700: oklch(86.9% 0.022 252.894);
+  --color-slate-800: oklch(92.9% 0.013 255.508);
+  --color-slate-900: oklch(96.8% 0.007 247.896);
+  --color-slate-950: oklch(98.4% 0.003 247.858);
+
+  /* La marca sobre fondo oscuro: los fondos, teñidos de la superficie; los textos, aclarados con blanco. */
+  --color-marca-50: color-mix(in srgb, var(--marca) 22%, var(--color-superficie));
+  --color-marca-100: color-mix(in srgb, var(--marca) 32%, var(--color-superficie));
+  --color-marca-200: color-mix(in srgb, var(--marca) 45%, var(--color-superficie));
+  --color-marca-500: color-mix(in srgb, var(--marca) 65%, white);
+  --color-marca-600: color-mix(in srgb, var(--marca) 50%, white);
+  --color-marca-700: color-mix(in srgb, var(--marca) 40%, white);
+  --color-marca-800: color-mix(in srgb, var(--marca) 30%, white);
+  --color-marca-900: color-mix(in srgb, var(--marca) 20%, white);
+
+  /*
+   * Avisos e insignias: fondo teñido y texto claro del mismo tono. Los tonos 500 van escritos: Tailwind solo
+   * genera las variables de los colores que se usan.
+   */
+  --color-red-50: color-mix(in srgb, oklch(63.7% 0.237 25.331) 16%, var(--color-superficie));
+  --color-red-200: color-mix(in srgb, oklch(63.7% 0.237 25.331) 40%, var(--color-superficie));
+  --color-red-700: oklch(80.8% 0.114 19.571);
+  --color-red-800: oklch(88.5% 0.062 18.334);
+  --color-red-900: oklch(93.6% 0.032 17.717);
+  --color-emerald-50: color-mix(in srgb, oklch(69.6% 0.17 162.48) 16%, var(--color-superficie));
+  --color-emerald-200: color-mix(in srgb, oklch(69.6% 0.17 162.48) 40%, var(--color-superficie));
+  --color-emerald-700: oklch(84.5% 0.143 164.978);
+  --color-emerald-800: oklch(90.5% 0.093 164.15);
+  --color-emerald-900: oklch(95% 0.052 163.051);
+  --color-amber-50: color-mix(in srgb, oklch(76.9% 0.188 70.08) 16%, var(--color-superficie));
+  --color-amber-200: color-mix(in srgb, oklch(76.9% 0.188 70.08) 40%, var(--color-superficie));
+  --color-amber-700: oklch(87.9% 0.169 91.605);
+  --color-amber-800: oklch(92.4% 0.12 95.746);
+  --color-amber-900: oklch(96.2% 0.059 95.617);
+  --color-sky-50: color-mix(in srgb, oklch(68.5% 0.169 237.323) 16%, var(--color-superficie));
+  --color-sky-200: color-mix(in srgb, oklch(68.5% 0.169 237.323) 40%, var(--color-superficie));
+  --color-sky-900: oklch(95.1% 0.026 236.824);
+}
+
+/* Antes de que cargue el código, el fondo ya sigue al dispositivo: sin destello blanco en un celular en modo oscuro. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema]) {
+    color-scheme: dark;
+    background-color: oklch(16% 0.035 264);
+  }
 }
 
 @layer base {

@@ -21,6 +21,8 @@ import { crearControladorDocumentos } from './modulos/documentos/documentos.cont
 import { crearRutasDocumentos } from './modulos/documentos/documentos.rutas.js';
 import { crearServicioDocumentos } from './modulos/documentos/documentos.servicio.js';
 import { crearRutasAuditoria, crearRutasHistorial, crearServicioHistorial } from './modulos/historial/historial.consulta.js';
+import { crearRutasIdentidad } from './modulos/identidad/identidad.rutas.js';
+import { crearServicioIdentidad } from './modulos/identidad/identidad.servicio.js';
 import { crearRutasNotificaciones } from './modulos/notificaciones/notificaciones.rutas.js';
 import { crearRutasPlataforma } from './modulos/plataforma/plataforma.rutas.js';
 import { crearServicioPlataforma } from './modulos/plataforma/plataforma.servicio.js';
@@ -70,12 +72,15 @@ export function crearApp({ pool, entorno, almacenamiento, correo, respaldos }: D
   // Ningún módulo de negocio recibe el pool: solo el acceso que la autenticación crea para cada petición.
   const { empresa, plataforma } = crearPuertas(autenticar);
   const tiempos = crearServicioTiempos();
+  // El enlace del logo dura lo que una sesión: el marco lo muestra mientras la persona esté dentro.
+  const servicioIdentidad = crearServicioIdentidad({ almacenamiento, vigenciaSegundos: entorno.JWT_DURACION_HORAS * 3600 });
   const servicioAuth = crearServicioAuth({
     pool,
     firmador,
     duracionHoras: entorno.JWT_DURACION_HORAS,
     correo,
     urlFrontend: entorno.URL_FRONTEND,
+    identidad: servicioIdentidad,
   });
   const servicioDocumentos = crearServicioDocumentos({ almacenamiento });
   const servicioHistorial = crearServicioHistorial();
@@ -86,7 +91,9 @@ export function crearApp({ pool, entorno, almacenamiento, correo, respaldos }: D
     historial: crearRutasAuditoria(servicioHistorial),
     // Los respaldos leen como dueños de las tablas (D25): es la única ruta del Master que recibe el pool.
     respaldos: crearRutasRespaldos(pool, respaldos),
+    identidad: servicioIdentidad,
   }));
+  app.use('/api/v1/empresa/identidad', crearRutasIdentidad(servicioIdentidad, empresa, exigir));
   app.use('/api/v1/categorias', crearRutasCategorias(crearControladorCategorias(crearServicioCategorias()), empresa, exigir));
   app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios()), empresa, exigir));
   // Antes que /documentos: una de sus rutas es /documentos/:id/solicitudes, y así no se autentica dos veces.

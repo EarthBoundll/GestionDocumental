@@ -10,7 +10,7 @@ export function PantallaDeAcceso({ titulo, subtitulo, children, pie }: { titulo:
           <h1 className="mt-4 text-2xl font-semibold text-slate-900">{titulo}</h1>
           <p className="mt-1 text-sm text-slate-600">{subtitulo}</p>
         </div>
-        <div className="rounded-xl bg-white p-6 shadow-xs ring-1 ring-slate-200 sm:p-8">{children}</div>
+        <div className="rounded-xl bg-superficie p-6 shadow-xs ring-1 ring-slate-200 sm:p-8">{children}</div>
         <p className="mt-6 text-center text-sm text-slate-600">{pie}</p>
       </div>
     </main>

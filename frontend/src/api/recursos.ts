@@ -1,7 +1,7 @@
 import { api, descargar } from './cliente';
 import type {
-  ActividadDeDocumento, Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, MetricasDePlataforma,
-  Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Usuario,
+  ActividadDeDocumento, Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, Marca,
+  MetricasDePlataforma, Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Tema, Usuario,
 } from './tipos';
 
 // Una función por endpoint de docs/04-api.md, agrupadas por recurso.
@@ -14,6 +14,7 @@ export const auth = {
   solicitarRecuperacion: (email: string) => api<{ mensaje: string }>('/auth/recuperacion', { metodo: 'POST', cuerpo: { email } }),
   confirmarRecuperacion: (token: string, claveNueva: string) =>
     api<void>('/auth/recuperacion/confirmar', { metodo: 'POST', cuerpo: { token, claveNueva } }),
+  cambiarPreferencias: (tema: Tema) => api<{ tema: Tema }>('/auth/preferencias', { metodo: 'PUT', cuerpo: { tema } }),
 };
 
 export interface FiltrosDocumentos {
@@ -109,6 +110,33 @@ export const tablero = {
   obtener: (periodo: { desde?: string; hasta?: string }, senal?: AbortSignal) => api<Tablero>('/tablero', { consulta: { ...periodo }, senal }),
 };
 
+/** Vacío quita el nombre comercial o el color: la empresa vuelve a su razón social o al color de la plataforma. */
+export interface CambiosDeIdentidad {
+  nombreComercial?: string;
+  colorPrimario?: string;
+}
+
+/** Las operaciones sobre una identidad: la de la propia empresa o, para el Master, la de cualquiera. */
+export interface OperacionesDeIdentidad {
+  editar(cambios: CambiosDeIdentidad): Promise<Marca>;
+  cambiarLogo(archivo: File): Promise<Marca>;
+  quitarLogo(): Promise<Marca>;
+}
+
+function conLogo(archivo: File): FormData {
+  const formulario = new FormData();
+  formulario.append('archivo', archivo);
+  return formulario;
+}
+
+/** RF31: la identidad de la empresa de la sesión. La ven todos; la cambia su administrador. */
+export const identidad: OperacionesDeIdentidad & { obtener(senal?: AbortSignal): Promise<Marca> } = {
+  obtener: (senal) => api<Marca>('/empresa/identidad', { senal }),
+  editar: (cambios) => api<Marca>('/empresa/identidad', { metodo: 'PATCH', cuerpo: cambios }),
+  cambiarLogo: (archivo) => api<Marca>('/empresa/identidad/logo', { metodo: 'PUT', formulario: conLogo(archivo) }),
+  quitarLogo: () => api<Marca>('/empresa/identidad/logo', { metodo: 'DELETE' }),
+};
+
 interface DatosDeAdministrador {
   nombre: string;
   email: string;
@@ -121,13 +149,18 @@ export const plataforma = {
   metricas: (senal?: AbortSignal) => api<MetricasDePlataforma>('/plataforma/metricas', { senal }),
   empresas: (senal?: AbortSignal) => api<{ datos: EmpresaConMetricas[] }>('/plataforma/empresas', { senal }),
   empresa: (id: string, senal?: AbortSignal) =>
-    api<EmpresaConMetricas & { administradores: Administrador[] }>(`/plataforma/empresas/${id}`, { senal }),
+    api<EmpresaConMetricas & { administradores: Administrador[]; marca: Marca }>(`/plataforma/empresas/${id}`, { senal }),
   crearEmpresa: (datos: { empresa: { nombre: string; ruc: string }; administrador: DatosDeAdministrador }) =>
     api<{ empresa: Empresa; administrador: Administrador }>('/plataforma/empresas', { metodo: 'POST', cuerpo: datos }),
   editarEmpresa: (id: string, cambios: Partial<{ nombre: string; ruc: string }>) =>
     api<Empresa>(`/plataforma/empresas/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   cambiarEstadoEmpresa: (id: string, activa: boolean) =>
     api<Empresa>(`/plataforma/empresas/${id}/estado`, { metodo: 'PATCH', cuerpo: { activa } }),
+  identidadDe: (id: string): OperacionesDeIdentidad => ({
+    editar: (cambios) => api<Marca>(`/plataforma/empresas/${id}/identidad`, { metodo: 'PATCH', cuerpo: cambios }),
+    cambiarLogo: (archivo) => api<Marca>(`/plataforma/empresas/${id}/identidad/logo`, { metodo: 'PUT', formulario: conLogo(archivo) }),
+    quitarLogo: () => api<Marca>(`/plataforma/empresas/${id}/identidad/logo`, { metodo: 'DELETE' }),
+  }),
   crearAdministrador: (empresaId: string, datos: DatosDeAdministrador) =>
     api<Administrador>(`/plataforma/empresas/${empresaId}/administradores`, { metodo: 'POST', cuerpo: datos }),
   editarAdministrador: (id: string, cambios: Partial<Omit<DatosDeAdministrador, 'email'> & { email: string }>) =>

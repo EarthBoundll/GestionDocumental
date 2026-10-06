@@ -12,6 +12,7 @@ import { Modal } from '../../componentes/Modal';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
 import { formatearFechaHora, formatearPeso } from '../../utilidades/formato';
+import { EditorDeIdentidad } from '../identidad/EditorDeIdentidad';
 
 type AvisoDePagina = { tipo: 'exito' | 'error'; texto: string } | null;
 
@@ -99,6 +100,14 @@ export function DetalleEmpresa() {
           ))}
         </ul>
       </Tarjeta>
+
+      <section aria-labelledby="titulo-identidad" className="mt-8">
+        <h2 id="titulo-identidad" className="font-semibold text-slate-900">Identidad visual</h2>
+        <p className="mb-3 text-sm text-slate-600">
+          Con la que la ven sus personas. Su administrador también puede cambiarla, y el historial de la empresa dice quién lo hizo.
+        </p>
+        <EditorDeIdentidad razonSocial={empresa.nombre} marca={empresa.marca} operaciones={plataforma.identidadDe(empresa.id)} />
+      </section>
 
       {editandoEmpresa && (
         <DialogoEmpresa empresa={empresa} alCerrar={() => setEditandoEmpresa(false)}

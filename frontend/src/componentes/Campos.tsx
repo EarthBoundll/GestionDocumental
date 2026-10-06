@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
-const CONTROL = 'block w-full rounded-lg border bg-white px-3 py-2.5 text-base text-slate-900 shadow-xs sm:text-sm '
+const CONTROL = 'block w-full rounded-lg border bg-superficie px-3 py-2.5 text-base text-slate-900 shadow-xs sm:text-sm '
   + 'placeholder:text-slate-400 disabled:bg-slate-100 aria-invalid:border-red-500 aria-invalid:ring-1 aria-invalid:ring-red-500';
 
 interface Envoltura {
