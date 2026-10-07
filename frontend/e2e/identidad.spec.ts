@@ -1,13 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa } from './apoyo';
+import { entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PNG } from './apoyo';
 import { URL_WEB } from './entorno';
 
-/** Un PNG de 1×1 válido: la API mira los primeros bytes, no la extensión. */
-const LOGO = {
-  name: 'logo.png',
-  mimeType: 'image/png',
-  buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64'),
-};
+/** La API mira los primeros bytes, no la extensión. */
+const LOGO = { name: 'logo.png', mimeType: 'image/png', buffer: PNG };
 const VIOLETA = 'rgb(126, 34, 206)';
 const VERDE_DE_LA_PLATAFORMA = 'rgb(15, 118, 110)';
 
