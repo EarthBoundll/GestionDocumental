@@ -33,10 +33,26 @@ export default async function arrancarPostgres(proyecto: TestProject) {
   await servidor.initialise();
   await servidor.start();
   proyecto.provide('postgres', { puerto, ...credenciales });
+  conservarCodigoDeSalida();
 
   return async () => {
     await servidor.stop();
   };
+}
+
+/**
+ * embedded-postgres registra async-exit-hook, que al terminar llama a process.exit(0) y pisa el código con
+ * que vitest marca las pruebas fallidas: la integración continua daba verde con pruebas en rojo. Se guarda
+ * el código de vitest antes de ese exit(0) y se restituye al salir (Node lee process.exitCode tras «exit»).
+ */
+function conservarCodigoDeSalida() {
+  let codigoDeVitest = 0;
+  process.on('beforeExit', () => {
+    codigoDeVitest ||= Number(process.exitCode ?? 0);
+  });
+  process.on('exit', () => {
+    if (codigoDeVitest) process.exitCode = codigoDeVitest;
+  });
 }
 
 function buscarPuertoLibre(): Promise<number> {

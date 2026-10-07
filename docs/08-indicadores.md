@@ -13,7 +13,9 @@ valen las fuentes siguientes, que se pueden guardar y repetir.
 Hay dos fuentes:
 
 - **El CSV del historial**, que cualquier administrador de la empresa exporta desde *Historial →
-  Exportar a CSV*, con los filtros de fecha de la sesión. Excel lo abre con las tildes bien.
+  Exportar a CSV*, con los filtros de fecha de la sesión. Excel lo abre con las tildes bien. Con los
+  mismos filtros, *Historial → Imprimir* da la hoja para firmar como anexo (RF36), y *Documentos →
+  Exportar listado* el inventario del que sale la lista de documentos a pedir en el indicador 3 (RF35).
 - **Consultas de solo lectura** en el editor SQL de Supabase (*SQL Editor*), para los cálculos y para
   `tiempos_respuesta`, que no tiene pantalla.
 
@@ -151,7 +153,9 @@ Dos evidencias:
 ## 7 · Tiempo de respuesta
 
 Mediana y percentil 95 del listado de documentos, tal como lo percibió cada persona (desde que se pidió
-hasta que estuvo en pantalla), y la parte que se llevó el servidor. RNF05 pide menos de 1 s.
+hasta que estuvo en pantalla), y la parte que se llevó el servidor. RNF05 pide menos de 1 s. Que el volumen
+de datos por sí solo no ponga en riesgo ese umbral lo muestra la prueba de carga con 50.000 documentos
+([evidencias/prueba-de-carga.md](evidencias/prueba-de-carga.md), `npm run informe:carga` en `backend/`).
 
 ```sql
 with p as (select '00000000-0000-0000-0000-000000000000'::uuid as empresa,

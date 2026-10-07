@@ -138,6 +138,7 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
 | GET | `/documentos` | Empresa | `?q`, `categoriaId`, `desde`, `hasta`, `orden` (`recientes`, `fecha` o `nombre`) y paginación | 200 paginado, más `tiempoRespuestaId` | `BUSQUEDA_REALIZADA`, si hay algún filtro |
+| GET | `/documentos/exportar` | Admin | `?q`, `categoriaId`, `desde`, `hasta` (los del listado, sin página ni orden) | 200 `text/csv` con BOM (RF35): id, nombre, categoría, fecha, descripción, quién lo subió y cuándo (Lima), tipo, peso, versión vigente, estado de su última solicitud y la versión que revisó; por categoría y fecha. 400 si pasa de 50.000: se pide filtrar | `LISTADO_EXPORTADO` |
 | POST | `/documentos` | Empresa | Multipart: `archivo`, `nombre`, `categoriaId`, `fechaDocumento`, `descripcion?` | 201 con el documento | `DOCUMENTO_SUBIDO` |
 | GET | `/documentos/:id` | Empresa | — | 200 con el documento, su `ultimaSolicitud` y sus `permisos` | — |
 | PATCH | `/documentos/:id` | Propietario o admin | `nombre?`, `categoriaId?`, `fechaDocumento?`, `descripcion?` | 200 con el documento | `DOCUMENTO_EDITADO` |
@@ -176,6 +177,7 @@ categoría no existe». Lo decide la base (D22).
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
 | GET | `/historial` | Admin | `?usuarioId`, `accion`, `entidadTipo`, `entidadId`, `desde`, `hasta` y paginación | 200 paginado | — |
+| GET | `/historial/impresion` | Admin | Los mismos filtros | 200 `{ datos, total }`: todas las acciones filtradas, como en el listado, para la hoja imprimible (RF36). 400 si pasan de 2.000: se pide acotar | `HISTORIAL_EXPORTADO` con `formato: impresion` |
 | GET | `/historial/exportar` | Admin | Los mismos filtros | 200 `text/csv` en UTF-8 con BOM (Excel lo abre con tildes): id, fecha y hora de Lima, fecha UTC, acción, usuario (las del Master, «Administración de la plataforma»), correo, rol, entidad, móvil, user-agent y detalle en JSON. Las fechas del filtro son días de Lima | `HISTORIAL_EXPORTADO` |
 
 ### Tablero
@@ -203,10 +205,11 @@ es un enlace firmado que dura lo que la sesión.
 |---|---|---|---|---|---|
 | PATCH | `/tiempos-respuesta/:id` | Empresa; solo el suyo, y una vez | `duracionClienteMs` | 204 | — |
 
-En total, 57 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
+En total, 59 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
 plataforma, los siete que añadió la auditoría (papelera, tablero, auditoría y respaldos del Master) y, de la
 segunda, la actividad de un documento, las preferencias de cada persona, siete de identidad (cuatro de la
-empresa y tres del Master) y tres de versiones.
+empresa y tres del Master), tres de versiones y dos de evidencia (el listado documental y el historial para
+imprimir).
 
 ## 4. Respuestas de ejemplo
 
@@ -322,7 +325,7 @@ lo usa alguien.
 | Plataforma: cifras y empresas | `/plataforma` | Master | `GET /plataforma/metricas`, `GET /plataforma/empresas`, `GET /plataforma/respaldos` (el último respaldo y lo que ocupan, frente al GB gratuito) |
 | Nueva empresa | `/plataforma/empresas/nueva` | Master | `POST /plataforma/empresas` |
 | Ficha de una empresa | `/plataforma/empresas/:id` | Master | `GET /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id/estado`, `POST /plataforma/empresas/:id/administradores`, `PATCH /plataforma/administradores/:id`, `PATCH /plataforma/administradores/:id/estado`, `PATCH /plataforma/empresas/:id/identidad`, `PUT` y `DELETE /plataforma/empresas/:id/identidad/logo` |
-| Documentos: listado y búsqueda | `/documentos` | Administrador y Usuario | `GET /documentos`, `GET /categorias`, `PATCH /tiempos-respuesta/:id` |
+| Documentos: listado y búsqueda | `/documentos` | Administrador y Usuario; exportar el listado, solo el administrador | `GET /documentos`, `GET /categorias`, `PATCH /tiempos-respuesta/:id`, `GET /documentos/exportar` |
 | Subir documento | `/documentos/nuevo` | Administrador y Usuario | `GET /categorias`, `POST /documentos` |
 | Detalle de documento | `/documentos/:id` | Administrador y Usuario; las acciones, según `permisos` | `GET /documentos/:id`, `GET /documentos/:id/actividad`, `GET /documentos/:id/versiones`, `POST /documentos/:id/versiones`, `POST /documentos/:id/versiones/:numero/restauracion`, `GET /documentos/:id/archivo`, `PATCH /documentos/:id`, `DELETE /documentos/:id`, `POST /documentos/:id/solicitudes`, `POST /solicitudes/:id/resolucion`, `GET /categorias` |
 | Solicitudes | `/solicitudes` | Administrador y Usuario; el administrador ve la bandeja de toda su empresa | `GET /solicitudes` |
@@ -332,6 +335,7 @@ lo usa alguien.
 | Usuarios | `/admin/usuarios` | Administrador; para los demás, 403 registrado | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/:id`, `PATCH /usuarios/:id/estado` |
 | Categorías | `/admin/categorias` | Administrador | `GET /categorias?incluirInactivas=true`, `POST /categorias`, `PATCH /categorias/:id`, `GET /usuarios` (para elegir quién ve una restringida) |
 | Historial | `/admin/historial` | Administrador | `GET /historial`, `GET /historial/exportar`, `GET /usuarios` (para el filtro) |
+| Historial para imprimir | `/admin/historial/impresion` | Administrador | `GET /historial/impresion`, `GET /usuarios` (el nombre de la persona filtrada) |
 | Tablero | `/admin/tablero` | Administrador | `GET /tablero`, `GET /historial/exportar` (el historial del periodo) |
 | Papelera | `/admin/papelera` | Administrador | `GET /documentos/papelera`, `POST /documentos/papelera/:id/restauracion`, `DELETE /documentos/papelera/:id` |
 | Auditoría de la plataforma | `/plataforma/auditoria` | Master | `GET /plataforma/historial`, `GET /plataforma/empresas` (para el filtro) |

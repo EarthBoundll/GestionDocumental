@@ -62,8 +62,8 @@ describe('roles', () => {
 });
 
 describe('historial', () => {
-  it('nombra las 32 acciones auditables de docs/01-analisis.md §7', () => {
-    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(32);
+  it('nombra las 33 acciones auditables de docs/01-analisis.md §7', () => {
+    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(33);
   });
 
   it('cuenta las versiones (RF34): cuál se subió, con qué archivo, y de cuál viene una restaurada', () => {
@@ -80,6 +80,7 @@ describe('historial', () => {
       .toEqual(['buscó «factura»', 'por categoría', 'del 01/09/2026 al 30/09/2026', '1 resultado']);
     expect(resumirDetalle({ cambios: { categoriaId: {}, fechaDocumento: {}, clave: {} } })).toEqual(['cambió categoría, fecha, contraseña']);
     expect(resumirDetalle({ filtros: {}, filas: 12 })).toEqual(['12 filas exportadas']);
+    expect(resumirDetalle({ filtros: {}, filas: 45, formato: 'impresion' })).toEqual(['45 filas para imprimir']);
   });
 
   it('un acceso denegado dice qué se exigía y dónde, sin el prefijo técnico de la API', () => {

@@ -96,6 +96,47 @@ describe('Historial: consulta y exportación (RF19, RF20)', () => {
     expect(desdeLaSpa.headers['access-control-expose-headers']).toBe('Content-Disposition');
   });
 
+  describe('vista imprimible', () => {
+    const imprimir = (token: string, query = '') => request(app).get(`/api/v1/historial/impresion${query}`).set('Authorization', `Bearer ${token}`);
+
+    async function conAsientos(cantidad: number) {
+      const sesion = await registrarEmpresa(app);
+      await pool.query(
+        `INSERT INTO historial (empresa_id, usuario_id, rol_usuario, accion, detalle, creado_en)
+         SELECT $1, $2, 'administrador', 'BUSQUEDA_REALIZADA', jsonb_build_object('resultados', n), '2025-10-02T15:00:00Z'
+         FROM generate_series(1, $3) AS n`,
+        [sesion.empresa.id, sesion.usuario.id, cantidad],
+      );
+      return sesion;
+    }
+
+    it('trae todo lo filtrado, no solo una página, y queda registrado como exportación', async () => {
+      const { token, empresa } = await conAsientos(45);
+
+      const respuesta = await imprimir(token, '?accion=BUSQUEDA_REALIZADA&desde=2025-10-02&hasta=2025-10-02');
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body.total).toBe(45);
+      expect(respuesta.body.datos).toHaveLength(45);
+      expect(respuesta.body.datos[0]).toMatchObject({ accion: 'BUSQUEDA_REALIZADA', rolUsuario: 'administrador' });
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
+        accion: 'HISTORIAL_EXPORTADO',
+        detalle: { filtros: { accion: 'BUSQUEDA_REALIZADA', desde: '2025-10-02', hasta: '2025-10-02' }, filas: 45, formato: 'impresion' },
+      });
+    });
+
+    it('más de 2.000 asientos no se imprimen: pide acotar el filtro, y no registra nada', async () => {
+      const { token, empresa } = await conAsientos(2001);
+
+      const respuesta = await imprimir(token, '?accion=BUSQUEDA_REALIZADA');
+
+      expect(respuesta.status).toBe(400);
+      expect(respuesta.body.error.mensaje).toMatch(/2,001 asientos; para imprimir, acota/);
+      expect((await historialDe(pool, empresa.id)).at(-1)?.accion).not.toBe('HISTORIAL_EXPORTADO');
+      expect((await imprimir(token, '?accion=SESION_INICIADA')).status).toBe(200);
+    });
+  });
+
   it('un usuario no consulta ni exporta: 403 registrado (indicador 6)', async () => {
     const { empresa } = await registrarEmpresa(app);
     const empleado = await crearUsuarioEn(pool, empresa.id);
@@ -103,6 +144,8 @@ describe('Historial: consulta y exportación (RF19, RF20)', () => {
 
     expect((await consultar(sesion)).status).toBe(403);
     expect((await exportar(sesion)).status).toBe(403);
-    expect((await historialDe(pool, empresa.id)).slice(-2).map((f) => f.detalle.permiso)).toEqual(['CONSULTAR_HISTORIAL', 'CONSULTAR_HISTORIAL']);
+    expect((await request(app).get('/api/v1/historial/impresion').set('Authorization', `Bearer ${sesion}`)).status).toBe(403);
+    expect((await historialDe(pool, empresa.id)).slice(-3).map((f) => f.detalle.permiso))
+      .toEqual(['CONSULTAR_HISTORIAL', 'CONSULTAR_HISTORIAL', 'CONSULTAR_HISTORIAL']);
   });
 });

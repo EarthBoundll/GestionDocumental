@@ -371,7 +371,7 @@ No dependen de que el código se acuerde de comprobarlas.
 | Peso máximo del archivo (RN09) | `archivo_peso_bytes` entre 1 y 10 485 760 |
 | Historial inalterable (RN17) | Trigger que rechaza UPDATE, DELETE y TRUNCATE |
 | Solo se autoriza a personas de la propia empresa (RN29) | Claves foráneas compuestas de `categoria_accesos` |
-| Una categoría restringida no se ve sin acceso (RN29) | Política RLS restrictiva con `puede_ver_categoria()` (§3.1) |
+| Una categoría restringida no se ve sin acceso (RN29) | Políticas RLS restrictivas: `puede_ver_categoria()` en `categorias` y `categorias_visibles()` en `documentos` (§3.1) |
 | Solo se purga lo que está en la papelera (RN28) | `purgado_en` exige `eliminado_en` |
 | Solo el administrador cambia la identidad de su empresa, y nada más de ella (RN31) | `app_empresa` solo puede actualizar `nombre_comercial`, `color_primario` y `logo_ruta`, y una política de UPDATE exige su empresa y el rol `administrador` (§3.1) |
 | El logo de una empresa está en su carpeta | `logo_ruta` debe empezar por el `id` de la empresa |
@@ -402,6 +402,12 @@ una política **restrictiva** —se suma con AND a la de aislamiento— que llam
 abiertas y las restringidas en las que tienen acceso. La misma condición vale al insertar y al
 actualizar un documento, así que nadie sube a una categoría que no ve. `categoria_accesos` solo la leen
 y cambian los administradores. Sin persona fijada, nada restringido se abre.
+
+**Visibilidad una vez por consulta (010, D31).** La política de `documentos` ya no llama a
+`puede_ver_categoria()` por fila: compara `categoria_id` con `categorias_visibles()`, que devuelve en un
+arreglo las categorías que ve quien actúa (la misma regla) y que PostgreSQL evalúa una vez por consulta. Con
+50.000 documentos, el listado de una usuaria pasó de 1,9 s a 14 ms (`docs/evidencias/prueba-de-carga.md`).
+`categorias` conserva su política: son pocas filas.
 
 **Identidad de la empresa (008, D28).** Hasta la 008, `app_empresa` solo leía su fila de `empresas`.
 Ahora puede actualizar tres columnas de ella —`nombre_comercial`, `color_primario` y `logo_ruta`, por

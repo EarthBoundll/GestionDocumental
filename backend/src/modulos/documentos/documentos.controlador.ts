@@ -4,7 +4,7 @@ import { esquemaPaginacion } from '../../compartido/paginacion.js';
 import { actorDe, idDeRuta } from '../../compartido/peticion.js';
 import type { ServicioTiempos } from '../tiempos-respuesta/tiempos-respuesta.servicio.js';
 import {
-  esquemaBusqueda, esquemaCambiosDocumento, esquemaModoArchivo, esquemaNuevaVersion, esquemaNuevoDocumento, esquemaNumeroDeVersion,
+  esquemaBusqueda, esquemaCambiosDocumento, esquemaFiltrosDelListado, esquemaModoArchivo, esquemaNuevaVersion, esquemaNuevoDocumento, esquemaNumeroDeVersion,
 } from './documentos.esquemas.js';
 import type { ArchivoRecibido, ServicioDocumentos } from './documentos.servicio.js';
 
@@ -21,6 +21,16 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
       esMovil: actor.contexto.esMovil,
     });
     res.json({ datos, paginacion, tiempoRespuestaId });
+  };
+
+  const exportarListado: RequestHandler = async (req, res) => {
+    const csv = await servicio.exportarListado(actorDe(req), esquemaFiltrosDelListado.parse(req.query));
+    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+    res.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="listado-documental-${hoy}.csv"`,
+    });
+    res.send(csv);
   };
 
   const subir: RequestHandler = async (req, res) => {
@@ -81,7 +91,7 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
     res.status(204).end();
   };
 
-  return { listar, subir, obtener, actividad, editar, eliminar, archivo, papelera, restaurar, purgar, versiones, subirVersion, restaurarVersion };
+  return { listar, exportarListado, subir, obtener, actividad, editar, eliminar, archivo, papelera, restaurar, purgar, versiones, subirVersion, restaurarVersion };
 }
 
 /** El archivo del formulario multipart, o un 400 que dice qué falta. */

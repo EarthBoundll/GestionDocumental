@@ -22,6 +22,7 @@ backend/
 │   ├── crear-master.ts           crea la cuenta única del Master con los datos del .env (RN22)
 │   ├── local.ts                  el sistema completo en esta máquina, sin cuentas (D16)
 │   ├── informe-aislamiento.ts    ejecuta la batería A contra B y escribe su informe (indicador 6)
+│   ├── informe-carga.ts          la prueba de carga con 50.000 documentos y su informe (indicador 7, D31)
 │   └── comprobar-despliegue.ts   revisa desde fuera un despliegue: salud, CORS, CSP y URL de la API
 ├── src/
 │   ├── server.ts                 arranque: valida el entorno, crea la app y escucha
@@ -86,7 +87,8 @@ backend/
 ├── tests/
 │   ├── apoyo/                    PostgreSQL de pruebas y datos de ejemplo (E7)
 │   ├── unitarias/                piezas sueltas, sin base de datos
-│   └── integracion/              la API y el esquema de verdad, contra PostgreSQL 17
+│   ├── integracion/              la API y el esquema de verdad, contra PostgreSQL 17
+│   └── carga/                    50.000 documentos medidos por la API; solo con npm run informe:carga
 ├── .env.example
 ├── package.json
 ├── tsconfig.json                 comprobación de tipos de todo, pruebas incluidas
@@ -143,7 +145,7 @@ frontend/
 │   │   ├── notificaciones/
 │   │   ├── cuenta/               MiCuenta: datos, contraseña y tema
 │   │   ├── identidad/            EditorDeIdentidad, que usan el administrador y el Master
-│   │   ├── admin/                Tablero, Usuarios, Categorias, Historial, Papelera, Identidad
+│   │   ├── admin/                Tablero, Usuarios, Categorias, Historial (y su hoja para imprimir), Papelera, Identidad
 │   │   └── errores/              NoEncontrado (el 403 lo explica ErrorDeCarga, en componentes/Pagina)
 │   ├── hooks/                    useConsulta (cancela la petición anterior) y la medición del listado (indicador 7)
 │   ├── utilidades/               fechas en hora de Lima, pesos de archivo, resumen del historial…

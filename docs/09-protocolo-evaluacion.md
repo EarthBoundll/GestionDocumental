@@ -74,7 +74,7 @@ las listas se describen por su tipo y su categoría, nunca por su contenido.
 | 2 · Capacitación | Todos | 30–45 min | Iniciar sesión en la PC y en el celular, subir, buscar, ver, descargar, pedir aprobación; el administrador, además, aprobar, restaurar y restringir una categoría. Con documentos que no están en la lista B |
 | Periodo de uso | Todos | **[Por definir]** | Si el asesor lo pide, unos días de uso real antes de medir. Suma tiempo de calendario, no de trabajo |
 | 3 · Posprueba | Cada participante | 45–60 min | Las mismas tareas de §6, en el sistema |
-| Cierre | Investigador | 30 min por sesión | Exportar el historial a CSV y ejecutar las consultas de [08 · Indicadores](08-indicadores.md) con la ventana de la sesión; guardar ambos fuera de Supabase |
+| Cierre | Investigador | 30 min por sesión | Exportar el historial a CSV, imprimir su hoja de la sesión para que la firmen el administrador y el investigador (anexo, RF36) y ejecutar las consultas de [08 · Indicadores](08-indicadores.md) con la ventana de la sesión; guardar todo fuera de Supabase |
 
 ## 6. Tareas
 

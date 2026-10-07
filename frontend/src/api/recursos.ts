@@ -30,6 +30,9 @@ export const documentos = {
   listar: (filtros: FiltrosDocumentos, senal?: AbortSignal) =>
     api<Pagina<DocumentoResumen> & { tiempoRespuestaId: string | null }>('/documentos', { consulta: { ...filtros }, senal }),
   subir: (formulario: FormData) => api<Documento>('/documentos', { metodo: 'POST', formulario }),
+  /** RF35: el inventario documental en CSV, con los filtros del listado. Solo administradores. */
+  exportarListado: (filtros: Omit<FiltrosDocumentos, 'pagina' | 'orden'>) =>
+    descargar('/documentos/exportar', { ...filtros }, 'listado-documental.csv'),
   obtener: (id: string, senal?: AbortSignal) => api<Documento>(`/documentos/${id}`, { senal }),
   editar: (id: string, cambios: Partial<{ nombre: string; categoriaId: string; fechaDocumento: string; descripcion: string | null }>) =>
     api<Documento>(`/documentos/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
@@ -110,7 +113,13 @@ export interface FiltrosHistorial {
 export const historial = {
   listar: (filtros: FiltrosHistorial, senal?: AbortSignal) => api<Pagina<Asiento>>('/historial', { consulta: { ...filtros }, senal }),
   exportar: (filtros: Omit<FiltrosHistorial, 'pagina'>) => descargar('/historial/exportar', { ...filtros }, 'historial.csv'),
+  /** RF36: todo lo filtrado (hasta 2.000), para la vista imprimible. Queda registrado como exportación. */
+  paraImprimir: (filtros: Omit<FiltrosHistorial, 'pagina'>, senal?: AbortSignal) =>
+    api<{ datos: Asiento[]; total: number }>('/historial/impresion', { consulta: { ...filtros }, senal }),
 };
+
+/** Más que esto no se imprime: la API pide acotar el filtro (un anexo, no un volcado). */
+export const MAXIMO_IMPRIMIBLE = 2_000;
 
 export const tablero = {
   obtener: (periodo: { desde?: string; hasta?: string }, senal?: AbortSignal) => api<Tablero>('/tablero', { consulta: { ...periodo }, senal }),

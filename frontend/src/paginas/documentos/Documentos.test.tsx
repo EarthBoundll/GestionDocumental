@@ -16,10 +16,10 @@ const CONTRATO = {
   creadoEn: '2026-10-02T14:35:16Z',
 };
 
-function abrir(ruta: string, extra: Parameters<typeof simularApi>[0] = {}) {
-  guardarSesion(sesionDe('usuario'));
+function abrir(ruta: string, extra: Parameters<typeof simularApi>[0] = {}, rol: 'usuario' | 'administrador' = 'usuario') {
+  guardarSesion(sesionDe(rol));
   const api = simularApi({
-    'GET /auth/yo': { cuerpo: { usuario: sesionDe('usuario').usuario, empresa: sesionDe('usuario').empresa } },
+    'GET /auth/yo': { cuerpo: { usuario: sesionDe(rol).usuario, empresa: sesionDe(rol).empresa } },
     'GET /notificaciones': { cuerpo: { ...paginaVacia, noLeidas: 0 } },
     'GET /categorias': { cuerpo: CATEGORIAS },
     'GET /documentos': ({ consulta }: PeticionRecibida) => ({
@@ -38,6 +38,30 @@ function abrir(ruta: string, extra: Parameters<typeof simularApi>[0] = {}) {
 }
 
 describe('Documentos', () => {
+  it('el administrador exporta el listado documental con los filtros de la pantalla (RF35); un usuario no ve el botón', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:listado');
+    URL.revokeObjectURL = vi.fn();
+    const { peticiones } = abrir('/documentos?q=contrato&categoriaId=cat-contratos&orden=nombre&pagina=2', {
+      'GET /documentos/exportar': {
+        cuerpo: 'id,nombre', cabeceras: { 'Content-Disposition': 'attachment; filename="listado-documental-2026-10-07.csv"' },
+      },
+    }, 'administrador');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Exportar listado' }));
+
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
+    const pedida = peticiones.find((p) => p.ruta === '/documentos/exportar')!;
+    // Los filtros, sin la página ni el orden: el inventario sale entero y ordenado por categoría.
+    expect(Object.fromEntries(pedida.consulta)).toEqual({ q: 'contrato', categoriaId: 'cat-contratos' });
+  });
+
+  it('un usuario no ve «Exportar listado»: el inventario es del administrador', async () => {
+    abrir('/documentos');
+
+    await screen.findByRole('link', { name: 'Contrato de alquiler del local' });
+    expect(screen.queryByRole('button', { name: 'Exportar listado' })).not.toBeInTheDocument();
+  });
+
   it('lista, busca por nombre y deja la búsqueda en la URL para poder compartirla o volver atrás', async () => {
     const { peticiones, enrutador } = abrir('/documentos');
 

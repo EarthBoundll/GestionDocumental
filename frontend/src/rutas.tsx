@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet, type RouteObject } from 'react-router';
 import { Layout } from './layout/Layout';
 import { Categorias } from './paginas/admin/Categorias';
 import { Historial } from './paginas/admin/Historial';
+import { HistorialImprimible } from './paginas/admin/HistorialImprimible';
 import { Identidad } from './paginas/admin/Identidad';
 import { Papelera } from './paginas/admin/Papelera';
 import { Tablero } from './paginas/admin/Tablero';
@@ -59,6 +60,7 @@ export const rutas: RouteObject[] = [
               { path: '/admin/usuarios', element: <Usuarios /> },
               { path: '/admin/categorias', element: <Categorias /> },
               { path: '/admin/historial', element: <Historial /> },
+              { path: '/admin/historial/impresion', element: <HistorialImprimible /> },
               { path: '/admin/papelera', element: <Papelera /> },
               { path: '/admin/identidad', element: <Identidad /> },
               { path: '/plataforma', element: <Resumen /> },

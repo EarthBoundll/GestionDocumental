@@ -1,4 +1,4 @@
-import { Download, Eye, FileText, Search, SearchX, Upload } from 'lucide-react';
+import { Download, Eye, FileDown, FileText, Search, SearchX, Upload } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
@@ -12,6 +12,7 @@ import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../com
 import { useConsulta } from '../../hooks/useConsulta';
 import { useMedicionDeListado } from '../../hooks/useMedicionDeListado';
 import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
+import { useSesion } from '../../sesion/SesionContext';
 import { abrirArchivo } from '../../utilidades/archivos';
 import { formatearFecha, formatearPeso, nombreDeTipo } from '../../utilidades/formato';
 
@@ -30,6 +31,8 @@ export function ListaDocumentos() {
   const hayFiltros = FILTROS.some((filtro) => filtro !== 'orden' && parametros.get(filtro));
   const [texto, setTexto] = useState(filtros.q ?? '');
   const [errorAlAbrir, setErrorAlAbrir] = useState<ErrorApi | null>(null);
+  const { esAdministrador } = useSesion();
+  const [exportando, setExportando] = useState(false);
 
   const medicion = useMedicionDeListado();
   const listado = useConsulta(async (senal) => {
@@ -60,6 +63,15 @@ export function ListaDocumentos() {
     aplicar({ q: texto.trim() || undefined });
   }
 
+  /** RF35: el inventario en CSV, con los filtros de la pantalla. Lo exporta un administrador y queda registrado. */
+  async function exportarListado() {
+    setExportando(true);
+    setErrorAlAbrir(null);
+    const { pagina: _pagina, orden: _orden, ...soloFiltros } = filtros;
+    await documentos.exportarListado(soloFiltros).catch((error: ErrorApi) => setErrorAlAbrir(error));
+    setExportando(false);
+  }
+
   async function abrir(id: string, modo: 'ver' | 'descargar') {
     setErrorAlAbrir(null);
     await abrirArchivo(id, modo).catch((error: ErrorApi) => setErrorAlAbrir(error));
@@ -70,7 +82,12 @@ export function ListaDocumentos() {
       <EncabezadoDePagina
         titulo="Documentos"
         descripcion="Busca por nombre, sin preocuparte por las tildes ni las mayúsculas."
-        acciones={<Link to="/documentos/nuevo" className={clasesDeBoton()}><Upload aria-hidden className="size-4" />Subir documento</Link>}
+        acciones={<>
+          {esAdministrador && (
+            <Boton variante="secundario" icono={FileDown} cargando={exportando} onClick={() => void exportarListado()}>Exportar listado</Boton>
+          )}
+          <Link to="/documentos/nuevo" className={clasesDeBoton()}><Upload aria-hidden className="size-4" />Subir documento</Link>
+        </>}
       />
 
       <Tarjeta className="mb-4 p-4">
