@@ -179,11 +179,13 @@ permisos dentro de una empresa.
 - Modo oscuro, elegido por cada persona y guardado en su cuenta (hecho)
 - Vista previa del archivo (PDF e imágenes) dentro de la ficha del documento (hecho)
 - Versionado simplificado: subir una versión nueva, ver y descargar las anteriores, restaurar una (hecho)
+- Evidencia para el capítulo 3: listado documental en CSV, historial imprimible y prueba de carga con 50.000
+  documentos (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
 - Etiquetas de documentos además de las categorías
-- Reportes
+- Reportes más allá del listado documental y del historial imprimible
 - Color secundario y favicon por empresa, favoritos y búsquedas recientes, que la segunda auditoría
   descartó
 
@@ -298,6 +300,15 @@ el archivo por la API.
 documento sigue apuntando a la vigente, así que nada más cambió. Restaurar copia una anterior como la siguiente y la
 aprobación es de una versión; la RLS de la tabla exige ver el documento (D30). Se descartaron sobrescribir el archivo,
 volver atrás el número y un DMS con bloqueo y comparación.
+
+**La visibilidad por categoría se decide una vez por consulta.** La prueba de carga con 50.000 documentos mostró el
+listado en 1,9 s: la política llamaba a una función por fila. Ahora compara con `categorias_visibles()`, un InitPlan, y
+tarda 14 ms con la misma decisión (D31). Se descartaron filtrar en el código sin RLS y marcar funciones *leakproof*
+(exige superusuario).
+
+**Evidencia exportable sin librerías.** El listado documental sale en CSV de la misma consulta con RLS; el historial
+imprimible es una página que el navegador guarda como PDF, siempre en claro; ambos se registran y salen enteros o no
+salen, y el CSV neutraliza fórmulas (D32). Se descartaron un PDF generado en el servidor y un .xlsx.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

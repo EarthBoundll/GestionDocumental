@@ -30,7 +30,8 @@ historial que registra cada acción. Lo que queda fuera del alcance está en el 
 | Administrador Master | Administra la plataforma: da de alta empresas con su primer administrador, las edita, las desactiva y ve sus cifras. No pertenece a ninguna empresa y no ve el contenido de ninguna (decisión E). Es una cuenta única, creada por un script |
 
 El investigador no es un rol del sistema: obtiene los datos exportando el historial con la cuenta de
-administrador de cada empresa evaluada, y con consultas de solo lectura a la base.
+administrador de cada empresa evaluada (en CSV, o en una hoja imprimible para firmar como anexo), y con
+consultas de solo lectura a la base.
 
 ## 3. Requisitos funcionales
 
@@ -38,7 +39,8 @@ La columna «Fase» indica cuándo se construyó en la API; las pantallas llegan
 añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md)); «A» lo que se añadió tras la
 auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervisión, D22–D26); «B», lo que se añadió tras
 la segunda auditoría: hacer visible la trazabilidad (D27), adaptar la interfaz a cada empresa y a cada persona (D28),
-ver el archivo en la ficha (D29) y guardar sus versiones (D30).
+ver el archivo en la ficha (D29) y guardar sus versiones (D30); y la evidencia del capítulo 3: el listado
+documental, el historial imprimible y la prueba de carga (D31, D32).
 
 | ID | Requisito | Quién | Fase |
 |---|---|---|---|
@@ -76,6 +78,8 @@ ver el archivo en la ficha (D29) y guardar sus versiones (D30).
 | RF32 | Elegir el tema de la interfaz (el del dispositivo, claro u oscuro) y que se guarde en la cuenta | Todos | B |
 | RF33 | Ver una vista previa del PDF o la imagen dentro de la ficha del documento, sin abrir otra pestaña | Administrador, Usuario | B |
 | RF34 | Subir una versión nueva de un documento sin perder las anteriores, verlas y descargarlas, y restaurar una anterior como versión nueva | Administrador, Usuario (de los suyos) | B |
+| RF35 | Exportar el listado documental (el inventario) en CSV, con los filtros del listado: nombre, categoría, fecha, autor, tipo, peso, versión y estado de aprobación | Administrador | B |
+| RF36 | Imprimir o guardar como PDF el historial filtrado, entero y con espacio para firmar, como anexo de una sesión de evaluación | Administrador | B |
 
 ## 4. Requisitos no funcionales
 
@@ -200,6 +204,9 @@ ver el archivo en la ficha (D29) y guardar sus versiones (D30).
   acepta si el texto blanco encima se lee (contraste de 4,5:1, WCAG 2.1 AA). El logo es PNG o JPG de hasta
   256 KB, se guarda en el almacenamiento privado, en la carpeta de la empresa, y se entrega con un enlace
   firmado que dura lo que la sesión. La razón social no cambia con ella: es un dato legal que cambia el Master.
+- **RN34** El listado documental y la hoja imprimible salen enteros o no salen: con más de 50.000
+  documentos o de 2.000 acciones, se pide filtrar en vez de entregar una parte. Los dos se registran en el
+  historial, y un texto que una hoja de cálculo tomaría por fórmula (=, +, -, @) sale como texto.
 - **RN33** Un documento guarda todas sus versiones; ninguna se borra ni se modifica. La vigente es la
   que se ve, se busca y se descarga; las anteriores se ven y descargan desde la ficha, y verlas o
   descargarlas se registra igual. Sube o restaura versiones quien puede editarlo (RN10), nunca con una
@@ -235,6 +242,7 @@ El visitante solo puede iniciar sesión y pedir la recuperación de su contrase�
 | Ver las inactivas, crear y editar categorías | ✘ | ✔ | ✘ |
 | Gestionar los usuarios de su empresa | ✘ | ✔ | ✘ |
 | Consultar y exportar el historial de su empresa | ✘ | ✔ | ✘ |
+| Exportar el listado documental de su empresa | ✘ | ✔ | ✘ |
 | Dar de alta, editar, desactivar y reactivar empresas | ✘ | ✘ | ✔ |
 | Gestionar a los administradores de una empresa | ✘ | ✘ | ✔ |
 | Ver las cifras de la plataforma y de cada empresa | ✘ | ✘ | ✔ |
@@ -282,12 +290,13 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `SOLICITUD_CREADA` | se pide aprobar un documento | solicitud | documento y comentario |
 | `SOLICITUD_APROBADA` · `SOLICITUD_RECHAZADA` | un administrador la resuelve | solicitud | comentario |
 | `ACCESO_DENEGADO` | la API responde 403 a alguien con sesión | la del recurso, si la hay | lo que se exigía (un permiso de la §6, o ser el propietario, o no ser el solicitante) y la ruta u operación |
-| `HISTORIAL_EXPORTADO` | un administrador exporta el historial | — | filtros y filas exportadas |
+| `HISTORIAL_EXPORTADO` | un administrador exporta el historial en CSV o lo abre para imprimir (RF36) | — | filtros, filas y, si es para imprimir, `formato: impresion` |
+| `LISTADO_EXPORTADO` | un administrador exporta el listado documental (RF35) | — | filtros y filas exportadas |
 | `RESPALDO_GENERADO` | se guarda un respaldo de la base: cada noche (sin autor) o a petición del Master | — | archivo, tamaño y filas por tabla |
 | `VERSION_SUBIDA` | se sube una versión nueva de un documento | documento | número, archivo y comentario |
 | `VERSION_RESTAURADA` | se restaura una versión anterior como versión nueva | documento | número nuevo y de cuál viene |
 
-Son 32 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
+Son 33 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
 motivo `CUENTA_BLOQUEADA`. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
 buscar; su tiempo de respuesta sí se mide), ver la ficha de un documento (no entrega el archivo),
 leer notificaciones (no cambia nada), consultar la actividad de un documento (es parte de su ficha), cambiar el tema
@@ -302,10 +311,10 @@ recurso de otra empresa (para quien pregunta, ese recurso no existe).
 | 1 | Tiempo de organización y categorización | `DOCUMENTO_SUBIDO` y `DOCUMENTO_EDITADO`, con su instante | Tiempo entre la primera y la última acción de la tarea, por usuario | Cuándo empezó la tarea: la persona lee la consigna antes de tocar nada. El cronómetro sigue siendo la fuente principal; el sistema lo corrobora |
 | 2 | Tiempo de búsqueda | Cada consulta del listado, con o sin filtros (usuario e instante en `tiempos_respuesta`; los filtros, en `BUSQUEDA_REALIZADA`), y la obtención del documento (`DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO`) | Tiempo entre la primera consulta del listado y la obtención del documento pedido. Cuenta también a quien lo encuentra recorriendo el listado sin filtrar | Lo mismo que en el 1 |
 | 3 | Tasa de recuperación | `DOCUMENTO_VISUALIZADO` y `DOCUMENTO_DESCARGADO` | Documentos pedidos que se obtuvieron ÷ documentos pedidos | Qué documentos se pidieron: lo fija el protocolo de prueba |
-| 4 | Acciones registradas en el historial | Las 30 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
+| 4 | Acciones registradas en el historial | Las 33 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
 | 5 | Accesibilidad remota | `SESION_INICIADA` y `SESION_FALLIDA`, con `es_movil` | Inicios de sesión exitosos desde móvil ÷ intentos desde móvil | Los intentos que nunca llegan al servidor (sin cobertura, servicio caído): los anota el evaluador |
 | 6 | Accesos correctos según rol | `ACCESO_DENEGADO` y las acciones permitidas, cada una con el rol de quien actuó; el informe de aislamiento entre empresas (`npm run informe:aislamiento`) | Decisiones que coinciden con la matriz de §6 ÷ casos evaluados | Qué debía ocurrir en cada caso: lo dice la matriz, no el sistema |
-| 7 | Tiempo de respuesta | Tabla `tiempos_respuesta`: duración en el servidor y la percibida en el navegador | Mediana y percentil 95 del listado de documentos | — |
+| 7 | Tiempo de respuesta | Tabla `tiempos_respuesta`: duración en el servidor y la percibida en el navegador; la prueba de carga con 50.000 documentos (`npm run informe:carga`) | Mediana y percentil 95 del listado de documentos | — |
 
 Sobre el indicador 4: por diseño (RN16) debería dar 100 %. Medirlo no es redundante: comprueba que la
 garantía se cumple en uso real, y se compara con la preprueba, donde registrar depende de las personas.

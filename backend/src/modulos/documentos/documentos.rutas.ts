@@ -13,7 +13,8 @@ export function crearRutasDocumentos(
   // Las reglas de propiedad («solo los suyos») dependen del documento: las aplica el servicio.
   rutas.use(entrar);
   rutas.get('/', controlador.listar);
-  // Antes que /:id, que si no tomaría «papelera» por un identificador.
+  // Antes que /:id, que si no tomaría «exportar» o «papelera» por un identificador.
+  rutas.get('/exportar', exigir('EXPORTAR_LISTADO'), controlador.exportarListado);
   rutas.get('/papelera', exigir('GESTIONAR_PAPELERA'), controlador.papelera);
   rutas.post('/papelera/:id/restauracion', exigir('GESTIONAR_PAPELERA'), controlador.restaurar);
   rutas.delete('/papelera/:id', exigir('GESTIONAR_PAPELERA'), controlador.purgar);

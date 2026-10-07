@@ -34,6 +34,7 @@ export const NOMBRES_DE_ACCIONES: Record<string, string> = {
   RESPALDO_GENERADO: 'Respaldo de la base generado',
   VERSION_SUBIDA: 'Versión nueva subida',
   VERSION_RESTAURADA: 'Versión anterior restaurada',
+  LISTADO_EXPORTADO: 'Listado documental exportado',
 };
 
 /** Los campos que aparecen en «cambios», como los entiende quien lee el historial. */
@@ -83,7 +84,11 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
   }
   if (typeof detalle.resultados === 'number') partes.push(contar(detalle.resultados, 'resultado'));
   if (typeof detalle.archivo === 'string' && typeof detalle.bytes === 'number') partes.push(formatearPeso(detalle.bytes));
-  if (typeof detalle.filas === 'number') partes.push(contar(detalle.filas, 'fila exportada', 'filas exportadas'));
+  if (typeof detalle.filas === 'number') {
+    partes.push(detalle.formato === 'impresion'
+      ? contar(detalle.filas, 'fila para imprimir', 'filas para imprimir')
+      : contar(detalle.filas, 'fila exportada', 'filas exportadas'));
+  }
   if (typeof detalle.comentario === 'string' && detalle.comentario) partes.push(`comentario: «${detalle.comentario}»`);
   const cambio = camposCambiados(detalle);
   if (cambio) partes.push(cambio);

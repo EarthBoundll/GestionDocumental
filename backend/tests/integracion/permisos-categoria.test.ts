@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { accesoDeEmpresa } from '../../src/db/acceso.js';
 import { crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa } from '../apoyo/api.js';
 import { PDF } from '../apoyo/archivos.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
@@ -153,5 +154,26 @@ describe('Permisos por categoría (RF25, indicador 6)', () => {
       { campo: 'usuariosAutorizados', mensaje: 'Alguna de las personas no pertenece a tu empresa' },
     ]);
     expect((await editarCategoria(autorizada.token, categoriaId, { usuariosAutorizados: [autorizada.id] })).status).toBe(403);
+  });
+
+  it('la base decide qué categorías ve una persona una vez por consulta, no una vez por documento (D31)', async () => {
+    const { empresa, usuario } = await registrarEmpresa(app);
+    const { rows: [otros] } = await pool.query<{ id: string }>("SELECT id FROM categorias WHERE empresa_id = $1 AND nombre = 'Otros'", [empresa.id]);
+    await pool.query(
+      `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento, archivo_nombre_original,
+         archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
+       SELECT $1::uuid, $2::uuid, $3::uuid, 'Doc ' || n, '2026-01-01', 'd.pdf', $1::text || '/plan-' || n, 'application/pdf', 100
+       FROM generate_series(1, 500) AS n`,
+      [empresa.id, otros!.id, usuario.id],
+    );
+    const acceso = accesoDeEmpresa(pool, empresa.id, { usuarioId: usuario.id, rol: 'usuario' });
+
+    const plan = await acceso.ejecutar(async (db) =>
+      (await db.query<{ 'QUERY PLAN': string }>('EXPLAIN (ANALYZE, COSTS OFF) SELECT count(*) FROM documentos')).rows
+        .map((fila) => fila['QUERY PLAN']).join('\n'));
+
+    // Con 50.000 documentos, una llamada por fila llevó el listado a 1,9 s (docs/evidencias/prueba-de-carga.md).
+    expect(plan).toMatch(/InitPlan/);
+    expect(plan).not.toMatch(/puede_ver_categoria/);
   });
 });

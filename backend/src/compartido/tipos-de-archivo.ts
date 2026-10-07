@@ -20,6 +20,12 @@ const TIPOS = {
 
 export const EXTENSIONES_ADMITIDAS = Object.keys(TIPOS);
 
+/** El nombre corto de un tipo admitido («PDF», «DOCX»), para lo que lee una persona: el listado documental. */
+export function nombreDeTipo(mime: string): string {
+  const extension = Object.entries(TIPOS).find(([, tipo]) => tipo.mime === mime)?.[0];
+  return extension ? extension.toUpperCase() : mime;
+}
+
 export function identificarTipo(nombreOriginal: string, contenido: Buffer): { extension: string; mime: string } {
   const extension = /\.([a-z0-9]+)$/i.exec(nombreOriginal)?.[1]?.toLowerCase() ?? '';
   const tipo = Object.hasOwn(TIPOS, extension) ? TIPOS[extension as keyof typeof TIPOS] : undefined;

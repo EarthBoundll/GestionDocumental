@@ -1,10 +1,11 @@
-import { FileDown, History, Monitor, Smartphone } from 'lucide-react';
+import { FileDown, History, Monitor, Printer, Smartphone } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
-import { historial, usuarios, type FiltrosHistorial } from '../../api/recursos';
+import { historial, MAXIMO_IMPRIMIBLE, usuarios, type FiltrosHistorial } from '../../api/recursos';
 import type { Asiento } from '../../api/tipos';
 import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
-import { Boton } from '../../componentes/Boton';
+import { Boton, clasesDeBoton } from '../../componentes/Boton';
 import { Campo, Selector } from '../../componentes/Campos';
 import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
@@ -44,14 +45,35 @@ export function Historial() {
     setExportando(false);
   }
 
+  // La vista imprimible (RF36) recibe los mismos filtros, sin la página: imprime todo lo filtrado.
+  const paraImprimir = new URLSearchParams(parametros);
+  paraImprimir.delete('pagina');
+  const demasiadosParaImprimir = (consulta.datos?.paginacion.total ?? 0) > MAXIMO_IMPRIMIBLE;
+
   if (consulta.error?.estado === 403) return <ErrorDeCarga error={consulta.error} />;
   return (
     <>
       <EncabezadoDePagina
         titulo="Historial"
         descripcion="Cada acción del sistema, con quién, cuándo y desde qué dispositivo. No se puede modificar ni borrar."
-        acciones={<Boton variante="secundario" icono={FileDown} cargando={exportando} onClick={() => void exportar()}>Exportar a CSV</Boton>}
+        acciones={<>
+          {demasiadosParaImprimir ? (
+            <Boton variante="secundario" icono={Printer} disabled title={`Para imprimir, acota las fechas o la persona hasta ${MAXIMO_IMPRIMIBLE.toLocaleString('es-PE')} acciones`}>
+              Imprimir
+            </Boton>
+          ) : (
+            <Link to={`/admin/historial/impresion?${paraImprimir.toString()}`} className={clasesDeBoton('secundario')}>
+              <Printer aria-hidden className="size-4" />Imprimir
+            </Link>
+          )}
+          <Boton variante="secundario" icono={FileDown} cargando={exportando} onClick={() => void exportar()}>Exportar a CSV</Boton>
+        </>}
       />
+      {demasiadosParaImprimir && (
+        <p className="-mt-4 mb-4 text-xs text-slate-600">
+          Para imprimir, acota las fechas o la persona hasta {MAXIMO_IMPRIMIBLE.toLocaleString('es-PE')} acciones: la hoja es un anexo, no una copia de todo.
+        </p>
+      )}
       {errorAlExportar && <div className="mb-4"><Aviso tipo="error">{errorAlExportar.mensaje}</Aviso></div>}
 
       <Tarjeta className="mb-4 grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
@@ -91,7 +113,7 @@ export function Historial() {
  * El Master no es de la empresa y su cuenta no se ve desde ella: sus acciones salen como de la plataforma.
  * Sin autor ni correo, quien actuó fue el propio sistema (la purga de la papelera).
  */
-function autorDe(asiento: Asiento): string {
+export function autorDe(asiento: Asiento): string {
   if (asiento.rolUsuario === 'master') return 'Administración de la plataforma';
   if (asiento.usuario) return asiento.usuario.nombre;
   if (asiento.detalle.email) return String(asiento.detalle.email);

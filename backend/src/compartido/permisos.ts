@@ -20,6 +20,8 @@ const PERMISOS = {
   VER_TODAS_LAS_SOLICITUDES: ['administrador'],
   RESOLVER_SOLICITUDES: ['administrador'],
   CONSULTAR_HISTORIAL: ['administrador'],
+  // RF35: el inventario de la empresa sale entero; un usuario busca y descarga lo suyo, no lo exporta.
+  EXPORTAR_LISTADO: ['administrador'],
   VER_TABLERO: ['administrador'],
   // RF31: el nombre comercial, el color y el logo de su empresa. El Master lo hace desde la plataforma.
   GESTIONAR_IDENTIDAD: ['administrador'],

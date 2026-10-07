@@ -26,6 +26,7 @@ describe('tienePermiso (docs/01-analisis.md §6)', () => {
   it.each([
     'GESTIONAR_USUARIOS', 'GESTIONAR_CATEGORIAS', 'VER_CATEGORIAS_INACTIVAS', 'GESTIONAR_CUALQUIER_DOCUMENTO',
     'GESTIONAR_PAPELERA', 'VER_TODAS_LAS_SOLICITUDES', 'RESOLVER_SOLICITUDES', 'CONSULTAR_HISTORIAL', 'VER_TABLERO',
+    'EXPORTAR_LISTADO',
   ] as const)('%s es solo del administrador', (permiso) => {
     expect(tienePermiso('administrador', permiso)).toBe(true);
     expect(tienePermiso('usuario', permiso)).toBe(false);

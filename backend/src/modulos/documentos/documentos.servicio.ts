@@ -2,17 +2,18 @@ import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
 import type { Almacenamiento } from '../../almacenamiento/almacenamiento.js';
 import { calcularCambios, valoresNuevos } from '../../compartido/cambios.js';
+import { aCsv } from '../../compartido/csv.js';
 import { ErrorAplicacion, noEncontrado } from '../../compartido/errores.js';
 import type { Pagina, Paginacion } from '../../compartido/paginacion.js';
 import { empresaDe, type Actor, type UsuarioAutenticado } from '../../compartido/peticion.js';
 import { tienePermiso } from '../../compartido/permisos.js';
-import { identificarTipo } from '../../compartido/tipos-de-archivo.js';
+import { identificarTipo, nombreDeTipo } from '../../compartido/tipos-de-archivo.js';
 import { actividadDeDocumento, type ActividadDeDocumento } from '../historial/historial.consulta.js';
 import { autorDe, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
-import type { CambiosDocumento, FiltrosBusqueda, NuevoDocumento } from './documentos.esquemas.js';
+import type { CambiosDocumento, FiltrosBusqueda, FiltrosDelListado, NuevoDocumento } from './documentos.esquemas.js';
 import {
   actualizarDocumento, bloquearEnPapelera, buscarDocumento, buscarDocumentos, categoriaDeLaEmpresa, insertarDocumento,
-  listarPapelera, marcarEliminado, marcarPurgado, restaurarDocumento,
+  listadoDocumental, listarPapelera, marcarEliminado, marcarPurgado, restaurarDocumento,
   type Documento, type DocumentoEnPapelera, type DocumentoInterno, type DocumentoResumen,
 } from './documentos.repositorio.js';
 import {
@@ -22,6 +23,12 @@ import {
 
 /** RN18: los enlaces a un archivo caducan a los 5 minutos. */
 const VIGENCIA_ENLACE_SEGUNDOS = 300;
+
+/**
+ * RF35: el listado documental sale entero o no sale. Una MYPE no se acerca a esto; el tope protege la
+ * memoria de Render (512 MB) y, si se pasa, se pide filtrar en vez de entregar un inventario cortado.
+ */
+export const MAXIMO_EN_EL_LISTADO = 50_000;
 
 /** RF26: lo eliminado se puede restaurar durante 30 días; después se purga solo (src/tareas/purgar-papelera.ts). */
 export const DIAS_EN_PAPELERA = 30;
@@ -326,6 +333,37 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
         archivoPesoBytes: anterior.archivo.pesoBytes, comentario: null, restauradaDe: numero,
       });
       return publico(await documentoVigente(actor, id));
+    },
+
+    /**
+     * RF35: el inventario documental en CSV. Exportarlo queda en el historial, como el historial mismo: la
+     * lectura y su asiento van en una transacción, y si no se puede registrar no se entrega.
+     */
+    async exportarListado(actor: Actor, filtros: FiltrosDelListado): Promise<string> {
+      const { usuario } = actor.autenticacion;
+      const filas = await actor.datos.ejecutar(async (cliente) => {
+        const filas = await listadoDocumental(cliente, empresaDe(actor), filtros, MAXIMO_EN_EL_LISTADO + 1);
+        if (filas.length > MAXIMO_EN_EL_LISTADO) {
+          throw new ErrorAplicacion(400, 'VALIDACION',
+            `El listado pasa de ${MAXIMO_EN_EL_LISTADO.toLocaleString('es-PE')} documentos: filtra por categoría o por fechas`);
+        }
+        await registrarAccion(cliente, {
+          accion: 'LISTADO_EXPORTADO',
+          autor: autorDe(usuario),
+          contexto: actor.contexto,
+          detalle: { filtros, filas: filas.length },
+        });
+        return filas;
+      });
+      return aCsv(
+        ['id', 'nombre', 'categoria', 'fecha_documento', 'descripcion', 'subido_por', 'subido_en_lima', 'tipo', 'peso_bytes',
+          'version_vigente', 'estado_aprobacion', 'version_revisada'],
+        filas.map((fila) => [
+          fila.id, fila.nombre, fila.categoria, fila.fecha_documento, fila.descripcion, fila.subido_por, fila.subido_en_lima,
+          nombreDeTipo(fila.archivo_tipo_mime), fila.archivo_peso_bytes, fila.version, fila.estado_aprobacion ?? 'sin solicitud',
+          fila.version_revisada,
+        ]),
+      );
     },
 
     /** Lo eliminado que aún se puede restaurar, lo más reciente primero (RF26). Solo para administradores. */

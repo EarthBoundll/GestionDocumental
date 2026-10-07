@@ -1,7 +1,7 @@
 import { desplazamiento } from '../../compartido/paginacion.js';
 import { clausulaSet } from '../../db/actualizacion.js';
 import type { Consultor } from '../../db/pool.js';
-import type { FiltrosBusqueda } from './documentos.esquemas.js';
+import type { FiltrosBusqueda, FiltrosDelListado } from './documentos.esquemas.js';
 
 export interface DocumentoResumen {
   id: string;
@@ -102,20 +102,78 @@ function aResumen(fila: FilaResumen): DocumentoResumen {
   };
 }
 
+/**
+ * Las dos consultas de una página del listado: el total y sus filas. Se exportan para que la prueba de
+ * carga muestre el plan de las mismas consultas que ejecuta la API.
+ */
+export function consultasDeBusqueda(empresaId: string, filtros: FiltrosBusqueda) {
+  const { where, parametros } = condicionesDeBusqueda(empresaId, filtros);
+  return {
+    conteo: { texto: `SELECT count(*)::int AS total FROM documentos d WHERE ${where}`, parametros },
+    pagina: {
+      texto: `${SELECCION_RESUMEN} WHERE ${where} ORDER BY ${ORDEN[filtros.orden]}
+     LIMIT $${parametros.length + 1} OFFSET $${parametros.length + 2}`,
+      parametros: [...parametros, filtros.porPagina, desplazamiento(filtros)],
+    },
+  };
+}
+
+/** Una fila del listado documental (RF35), con los nombres de columna del CSV. */
+export interface FilaDelListado {
+  id: string;
+  nombre: string;
+  categoria: string;
+  fecha_documento: string;
+  descripcion: string | null;
+  subido_por: string;
+  subido_en_lima: string;
+  archivo_tipo_mime: string;
+  archivo_peso_bytes: number;
+  version: number;
+  estado_aprobacion: 'pendiente' | 'aprobada' | 'rechazada' | null;
+  version_revisada: number | null;
+}
+
+/**
+ * El inventario documental (RF35): lo que coincide con los filtros, por categoría y fecha. Usa las mismas
+ * condiciones del listado y corre con la RLS, así que no trae lo que quien exporta no puede ver. La
+ * última solicitud de cada documento sale de una sola pasada por las solicitudes, no de una por fila.
+ */
+export async function listadoDocumental(
+  db: Consultor,
+  empresaId: string,
+  filtros: FiltrosDelListado,
+  limite: number,
+): Promise<FilaDelListado[]> {
+  const { where, parametros } = condicionesDeBusqueda(empresaId, filtros);
+  const { rows } = await db.query<FilaDelListado>(
+    `SELECT d.id, d.nombre, c.nombre AS categoria, d.fecha_documento, d.descripcion, u.nombre AS subido_por,
+            to_char(d.creado_en AT TIME ZONE 'America/Lima', 'YYYY-MM-DD HH24:MI') AS subido_en_lima,
+            d.archivo_tipo_mime, d.archivo_peso_bytes, d.version, s.estado AS estado_aprobacion, s.version AS version_revisada
+     FROM documentos d
+     JOIN categorias c ON c.id = d.categoria_id
+     JOIN usuarios u ON u.id = d.subido_por
+     LEFT JOIN (
+       SELECT DISTINCT ON (documento_id) documento_id, estado, version
+       FROM solicitudes WHERE empresa_id = $1 ORDER BY documento_id, creada_en DESC
+     ) s ON s.documento_id = d.id
+     WHERE ${where}
+     ORDER BY c.nombre, d.fecha_documento, normalizar(d.nombre), d.id
+     LIMIT $${parametros.length + 1}`,
+    [...parametros, limite],
+  );
+  return rows;
+}
+
 export async function buscarDocumentos(
   db: Consultor,
   empresaId: string,
   filtros: FiltrosBusqueda,
 ): Promise<{ filas: DocumentoResumen[]; total: number }> {
-  const { where, parametros } = condicionesDeBusqueda(empresaId, filtros);
-  const { rows: [conteo] } = await db.query<{ total: number }>(
-    `SELECT count(*)::int AS total FROM documentos d WHERE ${where}`, parametros);
-  const { rows } = await db.query<FilaResumen>(
-    `${SELECCION_RESUMEN} WHERE ${where} ORDER BY ${ORDEN[filtros.orden]}
-     LIMIT $${parametros.length + 1} OFFSET $${parametros.length + 2}`,
-    [...parametros, filtros.porPagina, desplazamiento(filtros)],
-  );
-  return { filas: rows.map(aResumen), total: conteo?.total ?? 0 };
+  const { conteo, pagina } = consultasDeBusqueda(empresaId, filtros);
+  const { rows: [total] } = await db.query<{ total: number }>(conteo.texto, conteo.parametros);
+  const { rows } = await db.query<FilaResumen>(pagina.texto, pagina.parametros);
+  return { filas: rows.map(aResumen), total: total?.total ?? 0 };
 }
 
 interface FilaDocumento extends FilaResumen {

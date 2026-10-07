@@ -65,12 +65,13 @@ export function Layout() {
   useEffect(() => setMenuAbierto(false), [ubicacion.pathname]);
 
   return (
-    <div className="min-h-dvh lg:pl-64">
+    <div className="min-h-dvh lg:pl-64 print:pl-0">
       <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-superficie focus:px-3 focus:py-2">
         Saltar al contenido
       </a>
 
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 border-r border-slate-200 bg-superficie px-4 py-5 lg:flex">
+      {/* Al imprimir (el historial, RF36) sale solo el contenido: sin menú ni barra. */}
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 border-r border-slate-200 bg-superficie px-4 py-5 lg:flex print:hidden">
         <Marca />
         <Navegacion />
         <Link to="/cuenta" className="mt-auto rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Mi cuenta</Link>
@@ -92,7 +93,7 @@ export function Layout() {
         </div>
       )}
 
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-slate-200 bg-superficie/95 px-4 backdrop-blur sm:px-6">
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-slate-200 bg-superficie/95 px-4 backdrop-blur sm:px-6 print:hidden">
         <button type="button" onClick={() => setMenuAbierto(true)} aria-label="Abrir el menú" className="-ml-1 rounded-lg p-2.5 text-slate-600 hover:bg-slate-100 lg:hidden">
           <Menu aria-hidden className="size-5" />
         </button>
@@ -106,7 +107,7 @@ export function Layout() {
         </div>
       </header>
 
-      <main id="contenido" className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <main id="contenido" className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 print:max-w-none print:p-0">
         <Outlet />
       </main>
     </div>

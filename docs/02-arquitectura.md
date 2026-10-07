@@ -512,6 +512,28 @@ del tablero y del Master las suma.
 historia retrocedería y el historial contaría otra cosa), y comparar versiones, bloquear la edición o crear
 ramas, que son de un DMS corporativo y no los pide ningún indicador.
 
+**D31 · La visibilidad por categoría, una vez por consulta.** La prueba de carga con 50.000 documentos
+(`docs/evidencias/prueba-de-carga.md`) mostró el listado de una usuaria en 1,9 s y una búsqueda en 3,8 s: la
+política de la 004 llamaba a `puede_ver_categoria()` por cada fila, dos veces por página, y una función
+`SECURITY DEFINER` no se integra en la consulta. La 010 pregunta una vez qué categorías ve quien consulta
+(`categorias_visibles()`, que PostgreSQL evalúa como InitPlan) y cada fila solo se compara con esa lista: el
+listado bajó a 14 ms y la búsqueda a 0,3 s, con la misma decisión. Una prueba exige que el plan no vuelva a
+llamar a la función por fila. Queda una limitación medida: con la RLS, la búsqueda por nombre no usa el índice de
+trigramas, porque `LIKE` no es *leakproof*; recorre lo visible con un índice por categoría, lejos del umbral.
+*Descartado:* desactivar la RLS en el listado y filtrar en el código (el `WHERE` olvidado que D17 evita),
+marcar funciones como *leakproof* (exige superusuario, que Supabase no da) y una función que busque con el
+índice por fuera de la RLS, que suma complejidad para un caso que no tiene ninguna MYPE.
+
+**D32 · Evidencia exportable sin librerías.** El listado documental sale en CSV desde la misma consulta del
+listado, con la RLS, ordenado por categoría y fecha como un inventario (RF35). El historial imprimible es una
+página más (RF36): pide a la API todo lo filtrado, hasta 2.000 acciones, y el navegador lo imprime o lo guarda
+como PDF; menú, barra y botones se ocultan al imprimir, el modo oscuro solo aplica en pantalla y la cabecera de
+la tabla se repite en cada hoja. Ambos se registran en el historial y salen enteros o no salen. Las celdas
+del CSV que empiezan por `=`, `+`, `-` o `@` llevan un apóstrofo: un documento llamado `=HIPERVINCULO(…)` no
+se ejecuta al abrir el listado en Excel (inyección CSV; también protege la exportación del historial).
+*Descartado:* generar el PDF en el servidor (una librería de PDF no cabe cómoda en los 512 MB de Render), un
+.xlsx (una librería de 1 MB que duplica el CSV) y exportar usuarios (datos personales sin propósito, Ley 29733).
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

@@ -224,6 +224,26 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
       expect(respuesta.status).toBe(200);
       expect(fuga).toBe(false);
     });
+
+    it('la hoja para imprimir del historial de A no trae ningún asiento de B (RF36)', async () => {
+      const { rows } = await pool.query<{ id: string }>('SELECT id::text AS id FROM historial WHERE empresa_id = $1', [b.empresaId]);
+      const respuesta = await intentar('administrador de A', 'imprimir el historial', 'GET', '/api/v1/historial/impresion');
+      const fuga = (respuesta.body.datos as { id: string }[] ?? []).some((asiento) => rows.some((fila) => fila.id === asiento.id));
+      anotar({ quien: 'administrador de A', operacion: 'imprimir el historial', metodo: 'GET', ruta: '/api/v1/historial/impresion', esperado: '200, solo asientos de A', obtenido: respuesta.status }, respuesta.status === 200 && !fuga);
+
+      expect(respuesta.status).toBe(200);
+      expect(fuga).toBe(false);
+    });
+
+    it('el listado documental de A no trae ningún documento de B (RF35)', async () => {
+      const { rows } = await pool.query<{ id: string }>('SELECT id::text AS id FROM documentos WHERE empresa_id = $1', [b.empresaId]);
+      const respuesta = await intentar('administrador de A', 'exportar el listado documental', 'GET', '/api/v1/documentos/exportar');
+      const fuga = rows.some((fila) => respuesta.text.includes(fila.id)) || respuesta.text.includes(b.documentoNombre);
+      anotar({ quien: 'administrador de A', operacion: 'exportar el listado documental en CSV', metodo: 'GET', ruta: '/api/v1/documentos/exportar', esperado: '200, solo documentos de A', obtenido: respuesta.status }, respuesta.status === 200 && !fuga);
+
+      expect(respuesta.status).toBe(200);
+      expect(fuga).toBe(false);
+    });
   });
 
   describe('la empresa sale de la identidad, nunca de lo que envía el cliente', () => {

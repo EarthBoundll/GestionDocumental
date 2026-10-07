@@ -180,7 +180,8 @@ persona vuelve a iniciar sesión. Los archivos de los documentos siguen en el bu
 se toca. `npm run respaldo -- descargar <nombre>` copia uno a tu máquina, y `generar` hace uno al momento.
 
 Un respaldo solo se restaura con las mismas migraciones con que se hizo. Por eso, después de desplegar
-una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones), pide un
+una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones; la 010,
+la visibilidad por consulta y el listado documental), pide un
 respaldo en el momento desde *Respaldos*: el de la noche anterior solo se restauraría con el código
 anterior.
 
@@ -210,6 +211,8 @@ Después, a mano, la prueba de humo (unos diez minutos):
       de la foto.
 - [ ] Sube una versión nueva de un documento: la ficha dice «Versión 2», la 1 se descarga con su archivo
       de entonces y restaurarla crea la 3.
+- [ ] El administrador exporta el listado documental desde *Documentos* y lo abre en Excel; en *Historial*
+      filtra un día, pulsa *Imprimir* y lo guarda como PDF: sale sin menú, en claro y con las firmas.
 - [ ] El administrador cambia el nombre comercial, el color y el logo desde *Identidad*; la usuaria, en su
       celular, los ve al volver a abrir el sistema. Cada uno elige el modo oscuro en *Mi cuenta* y lo
       encuentra igual al entrar desde el otro dispositivo.

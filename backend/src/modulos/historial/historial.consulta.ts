@@ -1,6 +1,7 @@
 import { Router, type RequestHandler } from 'express';
 import { aCsv } from '../../compartido/csv.js';
 import { desplazamiento, esquemaPaginacion } from '../../compartido/paginacion.js';
+import { ErrorAplicacion } from '../../compartido/errores.js';
 import { actorDe, empresaDe, type Actor } from '../../compartido/peticion.js';
 import type { Permiso } from '../../compartido/permisos.js';
 import { sinVacios, z } from '../../compartido/validacion.js';
@@ -29,6 +30,12 @@ type Filtros = z.infer<typeof esquemaFiltros>;
 
 /** Una exportación nunca debería acercarse a esto en la tesis; el tope evita agotar la memoria de Render. */
 const MAXIMO_EXPORTABLE = 50_000;
+
+/**
+ * La vista imprimible es un anexo, no un volcado: dos mil asientos son unas cuarenta páginas. Una sesión de
+ * evaluación deja decenas; con más, se pide acotar las fechas o la persona.
+ */
+export const MAXIMO_IMPRIMIBLE = 2_000;
 
 /**
  * De qué historial se trata. El de una empresa se filtra por su empresa; el de la plataforma (RF27) es
@@ -216,6 +223,34 @@ export function crearServicioHistorial() {
       listarEn(actor, 'plataforma', filtros, paginacion),
 
     /**
+     * El historial filtrado entero, para la vista imprimible (que el navegador guarda como PDF): el anexo de
+     * cada sesión de evaluación en el capítulo 3. Es otra forma de exportarlo, y se registra igual.
+     */
+    async paraImprimir(actor: Actor, filtros: Filtros): Promise<{ datos: Asiento[]; total: number }> {
+      const { usuario } = actor.autenticacion;
+      const ambito = { empresaId: empresaDe(actor) };
+      const { where, parametros } = condiciones(ambito, filtros);
+      const filas = await actor.datos.ejecutar(async (cliente) => {
+        const { rows: [conteo] } = await cliente.query<{ total: number }>(
+          `SELECT count(*)::int AS total FROM historial h WHERE ${where}`, parametros);
+        const total = conteo?.total ?? 0;
+        if (total > MAXIMO_IMPRIMIBLE) {
+          throw new ErrorAplicacion(400, 'VALIDACION',
+            `Son ${total.toLocaleString('es-PE')} asientos; para imprimir, acota las fechas o la persona hasta ${MAXIMO_IMPRIMIBLE.toLocaleString('es-PE')}`);
+        }
+        const filas = await consultar(cliente, ambito, filtros, MAXIMO_IMPRIMIBLE);
+        await registrarAccion(cliente, {
+          accion: 'HISTORIAL_EXPORTADO',
+          autor: autorDe(usuario),
+          contexto: actor.contexto,
+          detalle: { filtros, filas: filas.length, formato: 'impresion' },
+        });
+        return filas;
+      });
+      return { datos: filas.map(aAsiento), total: filas.length };
+    },
+
+    /**
      * RF20: el historial en CSV, la evidencia del capítulo 3 (R3). Exportarlo también es una acción
      * auditable: la lectura y su registro van en una transacción, y si no se puede registrar no se entrega.
      */
@@ -267,6 +302,10 @@ export function crearRutasHistorial(
     const filtros = esquemaFiltros.parse(req.query);
     const paginacion = esquemaPaginacion.parse(req.query);
     res.json(await servicio.listar(actorDe(req), filtros, paginacion));
+  });
+
+  rutas.get('/impresion', async (req, res) => {
+    res.json(await servicio.paraImprimir(actorDe(req), esquemaFiltros.parse(req.query)));
   });
 
   rutas.get('/exportar', async (req, res) => {

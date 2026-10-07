@@ -17,6 +17,7 @@
     "test": "vitest run",
     "typecheck": "tsc",
     "informe:aislamiento": "tsx scripts/informe-aislamiento.ts",
+    "informe:carga": "tsx scripts/informe-carga.ts",
     "respaldo": "tsx --env-file-if-exists=.env scripts/respaldo.ts"
   },
   "dependencies": {
