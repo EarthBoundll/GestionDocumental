@@ -73,6 +73,7 @@ la segunda auditoría: hacer visible la trazabilidad (D27) y adaptar la interfaz
 | RF30 | Ver en la ficha de un documento su actividad: su ciclo de vida para todos y, para el administrador, también quién lo vio y lo descargó | Todos | B |
 | RF31 | Dar a la empresa una identidad visual (nombre comercial, color principal y logo) que ven todas sus personas | Administrador, Master | B |
 | RF32 | Elegir el tema de la interfaz (el del dispositivo, claro u oscuro) y que se guarde en la cuenta | Todos | B |
+| RF33 | Ver una vista previa del PDF o la imagen dentro de la ficha del documento, sin abrir otra pestaña | Administrador, Usuario | B |
 
 ## 4. Requisitos no funcionales
 
@@ -266,7 +267,7 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `DOCUMENTO_ELIMINADO` | se elimina (pasa a la papelera) | documento | nombre |
 | `DOCUMENTO_RESTAURADO` | un administrador lo saca de la papelera | documento | nombre |
 | `DOCUMENTO_PURGADO` | un administrador lo elimina para siempre, o el sistema al vencer los 30 días (sin autor) | documento | nombre; si lo hizo el sistema, motivo y plazo |
-| `DOCUMENTO_VISUALIZADO` · `DOCUMENTO_DESCARGADO` | la API entrega un enlace para verlo o descargarlo | documento | nombre que tenía en ese momento |
+| `DOCUMENTO_VISUALIZADO` · `DOCUMENTO_DESCARGADO` | la API entrega un enlace para verlo (también para la vista previa, RF33) o descargarlo | documento | nombre que tenía en ese momento |
 | `BUSQUEDA_REALIZADA` | se listan documentos con al menos un filtro | — | filtros y número de resultados |
 | `SOLICITUD_CREADA` | se pide aprobar un documento | solicitud | documento y comentario |
 | `SOLICITUD_APROBADA` · `SOLICITUD_RECHAZADA` | un administrador la resuelve | solicitud | comentario |

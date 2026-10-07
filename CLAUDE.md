@@ -177,6 +177,7 @@ permisos dentro de una empresa.
 - Identidad visual por empresa reducida: nombre comercial, logo y un color primario; solo la cambian el
   Administrador de Empresa y el Master (hecho)
 - Modo oscuro, elegido por cada persona y guardado en su cuenta (hecho)
+- Vista previa del archivo (PDF e imágenes) dentro de la ficha del documento (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -287,6 +288,11 @@ proteger ninguna medición (`docs/09-protocolo-evaluacion.md`).
 oscuro redefine las variables de Tailwind: ningún componente cambió de clases. La API solo acepta colores con 4,5:1 frente
 al texto blanco, y el logo (PNG o JPG) vive en el bucket privado con enlace firmado; el tema se guarda en la cuenta (D28).
 Se descartaron un bucket público para los logos, admitir SVG y guardar el tema solo en el navegador.
+
+**Vista previa con el enlace de «Ver» y el visor del navegador.** Usa el mismo enlace firmado, así que queda registrada
+como vista; un PDF solo se incrusta si el navegador tiene visor (Chrome en Android no) y la CSP admite marcos solo de
+Supabase (D29). Se descartaron pdf.js (más de 1 MB), un visor de Office en línea (manda el archivo a un tercero) y pasar
+el archivo por la API.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

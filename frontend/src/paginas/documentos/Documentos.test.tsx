@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { PeticionRecibida } from '../../pruebas/api-simulada';
 import { CATEGORIAS, guardarSesion, paginaVacia, sesionDe, simularApi } from '../../pruebas/api-simulada';
 import { rutas } from '../../rutas';
@@ -120,6 +120,65 @@ describe('Documentos', () => {
     expect(within(ruta).getByRole('link', { name: 'Documentos' })).toHaveAttribute('href', '/documentos');
     expect(within(ruta).getByRole('link', { name: 'Contratos' })).toHaveAttribute('href', '/documentos?categoriaId=cat-contratos');
     expect(within(ruta).getByText('Contrato de alquiler del local')).toHaveAttribute('aria-current', 'page');
+  });
+
+  describe('vista previa (RF33)', () => {
+    const fichaCon = (tipoMime: string, nombreOriginal: string) => ({
+      'GET /documentos/:id': {
+        cuerpo: {
+          ...CONTRATO,
+          descripcion: null,
+          archivo: { tipoMime, pesoBytes: 1000, nombreOriginal },
+          actualizadoEn: CONTRATO.creadoEn,
+          ultimaSolicitud: null,
+          permisos: { editar: false, eliminar: false, solicitarAprobacion: false, resolverSolicitud: false },
+        },
+      },
+      'GET /documentos/:id/actividad': { cuerpo: { datos: [], paginacion: { pagina: 1, porPagina: 10, total: 0 } } },
+      'GET /documentos/:id/archivo': { cuerpo: { url: 'https://archivos.ejemplo/firmado?token=1', expiraEn: '2026-10-07T10:05:00Z' } },
+    });
+    const pidioElArchivo = (peticiones: PeticionRecibida[]) => peticiones.filter((p) => p.ruta === '/documentos/doc-1/archivo');
+
+    it('una imagen se ve dentro de la ficha; pedirla queda registrada como vista, abrir la ficha no', async () => {
+      const { peticiones } = abrir('/documentos/doc-1', fichaCon('image/png', 'plano.png'));
+
+      const boton = await screen.findByRole('button', { name: 'Vista previa' });
+      expect(pidioElArchivo(peticiones)).toHaveLength(0);
+      await userEvent.click(boton);
+
+      const imagen = await screen.findByRole('img', { name: 'Contrato de alquiler del local' });
+      expect(imagen).toHaveAttribute('src', 'https://archivos.ejemplo/firmado?token=1');
+      // El mismo enlace que «Ver»: la API lo registra como DOCUMENTO_VISUALIZADO (indicador 3).
+      expect(pidioElArchivo(peticiones).map((p) => p.consulta.get('modo'))).toEqual(['ver']);
+      expect(screen.getByRole('link', { name: /Abrir en otra pestaña/ })).toHaveAttribute('href', 'https://archivos.ejemplo/firmado?token=1');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Cerrar la vista previa' }));
+      expect(screen.queryByRole('img', { name: 'Contrato de alquiler del local' })).not.toBeInTheDocument();
+    });
+
+    it('un PDF se incrusta si el navegador tiene visor', async () => {
+      vi.stubGlobal('navigator', { ...navigator, pdfViewerEnabled: true });
+      abrir('/documentos/doc-1', fichaCon('application/pdf', 'contrato.pdf'));
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Vista previa' }));
+
+      expect(await screen.findByTitle('Vista previa de Contrato de alquiler del local')).toHaveAttribute('src', 'https://archivos.ejemplo/firmado?token=1');
+    });
+
+    it('sin visor de PDF (Chrome en Android) o con Word, solo queda «Ver»', async () => {
+      vi.stubGlobal('navigator', { ...navigator, pdfViewerEnabled: false });
+      abrir('/documentos/doc-1', fichaCon('application/pdf', 'contrato.pdf'));
+
+      expect(await screen.findByRole('button', { name: 'Ver' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Vista previa' })).not.toBeInTheDocument();
+    });
+
+    it('un Word no tiene vista previa', async () => {
+      abrir('/documentos/doc-1', fichaCon('application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'acta.docx'));
+
+      expect(await screen.findByRole('button', { name: 'Ver' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Vista previa' })).not.toBeInTheDocument();
+    });
   });
 
   it('al subir, propone el nombre del archivo y lo envía con su categoría y fecha', async () => {

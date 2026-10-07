@@ -1,4 +1,4 @@
-import { Check, ClipboardCheck, Download, Eye, FileQuestion, Pencil, Trash2, X } from 'lucide-react';
+import { Check, ClipboardCheck, Download, Eye, FileQuestion, Pencil, ScanEye, Trash2, X } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
@@ -16,6 +16,7 @@ import { useSesion } from '../../sesion/SesionContext';
 import { abrirArchivo } from '../../utilidades/archivos';
 import { formatearFecha, formatearFechaHora, formatearPeso, nombreDeTipo } from '../../utilidades/formato';
 import { ActividadDelDocumento } from './ActividadDelDocumento';
+import { sePuedePrevisualizar, VistaPrevia } from './VistaPrevia';
 
 type Dialogo = 'editar' | 'eliminar' | 'solicitar' | 'aprobar' | 'rechazar' | null;
 
@@ -27,6 +28,7 @@ export function DetalleDocumento() {
   const [aviso, setAviso] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(null);
   // Cada acción sobre el documento añade un paso a su actividad: al cambiar, la línea de tiempo se vuelve a pedir.
   const [pasosNuevos, setPasosNuevos] = useState(0);
+  const [vista, setVista] = useState<{ url: string; cargando: boolean } | null>(null);
 
   if (consulta.error?.estado === 404) {
     return (
@@ -50,6 +52,20 @@ export function DetalleDocumento() {
     void abrirArchivo(documento.id, modo)
       .then(() => setPasosNuevos((n) => n + 1))
       .catch((error: ErrorApi) => setAviso({ tipo: 'error', texto: error.mensaje }));
+  // Pide el mismo enlace que «Ver», así que queda registrada igual: abrir la ficha no cuenta, previsualizar sí.
+  const previsualizar = () => {
+    setVista({ url: '', cargando: true });
+    documentos.enlace(documento.id, 'ver')
+      .then(({ url }) => {
+        setVista({ url, cargando: false });
+        setPasosNuevos((n) => n + 1);
+      })
+      .catch((error: ErrorApi) => {
+        setVista(null);
+        setAviso({ tipo: 'error', texto: error.mensaje });
+      });
+  };
+  const previsualizable = sePuedePrevisualizar(documento.archivo.tipoMime);
 
   return (
     <>
@@ -65,7 +81,8 @@ export function DetalleDocumento() {
           {documento.ultimaSolicitud && <div className="mt-2"><InsigniaDeEstado estado={documento.ultimaSolicitud.estado} /></div>}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Boton icono={Eye} onClick={() => abrir('ver')}>Ver</Boton>
+          {previsualizable && <Boton icono={ScanEye} cargando={vista?.cargando} onClick={previsualizar}>Vista previa</Boton>}
+          <Boton variante={previsualizable ? 'secundario' : 'primario'} icono={Eye} onClick={() => abrir('ver')}>Ver</Boton>
           <Boton variante="secundario" icono={Download} onClick={() => abrir('descargar')}>Descargar</Boton>
           {permisos.editar && <Boton variante="secundario" icono={Pencil} onClick={() => setDialogo('editar')}>Editar</Boton>}
           {permisos.eliminar && <Boton variante="secundario" icono={Trash2} onClick={() => setDialogo('eliminar')}>Eliminar</Boton>}
@@ -73,6 +90,9 @@ export function DetalleDocumento() {
       </div>
 
       {aviso && <div className="mb-4"><Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso></div>}
+      {vista?.url && (
+        <VistaPrevia nombre={documento.nombre} tipoMime={documento.archivo.tipoMime} url={vista.url} alCerrar={() => setVista(null)} />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Tarjeta className="p-4 sm:p-6 lg:col-span-2">

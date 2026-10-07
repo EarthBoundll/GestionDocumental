@@ -487,6 +487,16 @@ admitir SVG (puede llevar scripts), una paleta completa o un segundo color por e
 validar sin valor para la tesis), y guardar el tema solo en el navegador (se perdería al cambiar de
 dispositivo, y la evaluación usa celular y ordenador).
 
+**D29 · Vista previa con el enlace de «Ver» y el visor del navegador.** La ficha muestra el archivo dentro
+de la página (RF33): pide el mismo enlace firmado de «Ver», así que queda registrada igual
+(`DOCUMENTO_VISUALIZADO`, indicador 3), y abrir la ficha sigue sin contar. Las imágenes van en un `<img>`;
+un PDF, en un marco con el visor del propio navegador, solo si lo tiene (`navigator.pdfViewerEnabled`:
+Chrome en Android no, y ahí sigue «Ver»). El marco no va aislado (`sandbox`), porque el visor de PDF no
+funciona en uno aislado; el archivo viene del dominio de Supabase, no del de la aplicación, así que no
+puede tocar la página. La CSP admite marcos solo de ese dominio. Word y Excel no se previsualizan.
+*Descartado:* pdf.js (más de 1 MB para lo que el navegador ya hace), un visor de Office en línea (enviaría
+los documentos a un tercero) y pasar el archivo por la API (los archivos no salen por Render, R5).
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

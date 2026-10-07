@@ -300,6 +300,10 @@ solicitud pendiente (RN11):
   vuelve el guardado.
 - **El logo** se muestra sobre blanco también en el modo oscuro, y si su enlace ya no sirve vuelve el
   icono. La CSP de Vercel solo admite imágenes del propio dominio y del de Supabase.
+- **Vista previa (RF33).** «Vista previa» pide `/documentos/:id/archivo?modo=ver`, como «Ver», y muestra
+  el enlace en un `<img>` (PNG, JPG) o en un marco (PDF, solo si `navigator.pdfViewerEnabled`). Abrirlo
+  después en otra pestaña reutiliza ese enlace: no es una segunda consulta. La CSP admite marcos solo del
+  dominio de Supabase.
 
 ## 6. Qué pantalla usa cada endpoint
 

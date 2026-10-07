@@ -89,10 +89,11 @@ Sin él, `npm run local` levanta todo en tu máquina.
    corrige `CORS_ORIGEN` y `URL_FRONTEND` en Render (*Environment*); Render se redespliega solo.
 
 `frontend/vercel.json` reescribe cualquier ruta a `index.html` (recargar `/documentos/…` funciona) y
-envía la CSP, que solo deja hablar con `*.onrender.com` y solo admite imágenes del propio dominio y del
-proyecto de Supabase, de donde llega el logo de cada empresa con su enlace firmado (D28). Si cambias de
-proyecto de Supabase, cambia también ese dominio en `img-src`: si no, los logos no se verán (el menú
-vuelve al icono) aunque todo lo demás funcione.
+envía la CSP, que solo deja hablar con `*.onrender.com` y solo admite imágenes y marcos del propio
+dominio y del proyecto de Supabase, de donde llegan el logo de cada empresa (D28) y la vista previa de
+los documentos (D29) con su enlace firmado. Si cambias de proyecto de Supabase, cambia también ese
+dominio en `img-src` y `frame-src`: si no, los logos y la vista previa no se verán aunque todo lo demás
+funcione.
 
 ### 4.1 Un subdominio propio (opcional)
 
@@ -205,6 +206,8 @@ Después, a mano, la prueba de humo (unos diez minutos):
       funciona una sola vez.
 - [ ] Un usuario pide aprobar un documento y el administrador lo aprueba; la campana avisa a ambos.
 - [ ] El historial muestra todo lo anterior y se exporta a CSV.
+- [ ] Desde la PC, la *Vista previa* de un PDF y de una foto se ve dentro de la ficha; en el celular, la
+      de la foto.
 - [ ] El administrador cambia el nombre comercial, el color y el logo desde *Identidad*; la usuaria, en su
       celular, los ve al volver a abrir el sistema. Cada uno elige el modo oscuro en *Mi cuenta* y lo
       encuentra igual al entrar desde el otro dispositivo.

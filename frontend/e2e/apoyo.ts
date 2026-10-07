@@ -14,6 +14,9 @@ export const CLAVE = 'clave-de-pruebas-1';
 /** Un PDF mínimo pero válido: el servidor mira los primeros bytes, no la extensión. */
 export const PDF = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n');
 
+/** Un PNG de 1×1 válido, para lo que se muestra como imagen (vista previa, logo). */
+export const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+
 export function archivoPdf(nombre: string) {
   return { name: nombre, mimeType: 'application/pdf', buffer: PDF };
 }
@@ -65,14 +68,16 @@ export async function nuevaCuenta(request: APIRequestContext, empresa: EmpresaDe
 export async function subirDocumento(
   request: APIRequestContext,
   cuenta: Cuenta,
-  { nombre, categoria = 'Otros', fecha = '2026-09-15', archivo = 'documento.pdf' }: { nombre: string; categoria?: string; fecha?: string; archivo?: string },
+  { nombre, categoria = 'Otros', fecha = '2026-09-15', archivo = 'documento.pdf', contenido = { mimeType: 'application/pdf', buffer: PDF } }: {
+    nombre: string; categoria?: string; fecha?: string; archivo?: string; contenido?: { mimeType: string; buffer: Buffer };
+  },
 ): Promise<string> {
   const token = await tokenDe(request, cuenta.email, cuenta.clave);
   const { datos } = await comoJson<{ datos: { id: string; nombre: string }[] }>(await request.get(`${URL_API}/categorias`, conToken(token)));
   const categoriaId = datos.find((c) => c.nombre === categoria)!.id;
   const { id } = await comoJson<{ id: string }>(await request.post(`${URL_API}/documentos`, {
     ...conToken(token),
-    multipart: { nombre, categoriaId, fechaDocumento: fecha, archivo: { name: archivo, mimeType: 'application/pdf', buffer: PDF } },
+    multipart: { nombre, categoriaId, fechaDocumento: fecha, archivo: { name: archivo, ...contenido } },
   }));
   return id;
 }
