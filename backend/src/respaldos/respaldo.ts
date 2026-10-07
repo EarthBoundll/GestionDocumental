@@ -23,6 +23,7 @@ export const TABLAS = [
   { nombre: 'categorias', orden: 'id' },
   { nombre: 'categoria_accesos', orden: 'categoria_id, usuario_id' },
   { nombre: 'documentos', orden: 'id' },
+  { nombre: 'documento_versiones', orden: 'id' },
   { nombre: 'solicitudes', orden: 'id' },
   { nombre: 'notificaciones', orden: 'id' },
   { nombre: 'historial', orden: 'id' },

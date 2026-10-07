@@ -7,7 +7,7 @@ import type { Documento } from '../../api/tipos';
 import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton, clasesDeBoton } from '../../componentes/Boton';
 import { AreaTexto, Campo, Selector } from '../../componentes/Campos';
-import { InsigniaDeEstado } from '../../componentes/Insignia';
+import { Insignia, InsigniaDeEstado } from '../../componentes/Insignia';
 import { Migas } from '../../componentes/Migas';
 import { Modal } from '../../componentes/Modal';
 import { ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
@@ -16,6 +16,7 @@ import { useSesion } from '../../sesion/SesionContext';
 import { abrirArchivo } from '../../utilidades/archivos';
 import { formatearFecha, formatearFechaHora, formatearPeso, nombreDeTipo } from '../../utilidades/formato';
 import { ActividadDelDocumento } from './ActividadDelDocumento';
+import { VersionesDelDocumento } from './VersionesDelDocumento';
 import { sePuedePrevisualizar, VistaPrevia } from './VistaPrevia';
 
 type Dialogo = 'editar' | 'eliminar' | 'solicitar' | 'aprobar' | 'rechazar' | null;
@@ -78,7 +79,14 @@ export function DetalleDocumento() {
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold break-words text-slate-900 sm:text-2xl">{documento.nombre}</h1>
-          {documento.ultimaSolicitud && <div className="mt-2"><InsigniaDeEstado estado={documento.ultimaSolicitud.estado} /></div>}
+          {documento.ultimaSolicitud && (
+            <div className="mt-2">
+              {/* La aprobación es de una versión (RF34): con una nueva, el estado anterior no la cubre. */}
+              {documento.ultimaSolicitud.version === documento.version
+                ? <InsigniaDeEstado estado={documento.ultimaSolicitud.estado} />
+                : <Insignia tono="advertencia">Versión {documento.version} sin revisar</Insignia>}
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {previsualizable && <Boton icono={ScanEye} cargando={vista?.cargando} onClick={previsualizar}>Vista previa</Boton>}
@@ -102,6 +110,7 @@ export function DetalleDocumento() {
             <Dato termino="Categoría">{documento.categoria.nombre}</Dato>
             <Dato termino="Subido por">{documento.subidoPor.nombre}</Dato>
             <Dato termino="Subido el">{formatearFechaHora(documento.creadoEn)}</Dato>
+            <Dato termino="Versión vigente">{documento.version}</Dato>
             <Dato termino="Archivo">
               <span className="break-all">{documento.archivo.nombreOriginal}</span>
               <span className="block text-slate-500">{nombreDeTipo(documento.archivo.tipoMime)} · {formatearPeso(documento.archivo.pesoBytes)}</span>
@@ -124,6 +133,13 @@ export function DetalleDocumento() {
           </div>
         </Tarjeta>
       </div>
+
+      <VersionesDelDocumento
+        documento={documento}
+        alCambiar={terminar}
+        alFallar={(texto) => setAviso({ tipo: 'error', texto })}
+        alConsultar={() => setPasosNuevos((n) => n + 1)}
+      />
 
       <ActividadDelDocumento key={pasosNuevos} documentoId={documento.id} conConsultas={esAdministrador} />
 
@@ -168,6 +184,11 @@ function EstadoDeAprobacion({ documento }: { documento: Documento }) {
   return (
     <div className="space-y-3 text-sm">
       <InsigniaDeEstado estado={solicitud.estado} />
+      {solicitud.version !== documento.version && (
+        <p className="text-slate-700">
+          Esta solicitud fue sobre la versión {solicitud.version}. La versión {documento.version}, la vigente, aún no se ha revisado.
+        </p>
+      )}
       <p className="text-slate-700">
         Solicitado por <span className="font-medium">{solicitud.solicitante.nombre}</span> el {formatearFechaHora(solicitud.creadaEn)}
       </p>

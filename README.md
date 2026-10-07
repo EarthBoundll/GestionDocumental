@@ -38,10 +38,10 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 
 | Dónde | Comando | Qué prueba |
 |---|---|---|
-| `backend/` | `npm test` | 319 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad de cada documento, la identidad de cada empresa (con su contraste y su logo), el tema de cada persona y la ida y vuelta de un respaldo |
+| `backend/` | `npm test` | 327 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad y las versiones de cada documento, la identidad de cada empresa (con su contraste y su logo), el tema de cada persona y la ida y vuelta de un respaldo |
 | `backend/` | `npm run informe:aislamiento` | La batería A contra B, con su informe en [`docs/evidencias/`](docs/evidencias/aislamiento-entre-empresas.md) (indicador 6) |
-| `frontend/` | `npm test` | 65 pruebas de pantallas, sesión, roles, tema, identidad, vista previa y cliente HTTP |
-| `frontend/` | `npm run pruebas:funcionales` | Los 33 requisitos en un navegador real (36 casos, 47 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
+| `frontend/` | `npm test` | 70 pruebas de pantallas, sesión, roles, tema, identidad, vista previa, versiones y cliente HTTP |
+| `frontend/` | `npm run pruebas:funcionales` | Los 34 requisitos en un navegador real (37 casos, 49 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
 | `frontend/` | `npm run pruebas:demo` | El guion de la sustentación: los casos marcados `@demo`, en un navegador visible y a velocidad de lectura |
 
 GitHub Actions ejecuta las tres primeras filas y las funcionales en cada push a `main` y en cada pull

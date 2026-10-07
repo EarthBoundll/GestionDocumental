@@ -16,16 +16,16 @@ export function problemaConArchivo(archivo: File): string | null {
  * si se llama después de esperar una respuesta: la pestaña se abre vacía en el mismo clic y recibe el
  * enlace cuando llega (docs/04-api.md §5).
  */
-export async function abrirArchivo(id: string, modo: 'ver' | 'descargar'): Promise<void> {
+export async function abrirArchivo(id: string, modo: 'ver' | 'descargar', version?: number): Promise<void> {
   if (modo === 'descargar') {
-    const { url } = await documentos.enlace(id, 'descargar');
+    const { url } = await documentos.enlace(id, 'descargar', version);
     // El servidor lo marca como adjunto: el navegador lo descarga sin salir de la aplicación.
     window.location.assign(url);
     return;
   }
   const pestana = window.open('', '_blank');
   try {
-    const { url } = await documentos.enlace(id, 'ver');
+    const { url } = await documentos.enlace(id, 'ver', version);
     if (pestana) pestana.location.href = url;
     else window.location.assign(url);
   } catch (error) {

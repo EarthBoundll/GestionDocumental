@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import type { Almacenamiento } from '../almacenamiento/almacenamiento.js';
 import { accesoDeEmpresa, accesoDePlataforma, type Identidad } from '../db/acceso.js';
-import { DIAS_EN_PAPELERA } from '../modulos/documentos/documentos.servicio.js';
+import { DIAS_EN_PAPELERA, rutasAPurgar } from '../modulos/documentos/documentos.servicio.js';
 import { bloquearVencidos, marcarPurgado } from '../modulos/documentos/documentos.repositorio.js';
 import { autorDelSistemaEn, registrarAccion } from '../modulos/historial/historial.registro.js';
 
@@ -35,7 +35,7 @@ export async function purgarVencidos(
         const purgado = await acceso.ejecutar(async (db) => {
           const [documento] = await bloquearVencidos(db, empresaId, { dias, limite: 1 });
           if (!documento) return false;
-          await almacenamiento.eliminar(documento.archivoRuta);
+          for (const ruta of await rutasAPurgar(db, empresaId, documento)) await almacenamiento.eliminar(ruta);
           await marcarPurgado(db, empresaId, documento.id);
           await registrarAccion(db, {
             accion: 'DOCUMENTO_PURGADO',

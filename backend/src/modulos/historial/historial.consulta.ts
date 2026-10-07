@@ -150,6 +150,7 @@ export async function asientosRecientes(db: Consultor, empresaId: string, limite
 /** El ciclo de vida de un documento: lo que lo cambia y lo que pasa con sus solicitudes de aprobación. */
 const CICLO_DE_VIDA = [
   'DOCUMENTO_SUBIDO', 'DOCUMENTO_EDITADO', 'DOCUMENTO_ELIMINADO', 'DOCUMENTO_RESTAURADO',
+  'VERSION_SUBIDA', 'VERSION_RESTAURADA',
   'SOLICITUD_CREADA', 'SOLICITUD_APROBADA', 'SOLICITUD_RECHAZADA',
 ] as const;
 

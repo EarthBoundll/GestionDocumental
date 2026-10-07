@@ -3,8 +3,10 @@ import { ErrorAplicacion } from '../../compartido/errores.js';
 import { esquemaPaginacion } from '../../compartido/paginacion.js';
 import { actorDe, idDeRuta } from '../../compartido/peticion.js';
 import type { ServicioTiempos } from '../tiempos-respuesta/tiempos-respuesta.servicio.js';
-import { esquemaBusqueda, esquemaCambiosDocumento, esquemaModoArchivo, esquemaNuevoDocumento } from './documentos.esquemas.js';
-import type { ServicioDocumentos } from './documentos.servicio.js';
+import {
+  esquemaBusqueda, esquemaCambiosDocumento, esquemaModoArchivo, esquemaNuevaVersion, esquemaNuevoDocumento, esquemaNumeroDeVersion,
+} from './documentos.esquemas.js';
+import type { ArchivoRecibido, ServicioDocumentos } from './documentos.servicio.js';
 
 export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos: ServicioTiempos) {
   const listar: RequestHandler = async (req, res) => {
@@ -23,14 +25,22 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
 
   const subir: RequestHandler = async (req, res) => {
     const actor = actorDe(req);
-    if (!req.file) {
-      throw new ErrorAplicacion(400, 'VALIDACION', 'Adjunta el archivo del documento', {
-        detalles: [{ campo: 'archivo', mensaje: 'Adjunta el archivo del documento' }],
-      });
-    }
     const datos = esquemaNuevoDocumento.parse(req.body);
-    const documento = await servicio.subir(actor, datos, { nombreOriginal: req.file.originalname, contenido: req.file.buffer });
-    res.status(201).json(documento);
+    res.status(201).json(await servicio.subir(actor, datos, archivoDe(req)));
+  };
+
+  const versiones: RequestHandler = async (req, res) => {
+    res.json(await servicio.versiones(actorDe(req), idDeRuta(req)));
+  };
+
+  const subirVersion: RequestHandler = async (req, res) => {
+    const { comentario } = esquemaNuevaVersion.parse(req.body);
+    res.status(201).json(await servicio.subirVersion(actorDe(req), idDeRuta(req), archivoDe(req), comentario ?? null));
+  };
+
+  const restaurarVersion: RequestHandler = async (req, res) => {
+    const numero = esquemaNumeroDeVersion.parse(req.params.numero);
+    res.status(201).json(await servicio.restaurarVersion(actorDe(req), idDeRuta(req), numero));
   };
 
   const obtener: RequestHandler = async (req, res) => {
@@ -54,8 +64,8 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
 
   const archivo: RequestHandler = async (req, res) => {
     const id = idDeRuta(req);
-    const { modo } = esquemaModoArchivo.parse(req.query);
-    res.json(await servicio.enlaceArchivo(actorDe(req), id, modo));
+    const { modo, version } = esquemaModoArchivo.parse(req.query);
+    res.json(await servicio.enlaceArchivo(actorDe(req), id, modo, version));
   };
 
   const papelera: RequestHandler = async (req, res) => {
@@ -71,5 +81,15 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
     res.status(204).end();
   };
 
-  return { listar, subir, obtener, actividad, editar, eliminar, archivo, papelera, restaurar, purgar };
+  return { listar, subir, obtener, actividad, editar, eliminar, archivo, papelera, restaurar, purgar, versiones, subirVersion, restaurarVersion };
+}
+
+/** El archivo del formulario multipart, o un 400 que dice qué falta. */
+function archivoDe(req: Parameters<RequestHandler>[0]): ArchivoRecibido {
+  if (!req.file) {
+    throw new ErrorAplicacion(400, 'VALIDACION', 'Adjunta el archivo del documento', {
+      detalles: [{ campo: 'archivo', mensaje: 'Adjunta el archivo del documento' }],
+    });
+  }
+  return { nombreOriginal: req.file.originalname, contenido: req.file.buffer };
 }

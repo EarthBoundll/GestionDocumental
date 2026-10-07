@@ -15,6 +15,10 @@ import {
   listarPapelera, marcarEliminado, marcarPurgado, restaurarDocumento,
   type Documento, type DocumentoEnPapelera, type DocumentoInterno, type DocumentoResumen,
 } from './documentos.repositorio.js';
+import {
+  bloquearParaVersion, buscarVersion, hacerVigente, insertarVersion, listarVersiones, rutasDeVersiones,
+  type NuevaVersion, type Version, type VersionInterna,
+} from './versiones.repositorio.js';
 
 /** RN18: los enlaces a un archivo caducan a los 5 minutos. */
 const VIGENCIA_ENLACE_SEGUNDOS = 300;
@@ -27,6 +31,8 @@ export interface Permisos {
   eliminar: boolean;
   solicitarAprobacion: boolean;
   resolverSolicitud: boolean;
+  /** Subir una versión o restaurar una anterior (RF34): quien puede editarlo, sin solicitud pendiente. */
+  versionar: boolean;
 }
 
 /**
@@ -43,8 +49,15 @@ export function permisosSobre(usuario: UsuarioAutenticado, documento: Documento)
     eliminar: puedeGestionar && !pendiente,
     solicitarAprobacion: esPropietario && !pendiente,
     resolverSolicitud: pendiente && tienePermiso(usuario.rol, 'RESOLVER_SOLICITUDES') && solicitud.solicitante.id !== usuario.id,
+    versionar: puedeGestionar && !pendiente,
   };
 }
+
+/** Una versión vista desde fuera: sin la ruta del archivo, y diciendo si es la vigente. */
+export type VersionPublica = Version & { vigente: boolean };
+
+const enRevision = (que: string) =>
+  new ErrorAplicacion(409, 'DOCUMENTO_EN_REVISION', `No se puede ${que} mientras tenga una solicitud de aprobación pendiente`);
 
 export interface ArchivoRecibido {
   nombreOriginal: string;
@@ -81,6 +94,46 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
       throw new ErrorAplicacion(409, 'CATEGORIA_INACTIVA', `La categoría «${categoria.nombre}» está desactivada`);
     }
     return categoria;
+  }
+
+  /**
+   * Guarda una versión cuyo archivo ya está en el almacenamiento y la hace vigente, con su asiento. Si
+   * algo falla, se borra el archivo: no queda una versión a medias ni un archivo sin dueño.
+   */
+  async function guardarVersion(
+    actor: Actor,
+    documentoId: string,
+    ruta: string,
+    datos: Pick<NuevaVersion, 'archivoNombreOriginal' | 'archivoTipoMime' | 'archivoPesoBytes' | 'comentario' | 'restauradaDe'>,
+  ): Promise<void> {
+    const { usuario } = actor.autenticacion;
+    const empresaId = empresaDe(actor);
+    try {
+      await actor.datos.ejecutar(async (cliente) => {
+        const vigente = await bloquearParaVersion(cliente, empresaId, documentoId);
+        if (!vigente) throw noEncontrado('El documento no existe');
+        if (vigente.pendiente) throw enRevision(datos.restauradaDe ? 'restaurar una versión' : 'subir una versión');
+        const version: NuevaVersion = { empresaId, documentoId, numero: vigente.version + 1, archivoRuta: ruta, subidaPor: usuario.id, ...datos };
+        await insertarVersion(cliente, version);
+        await hacerVigente(cliente, version);
+        await registrarAccion(cliente, {
+          accion: datos.restauradaDe ? 'VERSION_RESTAURADA' : 'VERSION_SUBIDA',
+          autor: autorDe(usuario),
+          contexto: actor.contexto,
+          entidad: { tipo: 'documento', id: documentoId },
+          detalle: {
+            nombre: vigente.nombre,
+            version: version.numero,
+            ...(datos.restauradaDe ? { desde: datos.restauradaDe } : { archivo: datos.archivoNombreOriginal, comentario: datos.comentario }),
+          },
+        });
+      });
+    } catch (error) {
+      await almacenamiento.eliminar(ruta).catch((errorAlBorrar: unknown) => {
+        console.error(`[almacenamiento] quedó un archivo huérfano en ${ruta}:`, errorAlBorrar);
+      });
+      throw error;
+    }
   }
 
   return {
@@ -135,6 +188,12 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
             archivoRuta: ruta,
             archivoTipoMime: tipo.mime,
             archivoPesoBytes: archivo.contenido.length,
+          });
+          // Todo documento nace con su versión 1 (D30): las siguientes se suman, nunca la reemplazan.
+          await insertarVersion(cliente, {
+            empresaId, documentoId: id, numero: 1, archivoNombreOriginal: nombreOriginal, archivoRuta: ruta,
+            archivoTipoMime: tipo.mime, archivoPesoBytes: archivo.contenido.length, subidaPor: usuario.id,
+            comentario: null, restauradaDe: null,
           });
           await registrarAccion(cliente, {
             accion: 'DOCUMENTO_SUBIDO',
@@ -217,6 +276,58 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
       });
     },
 
+    /** RF34: las versiones del documento, la más reciente primero. Consultarlas no se registra, como la ficha. */
+    async versiones(actor: Actor, id: string): Promise<{ datos: VersionPublica[] }> {
+      const documento = await documentoVigente(actor, id);
+      const versiones = await actor.datos.ejecutar((db) => listarVersiones(db, empresaDe(actor), id));
+      return { datos: versiones.map((version) => ({ ...versionPublica(version), vigente: version.numero === documento.version })) };
+    },
+
+    /**
+     * Sube una versión nueva y la hace vigente (RF34). El archivo sube antes que la fila, como al subir
+     * un documento; el número se decide con el documento bloqueado, así que dos subidas a la vez no
+     * chocan. Una solicitud pendiente lo impide: se estaría revisando un archivo que cambió.
+     */
+    async subirVersion(actor: Actor, id: string, archivo: ArchivoRecibido, comentario: string | null): Promise<Documento> {
+      const documento = await documentoVigente(actor, id);
+      await exigirGestion(actor, documento, 'SUBIR_VERSION');
+      if (documento.ultimaSolicitud?.estado === 'pendiente') throw enRevision('subir una versión');
+      const nombreOriginal = basename(archivo.nombreOriginal.replaceAll('\\', '/')).slice(-255);
+      const tipo = identificarTipo(nombreOriginal, archivo.contenido);
+      const empresaId = empresaDe(actor);
+      const ruta = `${empresaId}/${randomUUID()}.${tipo.extension}`;
+      await almacenamiento.subir(ruta, archivo.contenido, tipo.mime);
+      await guardarVersion(actor, id, ruta, {
+        archivoNombreOriginal: nombreOriginal, archivoTipoMime: tipo.mime, archivoPesoBytes: archivo.contenido.length,
+        comentario, restauradaDe: null,
+      });
+      return publico(await documentoVigente(actor, id));
+    },
+
+    /**
+     * Restaurar no retrocede (D30): copia el archivo de una versión anterior como versión nueva, y la
+     * historia queda entera. La copia no pasa por la API: la hace el almacenamiento.
+     */
+    async restaurarVersion(actor: Actor, id: string, numero: number): Promise<Documento> {
+      const documento = await documentoVigente(actor, id);
+      await exigirGestion(actor, documento, 'RESTAURAR_VERSION');
+      if (documento.ultimaSolicitud?.estado === 'pendiente') throw enRevision('restaurar una versión');
+      const empresaId = empresaDe(actor);
+      const anterior = await actor.datos.ejecutar((db) => buscarVersion(db, empresaId, id, numero));
+      if (!anterior) throw noEncontrado('La versión no existe');
+      if (anterior.numero === documento.version) {
+        throw new ErrorAplicacion(409, 'VERSION_VIGENTE', `La versión ${numero} ya es la vigente`);
+      }
+      const extension = anterior.archivoRuta.split('.').pop();
+      const ruta = `${empresaId}/${randomUUID()}.${extension}`;
+      await almacenamiento.copiar(anterior.archivoRuta, ruta);
+      await guardarVersion(actor, id, ruta, {
+        archivoNombreOriginal: anterior.archivo.nombreOriginal, archivoTipoMime: anterior.archivo.tipoMime,
+        archivoPesoBytes: anterior.archivo.pesoBytes, comentario: null, restauradaDe: numero,
+      });
+      return publico(await documentoVigente(actor, id));
+    },
+
     /** Lo eliminado que aún se puede restaurar, lo más reciente primero (RF26). Solo para administradores. */
     async papelera(actor: Actor, paginacion: Paginacion): Promise<Pagina<DocumentoEnPapelera> & { diasEnPapelera: number }> {
       const { filas, total } = await actor.datos.ejecutar((db) =>
@@ -254,7 +365,7 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
       await actor.datos.ejecutar(async (cliente) => {
         const documento = await bloquearEnPapelera(cliente, empresaId, id);
         if (!documento) throw noEncontrado('El documento no está en la papelera');
-        await almacenamiento.eliminar(documento.archivoRuta);
+        for (const ruta of await rutasAPurgar(cliente, empresaId, documento)) await almacenamiento.eliminar(ruta);
         await marcarPurgado(cliente, empresaId, id);
         await registrarAccion(cliente, {
           accion: 'DOCUMENTO_PURGADO',
@@ -270,12 +381,17 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
      * Un enlace temporal para ver o descargar el archivo (RF11). El enlace se firma antes de registrar y
      * se entrega después: si el registro falla, el enlace existe pero nadie lo recibe (RN16, §4.3).
      */
-    async enlaceArchivo(actor: Actor, id: string, modo: 'ver' | 'descargar'): Promise<{ url: string; expiraEn: string }> {
+    async enlaceArchivo(actor: Actor, id: string, modo: 'ver' | 'descargar', numero?: number): Promise<{ url: string; expiraEn: string }> {
       const documento = await documentoVigente(actor, id);
-      const url = await almacenamiento.firmarEnlace(documento.archivoRuta, {
+      // Una versión anterior (RF34) se ve y se descarga igual que la vigente, con su propio archivo.
+      const version = numero === undefined || numero === documento.version
+        ? { numero: documento.version, archivoRuta: documento.archivoRuta, archivo: documento.archivo }
+        : await actor.datos.ejecutar((db) => buscarVersion(db, empresaDe(actor), id, numero));
+      if (!version) throw noEncontrado('La versión no existe');
+      const url = await almacenamiento.firmarEnlace(version.archivoRuta, {
         segundos: VIGENCIA_ENLACE_SEGUNDOS,
-        tipoMime: documento.archivo.tipoMime,
-        ...(modo === 'descargar' && { descargarComo: documento.archivo.nombreOriginal }),
+        tipoMime: version.archivo.tipoMime,
+        ...(modo === 'descargar' && { descargarComo: version.archivo.nombreOriginal }),
       });
       await actor.datos.ejecutar((db) => registrarAccion(db, {
         accion: modo === 'descargar' ? 'DOCUMENTO_DESCARGADO' : 'DOCUMENTO_VISUALIZADO',
@@ -283,7 +399,7 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
         contexto: actor.contexto,
         entidad: { tipo: 'documento', id },
         // El nombre de ese momento: el documento puede renombrarse después, y el indicador 3 se lee del CSV.
-        detalle: { nombre: documento.nombre },
+        detalle: { nombre: documento.nombre, version: version.numero },
       }));
       return { url, expiraEn: new Date(Date.now() + VIGENCIA_ENLACE_SEGUNDOS * 1000).toISOString() };
     },
@@ -292,4 +408,20 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
 
 function publico({ archivoRuta: _ruta, ...documento }: DocumentoInterno): Documento {
   return documento;
+}
+
+function versionPublica({ archivoRuta: _ruta, ...version }: VersionInterna): Version {
+  return version;
+}
+
+/**
+ * Los archivos que borra la purga: los de todas las versiones (D30) y, por si acaso, el vigente. Un
+ * documento sin versiones solo puede venir de antes de la 009, que les creó la primera.
+ */
+export async function rutasAPurgar(
+  db: Parameters<typeof rutasDeVersiones>[0],
+  empresaId: string,
+  documento: { id: string; archivoRuta: string },
+): Promise<string[]> {
+  return [...new Set([...(await rutasDeVersiones(db, empresaId, documento.id)), documento.archivoRuta])];
 }

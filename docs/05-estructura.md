@@ -34,7 +34,7 @@ backend/
 │   │   ├── transaccion.ts        ejecuta una función entre BEGIN y COMMIT, o ROLLBACK si falla
 │   │   └── migraciones.ts        ejecutor de migraciones con suma de verificación (E6)
 │   ├── almacenamiento/
-│   │   ├── almacenamiento.ts     contrato: subir, firmarEnlace, eliminar
+│   │   ├── almacenamiento.ts     contrato: subir, copiar, firmarEnlace, eliminar
 │   │   ├── supabase-storage.ts   implementación con Supabase Storage (producción)
 │   │   ├── en-disco.ts           implementación en una carpeta, con enlaces firmados (desarrollo y pruebas, D16)
 │   │   └── crear.ts              elige una u otra según ALMACENAMIENTO
@@ -75,7 +75,7 @@ backend/
 │       ├── plataforma/           lo que hace el Master: empresas, administradores y cifras
 │       ├── usuarios/             todos los módulos tienen la misma forma
 │       ├── categorias/
-│       ├── documentos/
+│       ├── documentos/           y su versiones.repositorio: cada versión de un documento (RF34)
 │       ├── solicitudes/
 │       ├── notificaciones/
 │       ├── historial/            incluye registrarAccion(), que usan los demás servicios
@@ -138,7 +138,7 @@ frontend/
 │   ├── paginas/
 │   │   ├── auth/                 IniciarSesion, RecuperarClave, RestablecerClave
 │   │   ├── plataforma/           Resumen, NuevaEmpresa, DetalleEmpresa (solo el Master)
-│   │   ├── documentos/           ListaDocumentos, SubirDocumento, DetalleDocumento y su ActividadDelDocumento
+│   │   ├── documentos/           ListaDocumentos, SubirDocumento, DetalleDocumento con su VistaPrevia, VersionesDelDocumento y ActividadDelDocumento
 │   │   ├── solicitudes/
 │   │   ├── notificaciones/
 │   │   ├── cuenta/               MiCuenta: datos, contraseña y tema

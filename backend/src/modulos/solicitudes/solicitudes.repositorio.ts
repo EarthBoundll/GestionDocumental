@@ -84,9 +84,11 @@ export async function insertarSolicitud(
   db: Consultor,
   datos: { empresaId: string; documentoId: string; solicitanteId: string; comentario: string | null },
 ): Promise<string> {
+  // La versión se lee en la misma sentencia: se aprueba la que está vigente al pedirlo (D30).
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO solicitudes (empresa_id, documento_id, solicitante_id, comentario_solicitud)
-     VALUES ($1, $2, $3, $4) RETURNING id`,
+    `INSERT INTO solicitudes (empresa_id, documento_id, solicitante_id, comentario_solicitud, version)
+     SELECT $1, $2, $3, $4, d.version FROM documentos d WHERE d.empresa_id = $1 AND d.id = $2
+     RETURNING id`,
     [datos.empresaId, datos.documentoId, datos.solicitanteId, datos.comentario],
   );
   return primeraFila(rows).id;

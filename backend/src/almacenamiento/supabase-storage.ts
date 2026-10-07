@@ -29,4 +29,9 @@ export class AlmacenamientoSupabase implements Almacenamiento {
     const { error } = await this.#bucket.remove([ruta]);
     if (error) throw new Error(`Supabase no eliminó ${ruta}`, { cause: error });
   }
+
+  async copiar(origen: string, destino: string): Promise<void> {
+    const { error } = await this.#bucket.copy(origen, destino);
+    if (error) throw new Error(`Supabase no copió ${origen} en ${destino}`, { cause: error });
+  }
 }

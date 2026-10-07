@@ -22,11 +22,15 @@ export interface UltimaSolicitud {
   comentarioResolucion: string | null;
   creadaEn: Date;
   resueltaEn: Date | null;
+  /** La versión que se pidió aprobar (D30): con una versión nueva, la aprobación no la cubre. */
+  version: number;
 }
 
 export interface Documento extends Omit<DocumentoResumen, 'archivo'> {
   descripcion: string | null;
   archivo: { nombreOriginal: string; tipoMime: string; pesoBytes: number };
+  /** El número de la versión vigente (RF34). */
+  version: number;
   actualizadoEn: Date;
   ultimaSolicitud: UltimaSolicitud | null;
 }
@@ -119,7 +123,9 @@ interface FilaDocumento extends FilaResumen {
   archivo_nombre_original: string;
   archivo_ruta: string;
   actualizado_en: Date;
+  version: number;
   s_id: string | null;
+  s_version: number | null;
   s_estado: UltimaSolicitud['estado'] | null;
   s_solicitante_id: string | null;
   s_solicitante_nombre: string | null;
@@ -136,8 +142,8 @@ export async function buscarDocumento(db: Consultor, empresaId: string, id: stri
   const { rows } = await db.query<FilaDocumento>(
     `SELECT d.id, d.nombre, d.fecha_documento, d.categoria_id, c.nombre AS categoria_nombre, d.subido_por,
             u.nombre AS subido_por_nombre, d.archivo_tipo_mime, d.archivo_peso_bytes, d.creado_en,
-            d.descripcion, d.archivo_nombre_original, d.archivo_ruta, d.actualizado_en,
-            s.id AS s_id, s.estado AS s_estado, s.solicitante_id AS s_solicitante_id, sol.nombre AS s_solicitante_nombre,
+            d.descripcion, d.archivo_nombre_original, d.archivo_ruta, d.actualizado_en, d.version,
+            s.id AS s_id, s.version AS s_version, s.estado AS s_estado, s.solicitante_id AS s_solicitante_id, sol.nombre AS s_solicitante_nombre,
             s.revisor_id AS s_revisor_id, rev.nombre AS s_revisor_nombre, s.comentario_solicitud AS s_comentario_solicitud,
             s.comentario_resolucion AS s_comentario_resolucion, s.creada_en AS s_creada_en, s.resuelta_en AS s_resuelta_en
      FROM documentos d
@@ -158,6 +164,7 @@ export async function buscarDocumento(db: Consultor, empresaId: string, id: stri
     descripcion: fila.descripcion,
     archivo: { nombreOriginal: fila.archivo_nombre_original, tipoMime: fila.archivo_tipo_mime, pesoBytes: fila.archivo_peso_bytes },
     actualizadoEn: fila.actualizado_en,
+    version: fila.version,
     archivoRuta: fila.archivo_ruta,
     ultimaSolicitud: fila.s_id === null ? null : {
       id: fila.s_id,
@@ -168,6 +175,7 @@ export async function buscarDocumento(db: Consultor, empresaId: string, id: stri
       comentarioResolucion: fila.s_comentario_resolucion,
       creadaEn: fila.s_creada_en!,
       resueltaEn: fila.s_resuelta_en,
+      version: fila.s_version!,
     },
   };
 }

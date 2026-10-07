@@ -261,6 +261,7 @@ cambio queda en el historial (`CATEGORIA_EDITADA`).
 | archivo_ruta | varchar(300) | no | único | Clave en Storage: `{empresa_id}/{id}.{extensión}`; la carpeta es la empresa |
 | archivo_tipo_mime | varchar(100) | no | | De la lista blanca (RN09) |
 | archivo_peso_bytes | integer | no | entre 1 y 10 485 760 | |
+| version | integer | no | ≥ 1; por defecto, 1 | La versión vigente: las columnas de archivo son las suyas (D30) |
 | creado_en | timestamptz | no | ahora | Instante de la subida |
 | actualizado_en | timestamptz | no | ahora | |
 | eliminado_en | timestamptz | sí | | Eliminación lógica (M5): desde aquí, el documento está en la papelera (RN28) |
@@ -283,6 +284,26 @@ Además, único (`id`, `empresa_id`).
 | comentario_resolucion | varchar(500) | sí | obligatorio si se rechaza | |
 | creada_en | timestamptz | no | ahora | |
 | resuelta_en | timestamptz | sí | | |
+| version | integer | no | ≥ 1 | La versión del documento que se pidió aprobar (D30) |
+
+### documento_versiones
+
+Cada versión de un documento (RF34, D30). Solo se inserta: ninguna se modifica ni se borra.
+
+| Campo | Tipo | Nulo | Restricciones | Descripción |
+|---|---|---|---|---|
+| id | uuid | no | PK | |
+| empresa_id | uuid | no | FK → empresas | |
+| documento_id | uuid | no | FK (`documento_id`, `empresa_id`) → documentos | |
+| numero | integer | no | ≥ 1; único con `documento_id` | 1, 2, 3…; la vigente es la del documento |
+| archivo_nombre_original | varchar(255) | no | | Con este nombre se descarga esa versión |
+| archivo_ruta | varchar(300) | no | único | Clave en Storage; una restauración tiene su propia copia |
+| archivo_tipo_mime | varchar(100) | no | | De la lista blanca (RN09) |
+| archivo_peso_bytes | integer | no | entre 1 y 10 485 760 | |
+| subida_por | uuid | no | FK (`subida_por`, `empresa_id`) → usuarios | |
+| comentario | varchar(500) | sí | no vacío | Qué cambió |
+| restaurada_de | integer | sí | ≥ 1 y menor que `numero` | Si es una restauración, de qué versión se copió |
+| creada_en | timestamptz | no | ahora | |
 
 ### notificaciones
 
@@ -354,6 +375,9 @@ No dependen de que el código se acuerde de comprobarlas.
 | Solo se purga lo que está en la papelera (RN28) | `purgado_en` exige `eliminado_en` |
 | Solo el administrador cambia la identidad de su empresa, y nada más de ella (RN31) | `app_empresa` solo puede actualizar `nombre_comercial`, `color_primario` y `logo_ruta`, y una política de UPDATE exige su empresa y el rol `administrador` (§3.1) |
 | El logo de una empresa está en su carpeta | `logo_ruta` debe empezar por el `id` de la empresa |
+| Una versión no cambia ni se borra (RN33) | `app_empresa` solo tiene SELECT e INSERT sobre `documento_versiones` |
+| Cada número de versión, una vez por documento | Único (`documento_id`, `numero`); el número lo decide la API con el documento bloqueado |
+| Una versión oculta como su documento (RN29) | Política restrictiva: la versión solo se ve si su documento se ve (§3.1) |
 | Nada se borra en cascada | Todas las claves foráneas restringen el borrado: empresas, usuarios y documentos no se borran |
 
 ### 3.1 Aislamiento con RLS (D17)
@@ -384,6 +408,11 @@ Ahora puede actualizar tres columnas de ella —`nombre_comercial`, `color_prima
 permiso de columna— y una política de UPDATE exige que sea su empresa y que quien actúa sea
 administrador. Un usuario que lo intente por debajo de la API cambia cero filas; el nombre, el RUC o el
 estado no los puede tocar nadie de la empresa (error 42501).
+
+**Versiones (009, D30).** `documento_versiones` tiene la política de aislamiento por empresa y otra
+restrictiva que exige que su documento exista para quien pregunta. Esa subconsulta pasa a su vez por la
+RLS de `documentos`, así que una versión se ve exactamente cuando su documento se ve: las categorías
+restringidas la ocultan sin reglas propias. El rol de empresa solo puede leer e insertar.
 
 **Auditoría del Master (006, D24).** `app_plataforma` puede leer del historial los asientos sin empresa
 y los que tienen el rol `master`; nada más.

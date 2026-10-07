@@ -32,6 +32,8 @@ export const NOMBRES_DE_ACCIONES: Record<string, string> = {
   DOCUMENTO_RESTAURADO: 'Documento restaurado',
   DOCUMENTO_PURGADO: 'Documento eliminado para siempre',
   RESPALDO_GENERADO: 'Respaldo de la base generado',
+  VERSION_SUBIDA: 'Versión nueva subida',
+  VERSION_RESTAURADA: 'Versión anterior restaurada',
 };
 
 /** Los campos que aparecen en «cambios», como los entiende quien lee el historial. */
@@ -68,6 +70,9 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
   if (typeof detalle.nombre === 'string') partes.push(`«${detalle.nombre}»`);
   if (typeof detalle.documento === 'string') partes.push(`«${detalle.documento}»`);
   if (typeof detalle.categoria === 'string') partes.push(`en ${detalle.categoria}`);
+  if (typeof detalle.version === 'number') {
+    partes.push(typeof detalle.desde === 'number' ? `versión ${detalle.desde} restaurada como ${detalle.version}` : `versión ${detalle.version}`);
+  }
   if (detalle.filtros && typeof detalle.filtros === 'object') {
     const { q, categoriaId, desde, hasta } = detalle.filtros as Record<string, string | undefined>;
     if (q) partes.push(`buscó «${q}»`);
@@ -117,12 +122,17 @@ const FRASES_DE_ACTIVIDAD: Record<string, string> = {
 /** Qué intentó quien no podía, según la operación que registró la API. */
 const INTENTOS_DENEGADOS: Record<string, string> = {
   EDITAR_DOCUMENTO: 'intentó editarlo sin permiso',
+  SUBIR_VERSION: 'intentó subir una versión sin permiso',
+  RESTAURAR_VERSION: 'intentó restaurar una versión sin permiso',
   ELIMINAR_DOCUMENTO: 'intentó eliminarlo sin permiso',
   SOLICITAR_APROBACION: 'intentó pedir su aprobación sin ser el autor',
   RESOLVER_SOLICITUD: 'intentó resolver su propia solicitud',
 };
 
 export function fraseDeActividad(accion: string, detalle: Record<string, unknown>): string {
+  // Las versiones dicen cuál: «subió la versión 3», «restauró la versión 1 como versión 4».
+  if (accion === 'VERSION_SUBIDA') return `subió la versión ${String(detalle.version)}`;
+  if (accion === 'VERSION_RESTAURADA') return `restauró la versión ${String(detalle.desde)} como versión ${String(detalle.version)}`;
   if (accion === 'ACCESO_DENEGADO') {
     return INTENTOS_DENEGADOS[String(detalle.operacion)] ?? 'intentó una acción sin permiso';
   }
@@ -134,6 +144,8 @@ export function detalleDeActividad(detalle: Record<string, unknown>): string | n
   const partes: string[] = [];
   const cambio = camposCambiados(detalle);
   if (cambio) partes.push(cambio);
+  // De una versión subida, el archivo: es lo que la distingue de la anterior.
+  if (typeof detalle.archivo === 'string' && typeof detalle.version === 'number') partes.push(detalle.archivo);
   if (typeof detalle.comentario === 'string' && detalle.comentario) partes.push(`«${detalle.comentario}»`);
   return partes.length > 0 ? partes.join(' · ') : null;
 }

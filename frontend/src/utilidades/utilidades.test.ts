@@ -62,8 +62,16 @@ describe('roles', () => {
 });
 
 describe('historial', () => {
-  it('nombra las 30 acciones auditables de docs/01-analisis.md §7', () => {
-    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(30);
+  it('nombra las 32 acciones auditables de docs/01-analisis.md §7', () => {
+    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(32);
+  });
+
+  it('cuenta las versiones (RF34): cuál se subió, con qué archivo, y de cuál viene una restaurada', () => {
+    expect(fraseDeActividad('VERSION_SUBIDA', { version: 3 })).toBe('subió la versión 3');
+    expect(fraseDeActividad('VERSION_RESTAURADA', { version: 4, desde: 2 })).toBe('restauró la versión 2 como versión 4');
+    expect(detalleDeActividad({ version: 3, archivo: 'contrato-v3.pdf', comentario: 'Corrige la cláusula 4' }))
+      .toBe('contrato-v3.pdf · «Corrige la cláusula 4»');
+    expect(resumirDetalle({ nombre: 'Contrato', version: 4, desde: 2 })).toEqual(['«Contrato»', 'versión 2 restaurada como 4']);
   });
 
   it('resume el detalle en frases: qué documento, qué buscó, qué cambió', () => {

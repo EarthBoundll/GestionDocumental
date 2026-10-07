@@ -178,12 +178,12 @@ permisos dentro de una empresa.
   Administrador de Empresa y el Master (hecho)
 - Modo oscuro, elegido por cada persona y guardado en su cuenta (hecho)
 - Vista previa del archivo (PDF e imágenes) dentro de la ficha del documento (hecho)
+- Versionado simplificado: subir una versión nueva, ver y descargar las anteriores, restaurar una (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
 - Etiquetas de documentos además de las categorías
-- Versionado de documentos (5,5 días; si no cabe antes del congelamiento, va a la tesis como trabajo
-  futuro) y reportes
+- Reportes
 - Color secundario y favicon por empresa, favoritos y búsquedas recientes, que la segunda auditoría
   descartó
 
@@ -293,6 +293,11 @@ Se descartaron un bucket público para los logos, admitir SVG y guardar el tema 
 como vista; un PDF solo se incrusta si el navegador tiene visor (Chrome en Android no) y la CSP admite marcos solo de
 Supabase (D29). Se descartaron pdf.js (más de 1 MB), un visor de Office en línea (manda el archivo a un tercero) y pasar
 el archivo por la API.
+
+**Versiones que se suman y nunca se reescriben.** `documento_versiones` guarda cada archivo con su autor y comentario; el
+documento sigue apuntando a la vigente, así que nada más cambió. Restaurar copia una anterior como la siguiente y la
+aprobación es de una versión; la RLS de la tabla exige ver el documento (D30). Se descartaron sobrescribir el archivo,
+volver atrás el número y un DMS con bloqueo y comparación.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

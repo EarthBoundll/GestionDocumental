@@ -40,8 +40,9 @@ async function resumen(db: Consultor, empresaId: string) {
     `SELECT
        (SELECT count(*) FROM documentos WHERE empresa_id = $1 AND eliminado_en IS NULL)::int AS documentos,
        (SELECT count(*) FROM documentos WHERE empresa_id = $1 AND eliminado_en IS NOT NULL AND purgado_en IS NULL)::int AS "enPapelera",
-       (SELECT coalesce(sum(archivo_peso_bytes), 0) FROM documentos WHERE empresa_id = $1 AND purgado_en IS NULL)::float8
-         AS "almacenamientoBytes",
+       -- Todas las versiones (D30): es lo que ocupa de verdad. Lo purgado ya no está en el almacenamiento.
+       (SELECT coalesce(sum(v.archivo_peso_bytes), 0) FROM documento_versiones v JOIN documentos d ON d.id = v.documento_id
+         WHERE v.empresa_id = $1 AND d.purgado_en IS NULL)::float8 AS "almacenamientoBytes",
        (SELECT count(*) FROM usuarios WHERE empresa_id = $1)::int AS usuarios,
        (SELECT count(*) FROM usuarios WHERE empresa_id = $1 AND activo)::int AS "usuariosActivos",
        (SELECT count(*) FROM categorias WHERE empresa_id = $1 AND activa)::int AS "categoriasActivas",

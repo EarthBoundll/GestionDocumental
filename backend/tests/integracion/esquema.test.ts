@@ -249,7 +249,7 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
       WHERE n.nspname = 'public' AND c.relkind = 'r'
       ORDER BY 1`);
 
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(13);
     expect(rows.filter((fila) => !fila.rls)).toEqual([]);
   });
 });

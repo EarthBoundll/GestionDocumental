@@ -81,7 +81,7 @@ test.describe('Documentos y categorías', () => {
     await entrar(page, pedro);
     await page.goto(`/documentos/${id}`);
     await expect(page.getByRole('heading', { name: 'Cotización de telas para uniformes' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Ver' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ver', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Editar' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Eliminar' })).toHaveCount(0);
   });

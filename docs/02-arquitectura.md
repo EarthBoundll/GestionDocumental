@@ -497,6 +497,21 @@ puede tocar la página. La CSP admite marcos solo de ese dominio. Word y Excel n
 *Descartado:* pdf.js (más de 1 MB para lo que el navegador ya hace), un visor de Office en línea (enviaría
 los documentos a un tercero) y pasar el archivo por la API (los archivos no salen por Render, R5).
 
+**D30 · Versiones que se suman y nunca se reescriben.** Una tabla `documento_versiones` guarda cada
+versión (RF34) con su archivo, su autor, su fecha y un comentario; el documento conserva sus columnas de
+archivo como la vigente, así que el listado, la búsqueda, la ficha y la descarga no cambiaron. La 009 creó la
+versión 1 de cada documento existente. La tabla tiene la política de aislamiento de siempre y una
+restrictiva que exige que el documento sea visible para quien pregunta: la subconsulta pasa por la RLS de
+`documentos`, así que una categoría restringida oculta también sus versiones (D22) sin reglas nuevas. Sin
+UPDATE ni DELETE: una versión no cambia. Restaurar copia el archivo en el almacenamiento (sin pasar por la
+API) y lo guarda como la versión siguiente: la historia no retrocede. El número se decide con el documento
+bloqueado (`FOR UPDATE`), así que dos subidas a la vez no chocan. La solicitud de aprobación guarda la versión
+que se revisa, y con una pendiente no se versiona. La purga borra el archivo de cada versión, y el espacio
+del tablero y del Master las suma.
+*Descartado:* sobrescribir el archivo (se pierde lo que se aprobó), restaurar volviendo atrás el número (la
+historia retrocedería y el historial contaría otra cosa), y comparar versiones, bloquear la edición o crear
+ramas, que son de un DMS corporativo y no los pide ningún indicador.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

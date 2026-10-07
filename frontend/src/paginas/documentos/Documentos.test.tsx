@@ -136,6 +136,7 @@ describe('Documentos', () => {
       },
       'GET /documentos/:id/actividad': { cuerpo: { datos: [], paginacion: { pagina: 1, porPagina: 10, total: 0 } } },
       'GET /documentos/:id/archivo': { cuerpo: { url: 'https://archivos.ejemplo/firmado?token=1', expiraEn: '2026-10-07T10:05:00Z' } },
+      'GET /documentos/:id/versiones': { cuerpo: { datos: [] } },
     });
     const pidioElArchivo = (peticiones: PeticionRecibida[]) => peticiones.filter((p) => p.ruta === '/documentos/doc-1/archivo');
 
@@ -178,6 +179,90 @@ describe('Documentos', () => {
 
       expect(await screen.findByRole('button', { name: 'Ver' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Vista previa' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('versiones (RF34)', () => {
+    const VERSIONES = [
+      { numero: 2, archivo: { nombreOriginal: 'contrato-v2.pdf', tipoMime: 'application/pdf', pesoBytes: 2048 }, subidaPor: { id: 'id-usuario', nombre: 'Ana Torres' }, comentario: 'Corrige la cláusula 4', restauradaDe: null, creadaEn: '2026-10-05T10:00:00Z', vigente: true },
+      { numero: 1, archivo: { nombreOriginal: 'contrato-v1.pdf', tipoMime: 'application/pdf', pesoBytes: 1024 }, subidaPor: { id: 'id-usuario', nombre: 'Ana Torres' }, comentario: null, restauradaDe: null, creadaEn: '2026-10-02T14:35:16Z', vigente: false },
+    ];
+    const ficha = (cambios: Record<string, unknown> = {}) => ({
+      ...CONTRATO,
+      descripcion: null,
+      archivo: { ...CONTRATO.archivo, nombreOriginal: 'contrato-v2.pdf' },
+      version: 2,
+      actualizadoEn: CONTRATO.creadoEn,
+      ultimaSolicitud: null,
+      permisos: { editar: true, eliminar: true, solicitarAprobacion: true, resolverSolicitud: false, versionar: true },
+      ...cambios,
+    });
+    const rutasBase = (documento = ficha()) => ({
+      'GET /documentos/:id': { cuerpo: documento },
+      'GET /documentos/:id/actividad': { cuerpo: { datos: [], paginacion: { pagina: 1, porPagina: 10, total: 0 } } },
+      'GET /documentos/:id/versiones': { cuerpo: { datos: VERSIONES } },
+    });
+
+    it('lista las versiones, la vigente marcada, y una anterior se descarga con su número', async () => {
+      const { peticiones } = abrir('/documentos/doc-1', {
+        ...rutasBase(),
+        'GET /documentos/:id/archivo': { cuerpo: { url: 'https://archivos.ejemplo/v1', expiraEn: '2026-10-07T10:05:00Z' } },
+      });
+      const asignar = vi.fn();
+      vi.stubGlobal('location', { ...window.location, assign: asignar });
+
+      const lista = await screen.findByRole('list', { name: 'Versiones del documento' });
+      const filas = within(lista).getAllByRole('listitem');
+      expect(filas[0]).toHaveTextContent('Versión 2Vigente');
+      expect(filas[0]).toHaveTextContent('«Corrige la cláusula 4»');
+      await userEvent.click(within(lista).getByRole('button', { name: 'Descargar la versión 1' }));
+
+      await waitFor(() => expect(asignar).toHaveBeenCalledWith('https://archivos.ejemplo/v1'));
+      const pedido = peticiones.find((p) => p.ruta === '/documentos/doc-1/archivo')!;
+      expect([pedido.consulta.get('modo'), pedido.consulta.get('version')]).toEqual(['descargar', '1']);
+    });
+
+    it('subir una versión envía el archivo y qué cambió, y la ficha muestra la nueva', async () => {
+      const { peticiones } = abrir('/documentos/doc-1', {
+        ...rutasBase(),
+        'POST /documentos/:id/versiones': { estado: 201, cuerpo: ficha({ version: 3 }) },
+      });
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Subir versión nueva' }));
+      const dialogo = screen.getByRole('dialog');
+      await userEvent.upload(within(dialogo).getByLabelText('Archivo'), new File(['%PDF-1.4'], 'contrato-v3.pdf', { type: 'application/pdf' }));
+      await userEvent.type(within(dialogo).getByLabelText(/Qué cambió/), 'Firma del arrendador');
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Subir versión 3' }));
+
+      expect(await screen.findByText(/Se subió la versión 3/)).toBeInTheDocument();
+      const envio = peticiones.find((p) => p.metodo === 'POST')!.cuerpo as FormData;
+      expect((envio.get('archivo') as File).name).toBe('contrato-v3.pdf');
+      expect(envio.get('comentario')).toBe('Firma del arrendador');
+    });
+
+    it('restaurar pide la versión elegida; con una aprobación pendiente no se puede, y una aprobada en otra versión no cubre la vigente', async () => {
+      const { peticiones } = abrir('/documentos/doc-1', {
+        ...rutasBase(ficha({
+          ultimaSolicitud: { id: 's1', estado: 'aprobada', version: 1, solicitante: { id: 'id-usuario', nombre: 'Ana Torres' }, revisor: { id: 'id-admin', nombre: 'Rosa Quispe' }, comentarioSolicitud: null, comentarioResolucion: null, creadaEn: '2026-10-03T10:00:00Z', resueltaEn: '2026-10-03T11:00:00Z' },
+        })),
+        'POST /documentos/:id/versiones/:numero/restauracion': { estado: 201, cuerpo: ficha({ version: 3 }) },
+      });
+
+      expect(await screen.findByText('Versión 2 sin revisar')).toBeInTheDocument();
+      expect(screen.getByText(/Esta solicitud fue sobre la versión 1/)).toBeInTheDocument();
+      await userEvent.click(await screen.findByRole('button', { name: 'Restaurar la versión 1' }));
+
+      expect(await screen.findByText(/La versión 1 se restauró como versión 3/)).toBeInTheDocument();
+      expect(peticiones.find((p) => p.metodo === 'POST')!.ruta).toBe('/documentos/doc-1/versiones/1/restauracion');
+    });
+
+    it('sin permiso para versionar, solo se ven y descargan', async () => {
+      abrir('/documentos/doc-1', rutasBase(ficha({ permisos: { editar: false, eliminar: false, solicitarAprobacion: false, resolverSolicitud: false, versionar: false } })));
+
+      await screen.findByRole('list', { name: 'Versiones del documento' });
+      expect(screen.queryByRole('button', { name: 'Subir versión nueva' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Restaurar/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Ver la versión 1' })).toBeInTheDocument();
     });
   });
 
