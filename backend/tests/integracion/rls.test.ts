@@ -62,10 +62,16 @@ describe('Aislamiento en la base: RLS y roles (D17, indicador 6)', () => {
     master = await insertarUsuario(null, 'master', 'master@plataforma.pe');
     for (const [empresa, autor] of [[empresaA, adminA], [empresaB, adminB]] as const) {
       const categoria = (await db.query("INSERT INTO categorias (empresa_id, nombre) VALUES ($1, 'Contratos') RETURNING id", [empresa])).rows[0].id;
+      // Con su versión 1, como lo deja la API (D30): el espacio que ve el Master suma las versiones.
       await db.query(
-        `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento, archivo_nombre_original,
-           archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
-         VALUES ($1::uuid, $2, $3, 'Contrato', '2026-01-01', 'c.pdf', $1::text || '/c.pdf', 'application/pdf', 2048)`,
+        `WITH d AS (
+           INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento, archivo_nombre_original,
+             archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
+           VALUES ($1::uuid, $2, $3, 'Contrato', '2026-01-01', 'c.pdf', $1::text || '/c.pdf', 'application/pdf', 2048)
+           RETURNING *)
+         INSERT INTO documento_versiones (empresa_id, documento_id, numero, archivo_nombre_original, archivo_ruta,
+           archivo_tipo_mime, archivo_peso_bytes, subida_por)
+         SELECT empresa_id, id, 1, archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes, subido_por FROM d`,
         [empresa, categoria, autor],
       );
     }

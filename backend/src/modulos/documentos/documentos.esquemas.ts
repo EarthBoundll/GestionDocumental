@@ -35,7 +35,17 @@ export const esquemaBusqueda = esquemaPaginacion
     message: 'Debe ser igual o posterior a la fecha «desde»',
   });
 
-export const esquemaModoArchivo = z.object({ modo: sinVacios(z.enum(['ver', 'descargar']).default('ver')) });
+export const esquemaModoArchivo = z.object({
+  modo: sinVacios(z.enum(['ver', 'descargar']).default('ver')),
+  /** Una versión anterior (RF34); sin ella, la vigente. */
+  version: sinVacios(z.coerce.number().int().min(1).optional()),
+});
+
+export const esquemaNuevaVersion = z.object({
+  comentario: sinVacios(z.string().trim().max(500, 'Como mucho 500 caracteres').optional()),
+});
+
+export const esquemaNumeroDeVersion = z.coerce.number().int('Indica el número de la versión').min(1, 'Indica el número de la versión');
 
 export type NuevoDocumento = z.infer<typeof esquemaNuevoDocumento>;
 export type CambiosDocumento = z.infer<typeof esquemaCambiosDocumento>;

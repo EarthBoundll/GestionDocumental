@@ -63,7 +63,7 @@ test.describe('Vista previa del archivo', () => {
 
     // El PDF depende del navegador: con visor propio se incrusta; sin él (Chrome en Android) queda «Ver».
     await page.goto(`/documentos/${contrato}`);
-    await expect(page.getByRole('button', { name: 'Ver' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ver', exact: true })).toBeVisible();
     if (await page.evaluate(() => navigator.pdfViewerEnabled)) {
       await page.getByRole('button', { name: 'Vista previa' }).click();
       await expect(page.getByTitle('Vista previa de Contrato de alquiler')).toHaveAttribute('src', /\/documentos\/|supabase|archivos/);

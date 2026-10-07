@@ -75,14 +75,29 @@ export interface UltimaSolicitud {
   comentarioResolucion: string | null;
   creadaEn: string;
   resueltaEn: string | null;
+  /** La versión que se pidió aprobar (RF34). */
+  version: number;
 }
 
 export interface Documento extends Omit<DocumentoResumen, 'archivo'> {
   descripcion: string | null;
   archivo: { nombreOriginal: string; tipoMime: string; pesoBytes: number };
+  /** El número de la versión vigente (RF34). */
+  version: number;
   actualizadoEn: string;
   ultimaSolicitud: UltimaSolicitud | null;
-  permisos: { editar: boolean; eliminar: boolean; solicitarAprobacion: boolean; resolverSolicitud: boolean };
+  permisos: { editar: boolean; eliminar: boolean; solicitarAprobacion: boolean; resolverSolicitud: boolean; versionar: boolean };
+}
+
+/** Una versión de un documento (RF34). Ninguna se borra; restaurar crea otra. */
+export interface Version {
+  numero: number;
+  archivo: { nombreOriginal: string; tipoMime: string; pesoBytes: number };
+  subidaPor: Referencia;
+  comentario: string | null;
+  restauradaDe: number | null;
+  creadaEn: string;
+  vigente: boolean;
 }
 
 /** Un documento de la papelera (RF26): eliminado y aún restaurable. */

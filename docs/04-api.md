@@ -142,7 +142,10 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 | GET | `/documentos/:id` | Empresa | — | 200 con el documento, su `ultimaSolicitud` y sus `permisos` | — |
 | PATCH | `/documentos/:id` | Propietario o admin | `nombre?`, `categoriaId?`, `fechaDocumento?`, `descripcion?` | 200 con el documento | `DOCUMENTO_EDITADO` |
 | DELETE | `/documentos/:id` | Propietario o admin | — | 204 | `DOCUMENTO_ELIMINADO` |
-| GET | `/documentos/:id/archivo` | Empresa | `?modo=ver` o `?modo=descargar` | 200 `{ url, expiraEn }` | `DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO` |
+| GET | `/documentos/:id/archivo` | Empresa | `?modo=ver` o `?modo=descargar`; `?version=` para una anterior (RF34) | 200 `{ url, expiraEn }`; 404 si la versión no existe | `DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO`, con el número de versión |
+| GET | `/documentos/:id/versiones` | Empresa; solo de un documento que ve | — | 200 `{ datos }`: cada versión con `numero`, `archivo`, `subidaPor`, `comentario`, `restauradaDe`, `creadaEn` y `vigente`, la más reciente primero (RF34) | — |
+| POST | `/documentos/:id/versiones` | Propietario o Admin | `multipart/form-data`: `archivo`, `comentario?` (hasta 500) | 201 con el documento, ya con la versión nueva vigente. 409 `DOCUMENTO_EN_REVISION` con una solicitud pendiente | `VERSION_SUBIDA` |
+| POST | `/documentos/:id/versiones/:numero/restauracion` | Propietario o Admin | — | 201 con el documento: la versión elegida, copiada como la siguiente. 409 `VERSION_VIGENTE` si ya es la vigente, `DOCUMENTO_EN_REVISION` con una pendiente; 404 si no existe | `VERSION_RESTAURADA` |
 | GET | `/documentos/:id/actividad` | Empresa; solo de un documento que ve | Paginación | 200 paginado, lo más reciente primero: los asientos del documento y de sus solicitudes, con `usuario { id, nombre }` (sin correo). Quien puede consultar el historial recibe además vistas, descargas y accesos denegados (RF30, D27). 404 si no lo ve | — |
 | GET | `/documentos/papelera` | Admin | Paginación | 200 paginado, más `diasEnPapelera`: cada documento con `eliminadoPor`, `eliminadoEn` y `purgaEn` | — |
 | POST | `/documentos/papelera/:id/restauracion` | Admin | — | 200 con el documento, tal como estaba | `DOCUMENTO_RESTAURADO` |
@@ -200,10 +203,10 @@ es un enlace firmado que dura lo que la sesión.
 |---|---|---|---|---|---|
 | PATCH | `/tiempos-respuesta/:id` | Empresa; solo el suyo, y una vez | `duracionClienteMs` | 204 | — |
 
-En total, 54 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
+En total, 57 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
 plataforma, los siete que añadió la auditoría (papelera, tablero, auditoría y respaldos del Master) y, de la
-segunda, la actividad de un documento, las preferencias de cada persona y siete de identidad (cuatro de la
-empresa y tres del Master).
+segunda, la actividad de un documento, las preferencias de cada persona, siete de identidad (cuatro de la
+empresa y tres del Master) y tres de versiones.
 
 ## 4. Respuestas de ejemplo
 
@@ -321,7 +324,7 @@ lo usa alguien.
 | Ficha de una empresa | `/plataforma/empresas/:id` | Master | `GET /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id/estado`, `POST /plataforma/empresas/:id/administradores`, `PATCH /plataforma/administradores/:id`, `PATCH /plataforma/administradores/:id/estado`, `PATCH /plataforma/empresas/:id/identidad`, `PUT` y `DELETE /plataforma/empresas/:id/identidad/logo` |
 | Documentos: listado y búsqueda | `/documentos` | Administrador y Usuario | `GET /documentos`, `GET /categorias`, `PATCH /tiempos-respuesta/:id` |
 | Subir documento | `/documentos/nuevo` | Administrador y Usuario | `GET /categorias`, `POST /documentos` |
-| Detalle de documento | `/documentos/:id` | Administrador y Usuario; las acciones, según `permisos` | `GET /documentos/:id`, `GET /documentos/:id/actividad`, `GET /documentos/:id/archivo`, `PATCH /documentos/:id`, `DELETE /documentos/:id`, `POST /documentos/:id/solicitudes`, `POST /solicitudes/:id/resolucion`, `GET /categorias` |
+| Detalle de documento | `/documentos/:id` | Administrador y Usuario; las acciones, según `permisos` | `GET /documentos/:id`, `GET /documentos/:id/actividad`, `GET /documentos/:id/versiones`, `POST /documentos/:id/versiones`, `POST /documentos/:id/versiones/:numero/restauracion`, `GET /documentos/:id/archivo`, `PATCH /documentos/:id`, `DELETE /documentos/:id`, `POST /documentos/:id/solicitudes`, `POST /solicitudes/:id/resolucion`, `GET /categorias` |
 | Solicitudes | `/solicitudes` | Administrador y Usuario; el administrador ve la bandeja de toda su empresa | `GET /solicitudes` |
 | Notificaciones | `/notificaciones` | Administrador y Usuario | `GET /notificaciones`, `PATCH /notificaciones/:id/leida`, `PATCH /notificaciones/leidas` |
 | Mi cuenta | `/cuenta` | Todos | `GET /auth/yo`, `PUT /auth/clave`, `PUT /auth/preferencias` |

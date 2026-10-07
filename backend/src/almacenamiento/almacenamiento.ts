@@ -10,4 +10,6 @@ export interface Almacenamiento {
    */
   firmarEnlace(ruta: string, opciones: { segundos: number; tipoMime: string; descargarComo?: string }): Promise<string>;
   eliminar(ruta: string): Promise<void>;
+  /** Una copia del archivo en otra ruta, sin pasarlo por la API: así se restaura una versión (D30). */
+  copiar(origen: string, destino: string): Promise<void>;
 }

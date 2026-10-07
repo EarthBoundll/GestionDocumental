@@ -91,7 +91,8 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     ruta: string, cuerpo?: object) {
     const token = quien === 'administrador de A' ? a.adminToken : a.usuarioToken;
     let peticion = request(app)[metodo.toLowerCase() as 'get'](ruta).set('Authorization', `Bearer ${token}`);
-    if (cuerpo) peticion = peticion.send(cuerpo);
+    if (cuerpo === CON_ARCHIVO) peticion = peticion.attach('archivo', PDF, 'intruso.pdf');
+    else if (cuerpo) peticion = peticion.send(cuerpo);
     const respuesta = await peticion;
     return respuesta;
   }
@@ -102,11 +103,17 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
 
   // Un recurso de otra empresa no existe para quien pregunta: 404, igual que un id inventado. Un 403
   // revelaría que existe. Para el usuario, las rutas de administración responden 403 antes de mirar nada.
+  /** Un ataque que sube un archivo de verdad: sin él, la API respondería 400 antes de buscar el documento. */
+  const CON_ARCHIVO = { archivo: true };
   const ataquesDirectos = (): [string, 'GET' | 'POST' | 'PATCH' | 'DELETE', string, object | undefined][] => [
     ['ver la ficha de un documento', 'GET', `/api/v1/documentos/${b.documentoId}`, undefined],
     ['ver el archivo de un documento', 'GET', `/api/v1/documentos/${b.documentoId}/archivo`, undefined],
     ['descargar el archivo de un documento', 'GET', `/api/v1/documentos/${b.documentoId}/archivo?modo=descargar`, undefined],
     ['ver la actividad de un documento', 'GET', `/api/v1/documentos/${b.documentoId}/actividad`, undefined],
+    ['ver las versiones de un documento', 'GET', `/api/v1/documentos/${b.documentoId}/versiones`, undefined],
+    ['descargar una versión anterior de un documento', 'GET', `/api/v1/documentos/${b.documentoId}/archivo?modo=descargar&version=1`, undefined],
+    ['subir una versión nueva de un documento', 'POST', `/api/v1/documentos/${b.documentoId}/versiones`, CON_ARCHIVO],
+    ['restaurar una versión de un documento', 'POST', `/api/v1/documentos/${b.documentoId}/versiones/1/restauracion`, undefined],
     ['editar un documento', 'PATCH', `/api/v1/documentos/${b.documentoId}`, { nombre: 'Lo cambió A' }],
     ['eliminar un documento', 'DELETE', `/api/v1/documentos/${b.documentoId}`, undefined],
     ['pedir la aprobación de un documento', 'POST', `/api/v1/documentos/${b.documentoId}/solicitudes`, {}],
@@ -164,6 +171,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     const { rows: [medicion] } = await pool.query('SELECT duracion_cliente_ms FROM tiempos_respuesta WHERE id = $1', [b.medicionId]);
     const { rows: solicitudesDeB } = await pool.query('SELECT 1 FROM solicitudes WHERE documento_id = $1', [b.documentoId]);
     const { rows: [identidad] } = await pool.query('SELECT nombre_comercial, color_primario, logo_ruta FROM empresas WHERE id = $1', [b.empresaId]);
+    const { rows: versionesDeB } = await pool.query('SELECT numero FROM documento_versiones WHERE documento_id = $1', [b.documentoId]);
 
     expect(documento).toEqual({ nombre: b.documentoNombre, eliminado_en: null });
     expect(categoria).toEqual({ nombre: 'Confidencial de B' });
@@ -174,6 +182,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     expect(medicion).toEqual({ duracion_cliente_ms: null });
     expect(solicitudesDeB).toHaveLength(1);
     expect(identidad).toEqual({ nombre_comercial: null, color_primario: null, logo_ruta: null });
+    expect(versionesDeB).toEqual([{ numero: 1 }]);
     expect(await iniciarSesion(app, (await pool.query('SELECT email FROM usuarios WHERE id = $1', [b.adminId])).rows[0].email))
       .toMatch(/^ey/);
   });

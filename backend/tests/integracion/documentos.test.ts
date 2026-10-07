@@ -127,6 +127,7 @@ describe('Documentos (RF07–RF12)', () => {
         subir: async (ruta, contenido, tipo) => { rutasSubidas.push(ruta); await disco.subir(ruta, contenido); void tipo; },
         firmarEnlace: (ruta, opciones) => disco.firmarEnlace(ruta, opciones),
         eliminar: vi.fn((ruta: string) => disco.eliminar(ruta)),
+        copiar: (origen, destino) => disco.copiar(origen, destino),
       };
       app = crearAppDePruebas(pool, {}, espia);
       await pool.query(`
@@ -273,9 +274,9 @@ describe('Documentos (RF07–RF12)', () => {
     it('la ficha dice a cada uno qué puede hacer con el documento (D8)', async () => {
       const { usuario, admin, otro, documento } = await conUnDocumento();
 
-      expect((await ficha(usuario, documento.id)).body.permisos).toEqual({ editar: true, eliminar: true, solicitarAprobacion: true, resolverSolicitud: false });
-      expect((await ficha(admin, documento.id)).body.permisos).toEqual({ editar: true, eliminar: true, solicitarAprobacion: false, resolverSolicitud: false });
-      expect((await ficha(otro, documento.id)).body.permisos).toEqual({ editar: false, eliminar: false, solicitarAprobacion: false, resolverSolicitud: false });
+      expect((await ficha(usuario, documento.id)).body.permisos).toEqual({ editar: true, eliminar: true, solicitarAprobacion: true, resolverSolicitud: false, versionar: true });
+      expect((await ficha(admin, documento.id)).body.permisos).toEqual({ editar: true, eliminar: true, solicitarAprobacion: false, resolverSolicitud: false, versionar: true });
+      expect((await ficha(otro, documento.id)).body.permisos).toEqual({ editar: false, eliminar: false, solicitarAprobacion: false, resolverSolicitud: false, versionar: false });
     });
 
     it('el propietario edita y queda registrado solo lo que cambió, antes y después', async () => {

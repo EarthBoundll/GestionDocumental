@@ -36,12 +36,13 @@ export function crearCategoria(db: Consultor, empresaId: string, nombre = `Categ
   return insertar(db, 'INSERT INTO categorias (empresa_id, nombre) VALUES ($1, $2) RETURNING id', [empresaId, nombre]);
 }
 
-export function crearDocumento(
+/** Un documento con su versión 1, como lo deja la API al subirlo (D30). */
+export async function crearDocumento(
   db: Consultor,
   datos: { empresaId: string; categoriaId: string; subidoPor: string; nombre?: string; pesoBytes?: number },
 ): Promise<string> {
   const n = siguiente();
-  return insertar(
+  const id = await insertar(
     db,
     `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento,
        archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
@@ -49,6 +50,14 @@ export function crearDocumento(
     [datos.empresaId, datos.categoriaId, datos.subidoPor, datos.nombre ?? `Documento ${n}`,
       `${datos.empresaId}/${n}.pdf`, datos.pesoBytes ?? 1024],
   );
+  await db.query(
+    `INSERT INTO documento_versiones (empresa_id, documento_id, numero, archivo_nombre_original, archivo_ruta,
+       archivo_tipo_mime, archivo_peso_bytes, subida_por)
+     SELECT empresa_id, id, 1, archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes, subido_por
+     FROM documentos WHERE id = $1`,
+    [id],
+  );
+  return id;
 }
 
 export function crearSolicitud(

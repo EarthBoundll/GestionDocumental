@@ -1,7 +1,7 @@
 import { api, descargar } from './cliente';
 import type {
   ActividadDeDocumento, Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, Marca,
-  MetricasDePlataforma, Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Tema, Usuario,
+  MetricasDePlataforma, Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Tema, Usuario, Version,
 } from './tipos';
 
 // Una función por endpoint de docs/04-api.md, agrupadas por recurso.
@@ -36,7 +36,13 @@ export const documentos = {
   eliminar: (id: string) => api<void>(`/documentos/${id}`, { metodo: 'DELETE' }),
   actividad: (id: string, porPagina: number, senal?: AbortSignal) =>
     api<Pagina<ActividadDeDocumento>>(`/documentos/${id}/actividad`, { consulta: { porPagina }, senal }),
-  enlace: (id: string, modo: 'ver' | 'descargar') => api<{ url: string; expiraEn: string }>(`/documentos/${id}/archivo`, { consulta: { modo } }),
+  /** Sin `version`, la vigente; con ella, una anterior (RF34). Las dos quedan registradas igual. */
+  enlace: (id: string, modo: 'ver' | 'descargar', version?: number) =>
+    api<{ url: string; expiraEn: string }>(`/documentos/${id}/archivo`, { consulta: { modo, version } }),
+  versiones: (id: string, senal?: AbortSignal) => api<{ datos: Version[] }>(`/documentos/${id}/versiones`, { senal }),
+  subirVersion: (id: string, formulario: FormData) => api<Documento>(`/documentos/${id}/versiones`, { metodo: 'POST', formulario }),
+  restaurarVersion: (id: string, numero: number) =>
+    api<Documento>(`/documentos/${id}/versiones/${numero}/restauracion`, { metodo: 'POST' }),
   solicitarAprobacion: (id: string, comentario: string) =>
     api<Solicitud>(`/documentos/${id}/solicitudes`, { metodo: 'POST', cuerpo: { comentario } }),
   papelera: (filtros: { pagina?: number }, senal?: AbortSignal) =>

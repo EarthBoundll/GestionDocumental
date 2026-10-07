@@ -23,5 +23,9 @@ export function crearRutasDocumentos(
   rutas.delete('/:id', controlador.eliminar);
   rutas.get('/:id/archivo', controlador.archivo);
   rutas.get('/:id/actividad', controlador.actividad);
+  // RF34: quién puede subir o restaurar depende del documento (su autor o un administrador): lo decide el servicio.
+  rutas.get('/:id/versiones', controlador.versiones);
+  rutas.post('/:id/versiones', recibirArchivo, controlador.subirVersion);
+  rutas.post('/:id/versiones/:numero/restauracion', controlador.restaurarVersion);
   return rutas;
 }

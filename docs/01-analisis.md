@@ -37,7 +37,8 @@ administrador de cada empresa evaluada, y con consultas de solo lectura a la bas
 La columna «Fase» indica cuándo se construyó en la API; las pantallas llegan en la Fase 6. «v2» marca lo que
 añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md)); «A» lo que se añadió tras la
 auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervisión, D22–D26); «B», lo que se añadió tras
-la segunda auditoría: hacer visible la trazabilidad (D27) y adaptar la interfaz a cada empresa y a cada persona (D28).
+la segunda auditoría: hacer visible la trazabilidad (D27), adaptar la interfaz a cada empresa y a cada persona (D28),
+ver el archivo en la ficha (D29) y guardar sus versiones (D30).
 
 | ID | Requisito | Quién | Fase |
 |---|---|---|---|
@@ -74,6 +75,7 @@ la segunda auditoría: hacer visible la trazabilidad (D27) y adaptar la interfaz
 | RF31 | Dar a la empresa una identidad visual (nombre comercial, color principal y logo) que ven todas sus personas | Administrador, Master | B |
 | RF32 | Elegir el tema de la interfaz (el del dispositivo, claro u oscuro) y que se guarde en la cuenta | Todos | B |
 | RF33 | Ver una vista previa del PDF o la imagen dentro de la ficha del documento, sin abrir otra pestaña | Administrador, Usuario | B |
+| RF34 | Subir una versión nueva de un documento sin perder las anteriores, verlas y descargarlas, y restaurar una anterior como versión nueva | Administrador, Usuario (de los suyos) | B |
 
 ## 4. Requisitos no funcionales
 
@@ -198,6 +200,13 @@ la segunda auditoría: hacer visible la trazabilidad (D27) y adaptar la interfaz
   acepta si el texto blanco encima se lee (contraste de 4,5:1, WCAG 2.1 AA). El logo es PNG o JPG de hasta
   256 KB, se guarda en el almacenamiento privado, en la carpeta de la empresa, y se entrega con un enlace
   firmado que dura lo que la sesión. La razón social no cambia con ella: es un dato legal que cambia el Master.
+- **RN33** Un documento guarda todas sus versiones; ninguna se borra ni se modifica. La vigente es la
+  que se ve, se busca y se descarga; las anteriores se ven y descargan desde la ficha, y verlas o
+  descargarlas se registra igual. Sube o restaura versiones quien puede editarlo (RN10), nunca con una
+  solicitud de aprobación pendiente. Restaurar copia una versión anterior como la siguiente (v4 = copia
+  de la v2): la historia no retrocede. La aprobación es de una versión: con una nueva, la ficha dice en
+  cuál se aprobó y que la vigente no se ha revisado. Purgar un documento borra el archivo de todas sus
+  versiones, y el espacio ocupado las cuenta todas.
 - **RN32** Cada persona elige su tema: el del dispositivo (por defecto), claro u oscuro. Se guarda en su
   cuenta, así que la sigue a cualquier dispositivo, y no se registra en el historial: es una preferencia
   de presentación, no una acción sobre los datos.
@@ -211,6 +220,7 @@ El visitante solo puede iniciar sesión y pedir la recuperación de su contrase�
 | Listar, buscar, ver y descargar documentos de su empresa | ✔ | ✔ | ✘ |
 | Subir documentos | ✔ | ✔ | ✘ |
 | Editar o eliminar un documento | solo los suyos | todos los de su empresa | ✘ |
+| Subir o restaurar versiones de un documento | solo de los suyos | de todos los de su empresa | ✘ |
 | Ver los documentos de una categoría restringida | si está autorizado | ✔ | ✘ |
 | Restringir una categoría y elegir quién la ve | ✘ | ✔ | ✘ |
 | Ver la papelera, restaurar y eliminar para siempre | ✘ | ✔ | ✘ |
@@ -267,15 +277,17 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `DOCUMENTO_ELIMINADO` | se elimina (pasa a la papelera) | documento | nombre |
 | `DOCUMENTO_RESTAURADO` | un administrador lo saca de la papelera | documento | nombre |
 | `DOCUMENTO_PURGADO` | un administrador lo elimina para siempre, o el sistema al vencer los 30 días (sin autor) | documento | nombre; si lo hizo el sistema, motivo y plazo |
-| `DOCUMENTO_VISUALIZADO` · `DOCUMENTO_DESCARGADO` | la API entrega un enlace para verlo (también para la vista previa, RF33) o descargarlo | documento | nombre que tenía en ese momento |
+| `DOCUMENTO_VISUALIZADO` · `DOCUMENTO_DESCARGADO` | la API entrega un enlace para verlo (también para la vista previa, RF33) o descargarlo | documento | nombre que tenía en ese momento y número de versión |
 | `BUSQUEDA_REALIZADA` | se listan documentos con al menos un filtro | — | filtros y número de resultados |
 | `SOLICITUD_CREADA` | se pide aprobar un documento | solicitud | documento y comentario |
 | `SOLICITUD_APROBADA` · `SOLICITUD_RECHAZADA` | un administrador la resuelve | solicitud | comentario |
 | `ACCESO_DENEGADO` | la API responde 403 a alguien con sesión | la del recurso, si la hay | lo que se exigía (un permiso de la §6, o ser el propietario, o no ser el solicitante) y la ruta u operación |
 | `HISTORIAL_EXPORTADO` | un administrador exporta el historial | — | filtros y filas exportadas |
 | `RESPALDO_GENERADO` | se guarda un respaldo de la base: cada noche (sin autor) o a petición del Master | — | archivo, tamaño y filas por tabla |
+| `VERSION_SUBIDA` | se sube una versión nueva de un documento | documento | número, archivo y comentario |
+| `VERSION_RESTAURADA` | se restaura una versión anterior como versión nueva | documento | número nuevo y de cuál viene |
 
-Son 30 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
+Son 32 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
 motivo `CUENTA_BLOQUEADA`. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
 buscar; su tiempo de respuesta sí se mide), ver la ficha de un documento (no entrega el archivo),
 leer notificaciones (no cambia nada), consultar la actividad de un documento (es parte de su ficha), cambiar el tema

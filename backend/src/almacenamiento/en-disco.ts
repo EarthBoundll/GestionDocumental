@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { constants, copyFile, mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { Router } from 'express';
 import { ErrorAplicacion } from '../compartido/errores.js';
@@ -42,6 +42,13 @@ export class AlmacenamientoEnDisco implements Almacenamiento {
 
   async eliminar(ruta: string): Promise<void> {
     await rm(this.#ubicar(ruta), { force: true });
+  }
+
+  async copiar(origen: string, destino: string): Promise<void> {
+    const ubicado = this.#ubicar(destino);
+    await mkdir(dirname(ubicado), { recursive: true });
+    // Como al subir: nunca pisa un archivo que ya existe.
+    await copyFile(this.#ubicar(origen), ubicado, constants.COPYFILE_EXCL);
   }
 
   /** La ruta que sirve los archivos a quien trae un enlace firmado y vigente. */
