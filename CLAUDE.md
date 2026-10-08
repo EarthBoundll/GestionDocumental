@@ -310,6 +310,15 @@ tarda 14 ms con la misma decisión (D31). Se descartaron filtrar en el código s
 imprimible es una página que el navegador guarda como PDF, siempre en claro; ambos se registran y salen enteros o no
 salen, y el CSV neutraliza fórmulas (D32). Se descartaron un PDF generado en el servidor y un .xlsx.
 
+**El cierre del estudio lo hace el dueño de la base, no la aplicación.** `npm run cierre-del-estudio` hace un simulacro
+y, con la empresa desactivada y su nombre exacto, borra su carpeta, sus filas y sus respaldos anteriores, con el trigger
+del historial apagado solo en esa transacción, y deja una constancia sin datos personales (D33). Se descartaron un botón
+del Master (borraría sin rastro) y anonimizar en vez de borrar (el consentimiento promete eliminar).
+
+**Documentos de prueba ficticios y reproducibles.** El piloto, la capacitación y la demostración usan 40 PDF inventados
+que genera `npm run documentos-de-prueba` sin dependencias y que se cargan por la API (D34). Se descartaron documentos
+reales fuera de la evaluación y cargarlos directo en la base, que se saltaría validaciones e historial.
+
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.
 

@@ -237,8 +237,24 @@ la preprueba y la posprueba.
   excluyen del análisis. El historial ya registrado no se puede modificar desde el sistema, porque eso
   es justo lo que garantiza la trazabilidad (RN17).
 - **Cierre del estudio:** **[Por definir con el asesor]** la fecha. Ese día el investigador elimina de la
-  base los datos de la empresa evaluada. Como el historial es inmutable para la aplicación, hace falta un
-  procedimiento manual del dueño de la base, que se escribirá y probará antes de la preprueba.
+  plataforma los datos de la empresa evaluada, también de los respaldos (D33). El historial es inalterable
+  para la aplicación, así que lo hace un procedimiento del dueño de la base, ya escrito y probado
+  (`backend/tests/integracion/cierre.test.ts`):
+  1. Exportar antes lo que el análisis necesita (§5, *Cierre*): el CSV del historial, las hojas firmadas y
+     el resultado de las consultas de [08 · Indicadores](08-indicadores.md), guardados fuera de Supabase.
+  2. Desde la plataforma, el Master **desactiva** la empresa: nadie más entra.
+  3. Con el `.env` de producción (la conexión de `gestion_api`), el **simulacro**
+     `npm run cierre-del-estudio -- <id de la empresa>` cuenta lo que se borraría, tabla por tabla, sin tocar
+     nada.
+  4. El borrado: `npm run cierre-del-estudio -- <id> --confirmar "<nombre exacto>" --con-respaldos`.
+     Vacía la carpeta de la empresa en el almacenamiento (documentos, versiones y logo), borra sus filas
+     en una transacción (también sus sesiones, recuperaciones y lo que el historial guarda de su gente),
+     guarda un respaldo nuevo ya sin ella y borra los anteriores. Si se corta, se repite.
+  5. Queda una sola constancia, sin datos personales, en el historial de la plataforma: *Datos de una
+     empresa eliminados*, con cuántas filas y archivos se borraron. Se guarda la salida del comando como
+     acta, firmada por el investigador.
+  6. Lo que no está en la plataforma: los correos de recuperación que Brevo conserva en su registro, que
+     caducan solos, y las copias exportadas en el paso 1, que se tratan como dice el consentimiento.
 
 ## 11. Registro de cambios del protocolo
 

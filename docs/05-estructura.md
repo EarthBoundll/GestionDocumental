@@ -23,6 +23,9 @@ backend/
 │   ├── local.ts                  el sistema completo en esta máquina, sin cuentas (D16)
 │   ├── informe-aislamiento.ts    ejecuta la batería A contra B y escribe su informe (indicador 6)
 │   ├── informe-carga.ts          la prueba de carga con 50.000 documentos y su informe (indicador 7, D31)
+│   ├── cierre-del-estudio.ts     simulacro y borrado de los datos de una empresa al cerrar el estudio (D33)
+│   ├── documentos-de-prueba.ts   el juego de 40 documentos ficticios y, si se pide, su carga por la API (D34)
+│   ├── pdf-de-texto.ts           un PDF de texto sin dependencias, para esos documentos
 │   └── comprobar-despliegue.ts   revisa desde fuera un despliegue: salud, CORS, CSP y URL de la API
 ├── src/
 │   ├── server.ts                 arranque: valida el entorno, crea la app y escucha
@@ -35,13 +38,14 @@ backend/
 │   │   ├── transaccion.ts        ejecuta una función entre BEGIN y COMMIT, o ROLLBACK si falla
 │   │   └── migraciones.ts        ejecutor de migraciones con suma de verificación (E6)
 │   ├── almacenamiento/
-│   │   ├── almacenamiento.ts     contrato: subir, copiar, firmarEnlace, eliminar
+│   │   ├── almacenamiento.ts     contrato: subir, copiar, firmarEnlace, eliminar, vaciarCarpeta
 │   │   ├── supabase-storage.ts   implementación con Supabase Storage (producción)
 │   │   ├── en-disco.ts           implementación en una carpeta, con enlaces firmados (desarrollo y pruebas, D16)
 │   │   └── crear.ts              elige una u otra según ALMACENAMIENTO
 │   ├── correo/
 │   │   ├── correo.ts             contrato e implementaciones: Brevo (producción) y archivo (desarrollo, D19)
 │   │   └── crear.ts              elige una u otra según CORREO
+│   ├── cierre/                   el cierre del estudio: qué se borra, en qué orden y la constancia (D33)
 │   ├── respaldos/                respaldo lógico de la base (D25)
 │   │   ├── deposito.ts           dónde se guardan: bucket privado (producción) o carpeta (desarrollo)
 │   │   ├── respaldo.ts           generar, restaurar y retención de 30 días, con la conexión dueña

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -55,6 +56,25 @@ describe('AlmacenamientoSupabase', () => {
 
     await expect(almacenamiento.subir(`${ORG}/${DOC}.pdf`, PDF, 'application/pdf')).rejects.toThrow('Supabase no aceptó el archivo');
   });
+
+  it('vacía la carpeta de una empresa de a cien, hasta que no queda nada (D33)', async () => {
+    const tandas = [Array.from({ length: 100 }, (_, n) => ({ name: `${n}.pdf` })), [{ name: 'logo.png' }], []];
+    const { almacenamiento, peticiones } = conPeticionesInterceptadas((url) => (url.pathname.includes('/object/list/') ? tandas.shift()! : []));
+
+    expect(await almacenamiento.vaciarCarpeta(ORG)).toBe(101);
+    const borrados = peticiones.filter((p) => p.metodo === 'DELETE').map((p) => JSON.parse(String(p.cuerpo)).prefixes as string[]);
+    expect(borrados.map((lista) => lista.length)).toEqual([100, 1]);
+    expect(borrados[1]).toEqual([`${ORG}/logo.png`]);
+    expect(JSON.parse(String(peticiones[0]!.cuerpo))).toMatchObject({ prefix: ORG, limit: 100 });
+  });
+
+  it('solo vacía la carpeta de una empresa: ni la raíz del bucket ni una ruta inventada', async () => {
+    const { almacenamiento, peticiones } = conPeticionesInterceptadas();
+
+    await expect(almacenamiento.vaciarCarpeta('')).rejects.toThrow('no es la carpeta de una empresa');
+    await expect(almacenamiento.vaciarCarpeta(`${ORG}/..`)).rejects.toThrow('no es la carpeta de una empresa');
+    expect(peticiones).toHaveLength(0);
+  });
 });
 
 describe('AlmacenamientoEnDisco', () => {
@@ -83,6 +103,19 @@ describe('AlmacenamientoEnDisco', () => {
     expect(enlace.origin + enlace.pathname).toBe(`http://localhost:4000/api/v1/archivos/${ORG}/${DOC}.pdf`);
     expect(Number(enlace.searchParams.get('expira'))).toBeGreaterThan(Date.now() / 1000 + 290);
     expect(enlace.searchParams.get('firma')).toMatch(/^[\w-]{43}$/);
+  });
+
+  it('vacía la carpeta de una empresa y deja intactas las demás (D33)', async () => {
+    const disco = crear();
+    await disco.subir(`${ORG}/${DOC}.pdf`, PDF);
+    await disco.subir(`${ORG}/${DOC.replace('2222-4', '3333-4')}.png`, PNG);
+    await disco.subir(`${DOC}/${ORG}.pdf`, PDF);
+
+    expect(await disco.vaciarCarpeta(ORG)).toBe(2);
+    expect(await disco.vaciarCarpeta(ORG)).toBe(0);
+    expect(existsSync(join(directorio, DOC, `${ORG}.pdf`))).toBe(true);
+    expect(existsSync(join(directorio, ORG))).toBe(false);
+    await expect(disco.vaciarCarpeta('..')).rejects.toThrow('no es la carpeta de una empresa');
   });
 });
 

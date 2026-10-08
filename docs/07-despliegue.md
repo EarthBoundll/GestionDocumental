@@ -224,7 +224,9 @@ Después, a mano, la prueba de humo (unos diez minutos):
 | Una semana antes de cada hito | Entra a Supabase y comprueba que el proyecto no está pausado | R2 |
 | Dos minutos antes de cada sesión | Abre `/api/v1/salud` | R1: si el monitor falló, la API despierta ahora y no con la primera persona |
 | Al cerrar cada sesión | Exporta el historial a CSV (también desde el *Tablero*, con el periodo de la sesión) y ejecuta las consultas de [08 · Indicadores](08-indicadores.md); guarda ambos fuera de Supabase | R3: el respaldo nocturno protege la base, pero la evidencia conviene tenerla también fuera |
+| Antes del piloto y de la capacitación | Carga los documentos ficticios en la empresa que corresponda: `npm run documentos-de-prueba -- lote --subir`, con `CARGA_API_URL`, `CARGA_EMAIL` y `CARGA_CLAVE` de su administrador en el `.env` | D34: nunca documentos reales fuera de la evaluación |
 | Antes de la sustentación | Comprueba en *Respaldos* (Master) que hay uno de cada noche | D25 |
+| Al cerrar el estudio | El procedimiento de [09 · Protocolo](09-protocolo-evaluacion.md) §10: desactivar la empresa, simulacro y `npm run cierre-del-estudio -- <id> --confirmar "<nombre>" --con-respaldos` | D33: lo promete el consentimiento |
 
 ## 10. Integración continua
 

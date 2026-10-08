@@ -38,7 +38,7 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 
 | Dónde | Comando | Qué prueba |
 |---|---|---|
-| `backend/` | `npm test` | 340 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan, y que decida una vez por consulta), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad y las versiones de cada documento, el listado documental y el historial para imprimir, la identidad de cada empresa (con su contraste y su logo), el tema de cada persona y la ida y vuelta de un respaldo |
+| `backend/` | `npm test` | 355 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan, y que decida una vez por consulta), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad y las versiones de cada documento, el listado documental y el historial para imprimir, el cierre del estudio, los documentos de prueba, la identidad de cada empresa (con su contraste y su logo), el tema de cada persona y la ida y vuelta de un respaldo |
 | `backend/` | `npm run informe:aislamiento` | La batería A contra B, con su informe en [`docs/evidencias/`](docs/evidencias/aislamiento-entre-empresas.md) (indicador 6) |
 | `backend/` | `npm run informe:carga` | El listado, la búsqueda y las exportaciones con 50.000 documentos, con su informe en [`docs/evidencias/`](docs/evidencias/prueba-de-carga.md) (indicador 7). Tarda unos dos minutos |
 | `frontend/` | `npm test` | 74 pruebas de pantallas, sesión, roles, tema, identidad, vista previa, versiones, exportaciones y cliente HTTP |
@@ -53,3 +53,8 @@ request ([`.github/workflows/pruebas.yml`](.github/workflows/pruebas.yml)).
 [`docs/07-despliegue.md`](docs/07-despliegue.md): Supabase, Brevo, Render y Vercel paso a paso, todo en
 capa gratuita y sin tarjeta, y `npm run comprobar-despliegue` para verificar que quedó bien configurado.
 Restaurar la base desde un respaldo: `npm run respaldo -- restaurar <nombre>` (§7.1 de esa guía).
+
+Para la evaluación, desde `backend/`: `npm run documentos-de-prueba -- <carpeta> [--subir]` genera los 40
+documentos ficticios del piloto y la capacitación (D34), y `npm run cierre-del-estudio -- <id de empresa>`
+hace el simulacro y, con `--confirmar`, el borrado de los datos al cerrar el estudio (D33,
+[09 · Protocolo](docs/09-protocolo-evaluacion.md) §10).

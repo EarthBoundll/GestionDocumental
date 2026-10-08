@@ -62,8 +62,8 @@ describe('roles', () => {
 });
 
 describe('historial', () => {
-  it('nombra las 33 acciones auditables de docs/01-analisis.md §7', () => {
-    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(33);
+  it('nombra las 34 acciones auditables de docs/01-analisis.md §7', () => {
+    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(34);
   });
 
   it('cuenta las versiones (RF34): cuál se subió, con qué archivo, y de cuál viene una restaurada', () => {
@@ -81,6 +81,8 @@ describe('historial', () => {
     expect(resumirDetalle({ cambios: { categoriaId: {}, fechaDocumento: {}, clave: {} } })).toEqual(['cambió categoría, fecha, contraseña']);
     expect(resumirDetalle({ filtros: {}, filas: 12 })).toEqual(['12 filas exportadas']);
     expect(resumirDetalle({ filtros: {}, filas: 45, formato: 'impresion' })).toEqual(['45 filas para imprimir']);
+    expect(resumirDetalle({ motivo: 'cierre del estudio', filasBorradas: { usuarios: 3, historial: 120, empresas: 1 }, archivosBorrados: 40 }))
+      .toEqual(['cierre del estudio', '124 filas borradas', '40 archivos borrados']);
   });
 
   it('un acceso denegado dice qué se exigía y dónde, sin el prefijo técnico de la API', () => {
