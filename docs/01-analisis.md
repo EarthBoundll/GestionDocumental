@@ -148,7 +148,8 @@ documental, el historial imprimible y la prueba de carga (D31, D32).
   registro falla, la acción no se ejecuta. En particular, no se entrega un enlace de descarga sin
   haber registrado antes la descarga.
 - **RN17** El historial solo admite inserciones: nadie, tampoco un administrador, puede editarlo ni
-  borrarlo.
+  borrarlo. La única excepción es el cierre del estudio (D33), un procedimiento del dueño de la base, no de
+  la aplicación, que borra todo lo de una empresa y deja constancia.
 - **RN18** Los enlaces para ver o descargar un archivo caducan a los 5 minutos y solo los genera la
   API, después de autorizar y registrar.
 - **RN19** Las contraseñas tienen al menos 8 caracteres y como máximo 72 bytes (el límite de bcrypt:
@@ -292,11 +293,12 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `ACCESO_DENEGADO` | la API responde 403 a alguien con sesión | la del recurso, si la hay | lo que se exigía (un permiso de la §6, o ser el propietario, o no ser el solicitante) y la ruta u operación |
 | `HISTORIAL_EXPORTADO` | un administrador exporta el historial en CSV o lo abre para imprimir (RF36) | — | filtros, filas y, si es para imprimir, `formato: impresion` |
 | `LISTADO_EXPORTADO` | un administrador exporta el listado documental (RF35) | — | filtros y filas exportadas |
+| `EMPRESA_ELIMINADA` | el cierre del estudio borra los datos de una empresa (D33): sin autor ni empresa | empresa | motivo, filas y archivos borrados, sin datos personales |
 | `RESPALDO_GENERADO` | se guarda un respaldo de la base: cada noche (sin autor) o a petición del Master | — | archivo, tamaño y filas por tabla |
 | `VERSION_SUBIDA` | se sube una versión nueva de un documento | documento | número, archivo y comentario |
 | `VERSION_RESTAURADA` | se restaura una versión anterior como versión nueva | documento | número nuevo y de cuál viene |
 
-Son 33 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
+Son 34 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
 motivo `CUENTA_BLOQUEADA`. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
 buscar; su tiempo de respuesta sí se mide), ver la ficha de un documento (no entrega el archivo),
 leer notificaciones (no cambia nada), consultar la actividad de un documento (es parte de su ficha), cambiar el tema
@@ -311,7 +313,7 @@ recurso de otra empresa (para quien pregunta, ese recurso no existe).
 | 1 | Tiempo de organización y categorización | `DOCUMENTO_SUBIDO` y `DOCUMENTO_EDITADO`, con su instante | Tiempo entre la primera y la última acción de la tarea, por usuario | Cuándo empezó la tarea: la persona lee la consigna antes de tocar nada. El cronómetro sigue siendo la fuente principal; el sistema lo corrobora |
 | 2 | Tiempo de búsqueda | Cada consulta del listado, con o sin filtros (usuario e instante en `tiempos_respuesta`; los filtros, en `BUSQUEDA_REALIZADA`), y la obtención del documento (`DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO`) | Tiempo entre la primera consulta del listado y la obtención del documento pedido. Cuenta también a quien lo encuentra recorriendo el listado sin filtrar | Lo mismo que en el 1 |
 | 3 | Tasa de recuperación | `DOCUMENTO_VISUALIZADO` y `DOCUMENTO_DESCARGADO` | Documentos pedidos que se obtuvieron ÷ documentos pedidos | Qué documentos se pidieron: lo fija el protocolo de prueba |
-| 4 | Acciones registradas en el historial | Las 33 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
+| 4 | Acciones registradas en el historial | Las 34 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
 | 5 | Accesibilidad remota | `SESION_INICIADA` y `SESION_FALLIDA`, con `es_movil` | Inicios de sesión exitosos desde móvil ÷ intentos desde móvil | Los intentos que nunca llegan al servidor (sin cobertura, servicio caído): los anota el evaluador |
 | 6 | Accesos correctos según rol | `ACCESO_DENEGADO` y las acciones permitidas, cada una con el rol de quien actuó; el informe de aislamiento entre empresas (`npm run informe:aislamiento`) | Decisiones que coinciden con la matriz de §6 ÷ casos evaluados | Qué debía ocurrir en cada caso: lo dice la matriz, no el sistema |
 | 7 | Tiempo de respuesta | Tabla `tiempos_respuesta`: duración en el servidor y la percibida en el navegador; la prueba de carga con 50.000 documentos (`npm run informe:carga`) | Mediana y percentil 95 del listado de documentos | — |

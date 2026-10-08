@@ -63,7 +63,8 @@ uso normal del sistema.
 
 ### Hasta cuándo
 
-Hasta el [fecha de cierre del estudio], cuando el investigador elimina los datos de la evaluación.
+Hasta el [fecha de cierre del estudio], cuando el investigador elimina los datos de la evaluación del
+sistema y de sus copias de respaldo.
 Mientras tanto, el registro de acciones del sistema no se puede modificar: eso es lo que garantiza la
 trazabilidad que el estudio mide.
 

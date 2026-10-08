@@ -35,6 +35,7 @@ export const NOMBRES_DE_ACCIONES: Record<string, string> = {
   VERSION_SUBIDA: 'Versión nueva subida',
   VERSION_RESTAURADA: 'Versión anterior restaurada',
   LISTADO_EXPORTADO: 'Listado documental exportado',
+  EMPRESA_ELIMINADA: 'Datos de una empresa eliminados',
 };
 
 /** Los campos que aparecen en «cambios», como los entiende quien lee el historial. */
@@ -104,6 +105,12 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
     partes.push(`exigía ${legible(detalle.permiso)}${ruta}`);
   }
   if (typeof detalle.motivo === 'string') partes.push(legible(detalle.motivo));
+  // El cierre del estudio (D33): cuánto se borró, sin nombrar a la empresa ni a su gente.
+  if (detalle.filasBorradas && typeof detalle.filasBorradas === 'object') {
+    const total = Object.values(detalle.filasBorradas as Record<string, number>).reduce((suma, n) => suma + n, 0);
+    partes.push(contar(total, 'fila borrada', 'filas borradas'));
+  }
+  if (typeof detalle.archivosBorrados === 'number') partes.push(contar(detalle.archivosBorrados, 'archivo borrado', 'archivos borrados'));
   if (detalle.enviada === true) partes.push('enlace enviado');
   if (typeof detalle.sesionesCerradas === 'number' && detalle.sesionesCerradas > 0) {
     partes.push(contar(detalle.sesionesCerradas, 'sesión cerrada', 'sesiones cerradas'));

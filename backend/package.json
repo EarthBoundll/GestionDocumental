@@ -18,7 +18,9 @@
     "typecheck": "tsc",
     "informe:aislamiento": "tsx scripts/informe-aislamiento.ts",
     "informe:carga": "tsx scripts/informe-carga.ts",
-    "respaldo": "tsx --env-file-if-exists=.env scripts/respaldo.ts"
+    "respaldo": "tsx --env-file-if-exists=.env scripts/respaldo.ts",
+    "cierre-del-estudio": "tsx --env-file-if-exists=.env scripts/cierre-del-estudio.ts",
+    "documentos-de-prueba": "tsx --env-file-if-exists=.env scripts/documentos-de-prueba.ts"
   },
   "dependencies": {
     "@supabase/storage-js": "^2.117.2",

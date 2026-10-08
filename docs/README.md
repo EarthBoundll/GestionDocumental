@@ -19,6 +19,7 @@ Sistema web de gestión documental para micro y pequeñas empresas de Lima — t
 | B · Vista previa del archivo | Terminada el 7 de octubre de 2026: el PDF o la imagen dentro de la ficha, con el enlace de «Ver» y el visor del navegador, registrada como vista (RF33, D29). 65 pruebas del frontend y 47 de 47 ejecuciones funcionales |
 | B · Versionado simplificado | Terminada el 7 de octubre de 2026: subir una versión nueva sin perder las anteriores, verlas y descargarlas, y restaurar una como la siguiente; la aprobación es de una versión y la purga borra todas (RF34, D30, migración 009). 327 pruebas del backend, 70 del frontend, 49 de 49 ejecuciones funcionales y 58 de 58 intentos de aislamiento |
 | B · Evidencia para el capítulo 3 | Terminada el 7 de octubre de 2026: listado documental en CSV (RF35), historial para imprimir o guardar como PDF con espacio para firmas (RF36) y prueba de carga con 50.000 documentos, que encontró la política por fila y la corrigió (D31, D32, migración 010). La prueba de backend ya no da verde con pruebas en rojo. 340 pruebas del backend, 74 del frontend, 51 de 51 ejecuciones funcionales y 60 de 60 intentos de aislamiento |
+| B · Preparación de la evaluación y la sustentación | Terminada el 8 de octubre de 2026: el cierre del estudio escrito y probado —simulacro, borrado de filas, archivos y respaldos de una empresa, y una constancia sin datos personales (D33, migración 011)—, 40 documentos ficticios reproducibles que se cargan por la API (D34) y el guion de la sustentación. 355 pruebas del backend |
 
 Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CLAUDE.md` v2, que es la vigente.
 
@@ -34,6 +35,7 @@ Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CL
 | [08 · Indicadores](08-indicadores.md) | Las consultas que sacan del sistema cada uno de los siete indicadores al cerrar una sesión de evaluación |
 | [09 · Protocolo de evaluación](09-protocolo-evaluacion.md) | Borrador para el asesor: diseño, participantes, materiales, sesiones, la tarea de cada indicador con su inicio y su fin, sesgos, ficha de observación y análisis |
 | [10 · Consentimiento informado](10-consentimiento-informado.md) | La hoja que firma cada participante, con la transferencia de datos a EE. UU., y la autorización de la empresa |
+| [11 · Guion de la sustentación](11-guion-sustentacion.md) | Borrador: diez minutos minuto a minuto con la demostración en vivo, las preguntas probables del jurado y qué hacer si algo falla |
 | [Evidencias: aislamiento](evidencias/aislamiento-entre-empresas.md) | Informe de aislamiento entre empresas, generado por `npm run informe:aislamiento` (indicador 6) |
 | [Evidencias: pruebas funcionales](evidencias/pruebas-funcionales.md) | Cada requisito funcional probado en un navegador real, en escritorio y celular, generado por `npm run pruebas:funcionales` |
 | [Evidencias: prueba de carga](evidencias/prueba-de-carga.md) | El listado y la búsqueda con 50.000 documentos, antes y después de la migración 010, generado por `npm run informe:carga` (indicador 7) |

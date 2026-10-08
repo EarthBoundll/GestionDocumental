@@ -117,6 +117,7 @@ export function autorDe(asiento: Asiento): string {
   if (asiento.rolUsuario === 'master') return 'Administración de la plataforma';
   if (asiento.usuario) return asiento.usuario.nombre;
   if (asiento.detalle.email) return String(asiento.detalle.email);
+  if (asiento.accion === 'EMPRESA_ELIMINADA') return 'Cierre del estudio';
   return asiento.accion === 'DOCUMENTO_PURGADO' || asiento.accion === 'RESPALDO_GENERADO' ? 'El sistema' : 'Correo desconocido';
 }
 

@@ -1,5 +1,5 @@
 import { StorageClient } from '@supabase/storage-js';
-import type { Almacenamiento } from './almacenamiento.js';
+import { exigirCarpetaDeEmpresa, type Almacenamiento } from './almacenamiento.js';
 
 /** Supabase Storage, bucket privado (D9). Solo el backend conoce la clave secreta. */
 export class AlmacenamientoSupabase implements Almacenamiento {
@@ -33,5 +33,19 @@ export class AlmacenamientoSupabase implements Almacenamiento {
   async copiar(origen: string, destino: string): Promise<void> {
     const { error } = await this.#bucket.copy(origen, destino);
     if (error) throw new Error(`Supabase no copió ${origen} en ${destino}`, { cause: error });
+  }
+
+  async vaciarCarpeta(empresaId: string): Promise<number> {
+    exigirCarpetaDeEmpresa(empresaId);
+    let borrados = 0;
+    // Storage lista de a 100: se borra lo listado y se vuelve a pedir hasta que no quede nada.
+    for (;;) {
+      const { data, error } = await this.#bucket.list(empresaId, { limit: 100 });
+      if (error) throw new Error(`Supabase no listó la carpeta ${empresaId}`, { cause: error });
+      if (data.length === 0) return borrados;
+      const { error: alBorrar } = await this.#bucket.remove(data.map((archivo) => `${empresaId}/${archivo.name}`));
+      if (alBorrar) throw new Error(`Supabase no vació la carpeta ${empresaId}`, { cause: alBorrar });
+      borrados += data.length;
+    }
   }
 }

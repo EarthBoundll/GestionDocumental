@@ -1,10 +1,10 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { constants, copyFile, mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { constants, copyFile, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { Router } from 'express';
 import { ErrorAplicacion } from '../compartido/errores.js';
-import type { Almacenamiento } from './almacenamiento.js';
+import { exigirCarpetaDeEmpresa, type Almacenamiento } from './almacenamiento.js';
 
 const RUTA_VALIDA = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/;
 
@@ -49,6 +49,14 @@ export class AlmacenamientoEnDisco implements Almacenamiento {
     await mkdir(dirname(ubicado), { recursive: true });
     // Como al subir: nunca pisa un archivo que ya existe.
     await copyFile(this.#ubicar(origen), ubicado, constants.COPYFILE_EXCL);
+  }
+
+  async vaciarCarpeta(empresaId: string): Promise<number> {
+    exigirCarpetaDeEmpresa(empresaId);
+    const carpeta = join(this.#directorio, empresaId);
+    const archivos = await readdir(carpeta).catch(() => []);
+    await rm(carpeta, { recursive: true, force: true });
+    return archivos.length;
   }
 
   /** La ruta que sirve los archivos a quien trae un enlace firmado y vigente. */

@@ -534,6 +534,28 @@ se ejecuta al abrir el listado en Excel (inyección CSV; también protege la exp
 *Descartado:* generar el PDF en el servidor (una librería de PDF no cabe cómoda en los 512 MB de Render), un
 .xlsx (una librería de 1 MB que duplica el CSV) y exportar usuarios (datos personales sin propósito, Ley 29733).
 
+**D33 · El cierre del estudio, un procedimiento del dueño de la base que deja constancia.** El consentimiento
+promete eliminar los datos de la evaluación al cierre (Ley 29733), pero la aplicación no puede borrar el
+historial (RN17) y tampoco debe poder. `npm run cierre-del-estudio` usa la conexión de `gestion_api`, dueña de
+las tablas: por defecto es un simulacro que cuenta lo que se borraría; con `--confirmar "<nombre exacto>"` y la
+empresa ya desactivada, vacía su carpeta del almacenamiento y borra sus filas en una transacción, con el
+trigger del historial apagado solo dentro de ella. Del historial salen también lo que nombra a su gente sin
+ser de ninguna empresa. Con `--con-respaldos` guarda un respaldo nuevo y borra los anteriores, que aún tenían
+los datos. Queda una constancia sin datos personales (`EMPRESA_ELIMINADA`, migración 011) que ve la auditoría
+del Master. Se probó con una empresa con datos en todas las tablas junto a otra que no pierde nada.
+*Descartado:* un botón en la plataforma (el Master podría borrar una empresa de un clic y sin dejar rastro de su
+contenido, contra D24), anonimizar en lugar de borrar (el historial guarda el detalle de cada acción, y el
+consentimiento promete eliminar) y esperar a que los respaldos caduquen (30 días con los datos ya prometidos
+como borrados).
+
+**D34 · Documentos de prueba ficticios y reproducibles.** El piloto, la capacitación y la demostración usan un
+juego de 40 PDF con datos inventados de un taller textil (facturas, guías, órdenes de compra, contratos,
+constancias…), que cada documento declara ficticios. Los escribe `npm run documentos-de-prueba` sin
+dependencias —un PDF de texto con las fuentes estándar— y siempre iguales, con un manifiesto CSV de nombre,
+categoría y fecha; con `--subir` los carga por la API, como una persona, en la empresa de la cuenta del `.env`.
+*Descartado:* documentos reales de la empresa evaluada fuera de la evaluación (docs/09 §3), una librería de PDF
+para algo que cabe en 50 líneas, y cargarlos directo en la base, que se saltaría las validaciones y el historial.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

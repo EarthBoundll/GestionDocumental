@@ -369,7 +369,7 @@ No dependen de que el código se acuerde de comprobarlas.
 | El rechazo exige motivo (RN14) | Si el estado es `rechazada`, `comentario_resolucion` no puede ser nulo |
 | Coherencia de la solicitud | Pendiente si y solo si no tiene revisor ni fecha de resolución |
 | Peso máximo del archivo (RN09) | `archivo_peso_bytes` entre 1 y 10 485 760 |
-| Historial inalterable (RN17) | Trigger que rechaza UPDATE, DELETE y TRUNCATE |
+| Historial inalterable (RN17) | Trigger que rechaza UPDATE, DELETE y TRUNCATE. Solo el dueño de las tablas puede apagarlo, y el cierre del estudio lo hace dentro de su transacción (D33) |
 | Solo se autoriza a personas de la propia empresa (RN29) | Claves foráneas compuestas de `categoria_accesos` |
 | Una categoría restringida no se ve sin acceso (RN29) | Políticas RLS restrictivas: `puede_ver_categoria()` en `categorias` y `categorias_visibles()` en `documentos` (§3.1) |
 | Solo se purga lo que está en la papelera (RN28) | `purgado_en` exige `eliminado_en` |
