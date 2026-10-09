@@ -505,7 +505,8 @@ restrictiva que exige que el documento sea visible para quien pregunta: la subco
 `documentos`, así que una categoría restringida oculta también sus versiones (D22) sin reglas nuevas. Sin
 UPDATE ni DELETE: una versión no cambia. Restaurar copia el archivo en el almacenamiento (sin pasar por la
 API) y lo guarda como la versión siguiente: la historia no retrocede. El número se decide con el documento
-bloqueado (`FOR UPDATE`), así que dos subidas a la vez no chocan. La solicitud de aprobación guarda la versión
+bloqueado (`FOR UPDATE`), así que dos subidas a la vez no chocan; pedir la aprobación toma el mismo bloqueo, así
+que una versión y una solicitud a la vez tampoco: la solicitud siempre es de la versión vigente al confirmarse. La solicitud de aprobación guarda la versión
 que se revisa, y con una pendiente no se versiona. La purga borra el archivo de cada versión, y el espacio
 del tablero y del Master las suma.
 *Descartado:* sobrescribir el archivo (se pierde lo que se aprobó), restaurar volviendo atrás el número (la

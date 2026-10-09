@@ -84,7 +84,9 @@ export async function insertarSolicitud(
   db: Consultor,
   datos: { empresaId: string; documentoId: string; solicitanteId: string; comentario: string | null },
 ): Promise<string> {
-  // La versión se lee en la misma sentencia: se aprueba la que está vigente al pedirlo (D30).
+  // El documento se bloquea antes, como al subir una versión (bloquearParaVersion): si una versión nueva
+  // está a medio guardar, esta solicitud espera y después pide la aprobación de esa versión (D30).
+  await db.query('SELECT 1 FROM documentos WHERE empresa_id = $1 AND id = $2 FOR UPDATE', [datos.empresaId, datos.documentoId]);
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO solicitudes (empresa_id, documento_id, solicitante_id, comentario_solicitud, version)
      SELECT $1, $2, $3, $4, d.version FROM documentos d WHERE d.empresa_id = $1 AND d.id = $2
