@@ -75,6 +75,41 @@ describe('Documentos', () => {
     expect(peticiones.every((p) => !p.consulta.has('empresaId'))).toBe(true);
   });
 
+  it('en una pantalla táctil, buscar cierra el teclado y lleva los resultados a la vista; con ratón, el foco se queda para afinar', async () => {
+    const desplazar = vi.spyOn(Element.prototype, 'scrollIntoView');
+    abrir('/documentos');
+    const buscador = await screen.findByLabelText('Buscar por nombre');
+
+    await userEvent.type(buscador, 'contrato{Enter}');
+    expect(buscador).toHaveFocus();
+    expect(desplazar).not.toHaveBeenCalled();
+
+    vi.stubGlobal('matchMedia', (consulta: string) => ({ matches: consulta === '(pointer: coarse)', media: consulta, addEventListener() {}, removeEventListener() {} }));
+    await userEvent.type(buscador, ' local{Enter}');
+    expect(buscador).not.toHaveFocus();
+    expect(desplazar).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    desplazar.mockRestore();
+  });
+
+  it('orden y fechas van plegados tras «Más filtros», que en el celular los muestra y los vuelve a plegar', async () => {
+    abrir('/documentos');
+
+    const mas = await screen.findByRole('button', { name: 'Más filtros' });
+    expect(mas).toHaveAttribute('aria-expanded', 'false');
+    expect(document.getElementById('filtros-plegables')).toHaveClass('hidden');
+    await userEvent.click(mas);
+
+    expect(screen.getByRole('button', { name: 'Menos filtros' })).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById('filtros-plegables')).toHaveClass('contents');
+  });
+
+  it('si orden o fechas están en uso, empiezan a la vista: nadie busca con un filtro que no ve', async () => {
+    abrir('/documentos?desde=2026-09-01&orden=nombre');
+
+    expect(await screen.findByRole('button', { name: 'Menos filtros' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('Desde')).toHaveValue('2026-09-01');
+  });
+
   it('envía el tiempo que la persona esperó al listado, para el indicador 7', async () => {
     const { peticiones } = abrir('/documentos');
 
@@ -328,6 +363,23 @@ describe('Documentos', () => {
     expect(recibido?.get('fechaDocumento')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect((recibido?.get('archivo') as File).name).toBe('contrato_alquiler-local.pdf');
     expect(screen.getByLabelText('Nombre del documento')).toHaveValue('');
+  });
+
+  it('«Tomar foto» abre la cámara; una foto no propone su nombre de archivo y lleva al campo del nombre', async () => {
+    abrir('/documentos/nuevo');
+    await screen.findByRole('option', { name: 'Contratos' });
+    const camara = screen.getByLabelText('Tomar una foto del documento');
+    expect(camara).toHaveAttribute('capture', 'environment');
+    expect(camara).toHaveAttribute('accept', 'image/*');
+
+    // Si antes se eligió un archivo, su nombre propuesto no se queda con la foto.
+    await userEvent.upload(screen.getByLabelText('Archivo del documento'), new File(['%PDF-1.7'], 'factura.pdf', { type: 'application/pdf' }));
+    expect(screen.getByLabelText('Nombre del documento')).toHaveValue('Factura');
+    await userEvent.upload(camara, new File(['\xff\xd8\xff'], 'IMG_20261009_104512.jpg', { type: 'image/jpeg' }));
+
+    expect(screen.getByText('IMG_20261009_104512.jpg')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre del documento')).toHaveValue('');
+    await waitFor(() => expect(screen.getByLabelText('Nombre del documento')).toHaveFocus());
   });
 
   it('si la API rechaza un campo, el error aparece junto a él y recibe el foco', async () => {

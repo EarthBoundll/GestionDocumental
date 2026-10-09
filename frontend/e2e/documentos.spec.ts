@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { archivoPdf, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PDF, subirDocumento } from './apoyo';
+import { archivoPdf, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PDF, PNG, subirDocumento } from './apoyo';
 import { URL_API } from './entorno';
 
 test.describe('Documentos y categorías', () => {
@@ -119,6 +119,9 @@ test.describe('Documentos y categorías', () => {
     await page.getByLabel('Categoría').selectOption({ label: 'Facturas y boletas' });
     await expect(resultados).toHaveText(['Boleta de luz', 'Factura F001-245']);
 
+    // En el celular, orden y fechas están plegados para que los resultados quepan en la pantalla.
+    const masFiltros = page.getByRole('button', { name: 'Más filtros' });
+    if (await masFiltros.isVisible()) await masFiltros.click();
     await page.getByLabel('Desde').fill('2026-09-01');
     await expect(resultados).toHaveText(['Boleta de luz']);
 
@@ -127,6 +130,53 @@ test.describe('Documentos y categorías', () => {
     await expect(page.getByText('Ningún documento coincide')).toBeVisible();
     await page.getByRole('button', { name: 'Quitar los filtros' }).click();
     await expect(resultados).toHaveCount(3);
+  });
+
+  test('RF10 · En el celular el nombre se lee entero, y al buscar se cierra el teclado con el resultado a la vista @movil', async ({ page, request }) => {
+    const empresa = await nuevaEmpresa(request);
+    const buscado = 'Cotización COT-000354 - Uniformes de Muestra SAC';
+    await subirDocumento(request, empresa.administrador, { nombre: buscado, categoria: 'Cotizaciones' });
+    for (let i = 1; i <= 8; i++) await subirDocumento(request, empresa.administrador, { nombre: `Acta de reunión AC-00030${i}` });
+    await entrar(page, empresa.administrador);
+    const enlace = page.getByRole('link', { name: buscado });
+    const buscador = page.getByLabel('Buscar por nombre');
+
+    // Lo que distingue a un documento (número, cliente) va al final del nombre: no puede quedar recortado.
+    await expect(enlace).toBeAttached();
+    // Ni a lo ancho (una línea con «…») ni a lo alto (líneas de más): todo el texto cabe en su caja.
+    expect(await enlace.evaluate((e) => e.scrollWidth <= e.clientWidth + 1 && e.scrollHeight <= e.clientHeight + 1)).toBe(true);
+
+    await buscador.fill('uniformes');
+    await buscador.press('Enter');
+    await expect(page.locator('main ul > li a')).toHaveText([buscado]);
+    await expect(enlace).toBeInViewport();
+    // En una pantalla táctil el teclado se cierra; con ratón el foco se queda para afinar la búsqueda.
+    if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) await expect(buscador).not.toBeFocused();
+    else await expect(buscador).toBeFocused();
+  });
+
+  test('RF07 · En el celular, un papel se sube con «Tomar foto», que abre la cámara @movil', async ({ page, request }) => {
+    const empresa = await nuevaEmpresa(request);
+    const usuaria = await nuevaCuenta(request, empresa, 'usuario');
+    await entrar(page, usuaria);
+    await irDesdeElMenu(page, 'Subir documento');
+    const tomarFoto = page.getByText('Tomar foto', { exact: true });
+
+    if (!(await page.evaluate(() => matchMedia('(pointer: coarse)').matches))) {
+      // En la PC no hay cámara que abrir ni nada que fotografiar: solo el selector de archivos.
+      await expect(tomarFoto).toBeHidden();
+      return;
+    }
+    await expect(tomarFoto).toBeVisible();
+    await expect(page.getByText('o arrástralo aquí')).toBeHidden();
+    await page.getByLabel('Tomar una foto del documento').setInputFiles({ name: 'IMG_20261009_104512.png', mimeType: 'image/png', buffer: PNG });
+    // El nombre de la foto no dice qué es: queda vacío y con el foco, para escribir uno que sirva al buscar.
+    await expect(page.getByLabel('Nombre del documento')).toHaveValue('');
+    await expect(page.getByLabel('Nombre del documento')).toBeFocused();
+    await page.getByLabel('Nombre del documento').fill('Boleta de venta B001-000412');
+    await page.getByLabel('Categoría').selectOption({ label: 'Facturas y boletas' });
+    await page.getByRole('button', { name: 'Subir documento' }).click();
+    await expect(page.getByText('«Boleta de venta B001-000412» se subió correctamente.')).toBeVisible();
   });
 
   test('RF11 · Ver un documento en el navegador y descargarlo con su nombre original @movil', async ({ page, request }) => {
