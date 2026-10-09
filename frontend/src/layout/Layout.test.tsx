@@ -85,6 +85,14 @@ describe('Marco común según el rol', () => {
     expect(cierres()).toBe(1);
   });
 
+  it('con la sesión iniciada, los términos y la privacidad siguen a mano al pie del menú (D38)', async () => {
+    abrirComo('usuario', '/documentos');
+
+    const legal = await screen.findByRole('navigation', { name: 'Información legal' });
+    expect(within(legal).getByRole('link', { name: 'Términos' })).toHaveAttribute('href', '/terminos');
+    expect(within(legal).getByRole('link', { name: 'Privacidad' })).toHaveAttribute('href', '/privacidad');
+  });
+
   it('el usuario ve documentos y aprobaciones, pero no la administración', async () => {
     abrirComo('usuario', '/documentos');
 
