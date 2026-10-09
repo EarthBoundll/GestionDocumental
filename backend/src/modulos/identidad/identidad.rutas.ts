@@ -5,14 +5,17 @@ import type { Exigir } from '../../middlewares/autorizar.js';
 import { recibirArchivo } from '../../middlewares/recibir-archivo.js';
 import { autorDe } from '../historial/historial.registro.js';
 import { esquemaIdentidad } from './identidad.esquemas.js';
-import type { ArchivoDeLogo, ServicioIdentidad } from './identidad.servicio.js';
+import { IMAGENES, type ArchivoDeImagen, type Imagen } from './identidad.imagenes.js';
+import type { ServicioIdentidad } from './identidad.servicio.js';
+
+/** El logo y el fondo tienen las mismas dos rutas: /logo y /fondo, para cambiarlos y para quitarlos. */
+export const IMAGENES_DE_IDENTIDAD = Object.keys(IMAGENES) as Imagen[];
 
 /** El archivo del formulario multipart, o un 400 que dice qué falta. */
-export function logoDe(req: Parameters<RequestHandler>[0]): ArchivoDeLogo {
+export function imagenDe(req: Parameters<RequestHandler>[0], imagen: Imagen): ArchivoDeImagen {
   if (!req.file) {
-    throw new ErrorAplicacion(400, 'VALIDACION', 'Adjunta la imagen del logo', {
-      detalles: [{ campo: 'archivo', mensaje: 'Adjunta la imagen del logo' }],
-    });
+    const mensaje = `Adjunta la imagen del ${imagen}`;
+    throw new ErrorAplicacion(400, 'VALIDACION', mensaje, { detalles: [{ campo: 'archivo', mensaje }] });
   }
   return { nombreOriginal: req.file.originalname, contenido: req.file.buffer };
 }
@@ -36,15 +39,17 @@ export function crearRutasIdentidad(servicio: ServicioIdentidad, entrar: Request
     res.json(await servicio.editar(actor, empresaDe(actor), autorDe(actor.autenticacion.usuario), cambios));
   });
 
-  rutas.put('/logo', exigir('GESTIONAR_IDENTIDAD'), recibirArchivo, async (req, res) => {
-    const actor = actorDe(req);
-    res.json(await servicio.cambiarLogo(actor, empresaDe(actor), autorDe(actor.autenticacion.usuario), logoDe(req)));
-  });
+  for (const imagen of IMAGENES_DE_IDENTIDAD) {
+    rutas.put(`/${imagen}`, exigir('GESTIONAR_IDENTIDAD'), recibirArchivo, async (req, res) => {
+      const actor = actorDe(req);
+      res.json(await servicio.cambiarImagen(actor, empresaDe(actor), autorDe(actor.autenticacion.usuario), imagen, imagenDe(req, imagen)));
+    });
 
-  rutas.delete('/logo', exigir('GESTIONAR_IDENTIDAD'), async (req, res) => {
-    const actor = actorDe(req);
-    res.json(await servicio.quitarLogo(actor, empresaDe(actor), autorDe(actor.autenticacion.usuario)));
-  });
+    rutas.delete(`/${imagen}`, exigir('GESTIONAR_IDENTIDAD'), async (req, res) => {
+      const actor = actorDe(req);
+      res.json(await servicio.quitarImagen(actor, empresaDe(actor), autorDe(actor.autenticacion.usuario), imagen));
+    });
+  }
 
   return rutas;
 }

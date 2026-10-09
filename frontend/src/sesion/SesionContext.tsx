@@ -2,10 +2,10 @@ import { createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, u
 import { conectarSesion } from '../api/cliente';
 import { auth } from '../api/recursos';
 import type { Marca, Perfil, SesionIniciada, Tema } from '../api/tipos';
-import { aplicarColor, aplicarTema } from './apariencia';
+import { aplicarColor, aplicarFondo, aplicarTema } from './apariencia';
 
 const CLAVE = 'gestion-documental.sesion';
-const MARCA_DE_LA_PLATAFORMA: Marca = { nombreComercial: null, colorPrimario: null, logoUrl: null };
+const MARCA_DE_LA_PLATAFORMA: Marca = { nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null };
 
 interface ValorSesion {
   sesion: SesionIniciada | null;
@@ -24,17 +24,19 @@ interface ValorSesion {
   actualizarMarca(marca: Marca): void;
   /** Mientras se elige un color, toda la interfaz lo muestra; null vuelve al guardado. */
   previsualizarColor(color: string | null): void;
+  /** Lo mismo con el color de fondo (D39); undefined vuelve al guardado, null muestra el fondo neutro. */
+  previsualizarFondo(color: string | null | undefined): void;
 }
 
 const Contexto = createContext<ValorSesion | null>(null);
 
-/** Una sesión guardada antes de la identidad y el tema (008) no los trae: valen los de siempre. */
+/** Una sesión guardada antes de la identidad y el tema (008), o del fondo (012), no los trae: valen los de siempre. */
 function completar(sesion: SesionIniciada): SesionIniciada {
   const { usuario, empresa } = sesion;
   return {
     ...sesion,
     usuario: { ...usuario, tema: usuario.tema ?? 'sistema' },
-    empresa: empresa && { ...empresa, marca: empresa.marca ?? MARCA_DE_LA_PLATAFORMA },
+    empresa: empresa && { ...empresa, marca: { ...MARCA_DE_LA_PLATAFORMA, ...empresa.marca } },
   };
 }
 
@@ -63,6 +65,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const [caducada, setCaducada] = useState(false);
   const [cerrada, setCerrada] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
+  const [fondoPrevio, setFondoPrevio] = useState<string | null | undefined>(undefined);
   const actual = useRef(sesion);
   actual.current = sesion;
 
@@ -87,7 +90,9 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const tema = sesion?.usuario.tema ?? 'sistema';
   const color = vistaPrevia ?? sesion?.empresa?.marca.colorPrimario ?? null;
   useLayoutEffect(() => aplicarTema(tema), [tema]);
+  const fondo = fondoPrevio === undefined ? (sesion?.empresa?.marca.colorFondo ?? null) : fondoPrevio;
   useLayoutEffect(() => aplicarColor(color), [color]);
+  useLayoutEffect(() => aplicarFondo(fondo), [fondo]);
 
   // El cliente HTTP necesita el token y saber qué hacer si la API lo rechaza. Va en un efecto de diseño
   // (useLayoutEffect) porque React ejecuta los efectos normales de los hijos antes que los del padre: con
@@ -150,6 +155,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     },
     actualizarMarca,
     previsualizarColor: setVistaPrevia,
+    previsualizarFondo: setFondoPrevio,
   }), [sesion, caducada, cerrada, cambiar, olvidar, actualizarMarca]);
 
   return <Contexto value={valor}>{children}</Contexto>;

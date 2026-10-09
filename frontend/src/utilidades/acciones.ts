@@ -54,7 +54,9 @@ const NOMBRES_DE_CAMPOS: Record<string, string> = {
   ruc: 'RUC',
   nombreComercial: 'nombre comercial',
   colorPrimario: 'color',
+  colorFondo: 'color de fondo',
   logo: 'logo',
+  fondo: 'imagen de fondo',
 };
 
 const legible = (codigo: string) => codigo.toLowerCase().replaceAll('_', ' ');

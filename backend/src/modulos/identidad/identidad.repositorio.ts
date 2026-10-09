@@ -4,16 +4,23 @@ import type { Consultor } from '../../db/pool.js';
 export interface FilaIdentidad {
   nombreComercial: string | null;
   colorPrimario: string | null;
+  colorFondo: string | null;
   logoRuta: string | null;
+  fondoRuta: string | null;
 }
 
-const COLUMNAS = { nombreComercial: 'nombre_comercial', colorPrimario: 'color_primario', logoRuta: 'logo_ruta' };
+const COLUMNAS = {
+  nombreComercial: 'nombre_comercial', colorPrimario: 'color_primario', colorFondo: 'color_fondo', logoRuta: 'logo_ruta', fondoRuta: 'fondo_ruta',
+};
+
+/** Las columnas de la identidad con el nombre que usa el código; también las lee el perfil al iniciar sesión. */
+export const SELECT_IDENTIDAD = `e.nombre_comercial AS "nombreComercial", e.color_primario AS "colorPrimario",
+  e.color_fondo AS "colorFondo", e.logo_ruta AS "logoRuta", e.fondo_ruta AS "fondoRuta"`;
 
 /** Con el acceso de quien pregunta: una empresa solo ve su fila; el Master, cualquiera (D17). */
 export async function leerIdentidad(db: Consultor, empresaId: string): Promise<FilaIdentidad | null> {
   const { rows } = await db.query<FilaIdentidad>(
-    `SELECT nombre_comercial AS "nombreComercial", color_primario AS "colorPrimario", logo_ruta AS "logoRuta"
-     FROM empresas WHERE id = $1`,
+    `SELECT ${SELECT_IDENTIDAD} FROM empresas e WHERE e.id = $1`,
     [empresaId],
   );
   return rows[0] ?? null;

@@ -15,6 +15,10 @@ import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas
 type App = ReturnType<typeof crearAppDePruebas>;
 
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+/** La cabecera de un WebP: «RIFF», el tamaño y «WEBP». La API mira los bytes, no la extensión. */
+const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.from([0x24, 0, 0, 0]), Buffer.from('WEBPVP8 ')]);
+/** Lo que devuelve la API de una empresa sin identidad: todo nulo, el de la plataforma. */
+const SIN_MARCA = { nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null };
 /** Donde guarda los archivos almacenamientoDePruebas(): para comprobar que un logo viejo se borra. */
 const CARPETA_DE_ARCHIVOS = join(tmpdir(), 'gestion-documental-archivos-de-prueba');
 
@@ -52,15 +56,19 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
   const editar = (token: string, cuerpo: object) => request(app).patch('/api/v1/empresa/identidad').set(conToken(token)).send(cuerpo);
   const subirLogo = (token: string, contenido: Buffer, nombre: string, ruta = '/api/v1/empresa/identidad/logo') =>
     request(app).put(ruta).set(conToken(token)).attach('archivo', contenido, nombre);
+  const subirFondo = (token: string, contenido: Buffer, nombre: string, ruta = '/api/v1/empresa/identidad/fondo') =>
+    request(app).put(ruta).set(conToken(token)).attach('archivo', contenido, nombre);
   const rutaDelLogo = async (empresaId: string) =>
     (await pool.query<{ logo_ruta: string | null }>('SELECT logo_ruta FROM empresas WHERE id = $1', [empresaId])).rows[0]!.logo_ruta;
+  const rutaDelFondo = async (empresaId: string) =>
+    (await pool.query<{ fondo_ruta: string | null }>('SELECT fondo_ruta FROM empresas WHERE id = $1', [empresaId])).rows[0]!.fondo_ruta;
 
   describe('la identidad de la empresa', () => {
     it('nace vacía: la empresa se ve con su razón social y el color de la plataforma', async () => {
       const { token, empresa } = await registrarEmpresa(app);
 
       expect((await perfil(token)).empresa).toEqual({
-        id: empresa.id, nombre: empresa.nombre, marca: { nombreComercial: null, colorPrimario: null, logoUrl: null },
+        id: empresa.id, nombre: empresa.nombre, marca: SIN_MARCA,
       });
     });
 
@@ -71,13 +79,13 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       const respuesta = await editar(admin, { nombreComercial: 'Textiles Andinos', colorPrimario: '#1F6F5C' });
 
       expect(respuesta.status).toBe(200);
-      expect(respuesta.body).toEqual({ nombreComercial: 'Textiles Andinos', colorPrimario: '#1f6f5c', logoUrl: null });
+      expect(respuesta.body).toEqual({ ...SIN_MARCA, nombreComercial: 'Textiles Andinos', colorPrimario: '#1f6f5c' });
       expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
         accion: 'EMPRESA_EDITADA', rol_usuario: 'administrador', entidad_tipo: 'empresa', entidad_id: empresa.id,
         detalle: { cambios: { nombreComercial: { antes: null, despues: 'Textiles Andinos' }, colorPrimario: { antes: null, despues: '#1f6f5c' } } },
       });
       expect((await perfil(await iniciarSesion(app, persona.email))).empresa.marca)
-        .toEqual({ nombreComercial: 'Textiles Andinos', colorPrimario: '#1f6f5c', logoUrl: null });
+        .toEqual({ ...SIN_MARCA, nombreComercial: 'Textiles Andinos', colorPrimario: '#1f6f5c' });
     });
 
     it('rechaza un color que no deja leer el texto blanco de los botones, o que no es un color', async () => {
@@ -98,8 +106,7 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
 
       expect((await editar(admin, { colorPrimario: '#1f6f5c' })).status).toBe(200);
       expect((await historialDe(pool, empresa.id)).length).toBe(antes);
-      expect((await editar(admin, { nombreComercial: '', colorPrimario: '' })).body)
-        .toEqual({ nombreComercial: null, colorPrimario: null, logoUrl: null });
+      expect((await editar(admin, { nombreComercial: '', colorPrimario: '' })).body).toEqual(SIN_MARCA);
     });
 
     it('un usuario la ve pero no la cambia: 403 registrado, como cualquier acceso denegado', async () => {
@@ -111,6 +118,9 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       expect((await editar(usuario, { colorPrimario: '#000000' })).status).toBe(403);
       expect((await subirLogo(usuario, PNG, 'logo.png')).status).toBe(403);
       expect((await request(app).delete('/api/v1/empresa/identidad/logo').set(conToken(usuario))).status).toBe(403);
+      expect((await editar(usuario, { colorFondo: '#f1e4c8' })).status).toBe(403);
+      expect((await subirFondo(usuario, WEBP, 'fondo.webp')).status).toBe(403);
+      expect((await request(app).delete('/api/v1/empresa/identidad/fondo').set(conToken(usuario))).status).toBe(403);
       expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({ accion: 'ACCESO_DENEGADO', detalle: { permiso: 'GESTIONAR_IDENTIDAD' } });
       expect((await perfil(admin)).empresa.marca.colorPrimario).toBe('#1f6f5c');
     });
@@ -171,6 +181,73 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
     });
   });
 
+  describe('el fondo (D39)', () => {
+    it('el color de fondo no exige contraste: solo cuenta su tono, también si es claro; vacío lo quita', async () => {
+      const { token: admin, empresa } = await registrarEmpresa(app);
+      const persona = await crearUsuarioEn(pool, empresa.id);
+
+      const claro = await editar(admin, { colorFondo: '#FDE047' });
+      const raro = await editar(admin, { colorFondo: 'arena' });
+
+      expect(claro.status).toBe(200);
+      expect(claro.body).toEqual({ ...SIN_MARCA, colorFondo: '#fde047' });
+      expect(raro.body.error.detalles[0]).toMatchObject({ campo: 'colorFondo', mensaje: 'Usa un color en formato #f1e4c8' });
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
+        accion: 'EMPRESA_EDITADA', detalle: { cambios: { colorFondo: { antes: null, despues: '#fde047' } } },
+      });
+      expect((await perfil(await iniciarSesion(app, persona.email))).empresa.marca.colorFondo).toBe('#fde047');
+      expect((await editar(admin, { colorFondo: '' })).body.colorFondo).toBeNull();
+    });
+
+    it('la imagen se sube como WebP o JPG, se sirve firmada con su tipo y la anterior se borra al cambiarla', async () => {
+      const { token: admin, empresa } = await registrarEmpresa(app);
+
+      const primera = await subirFondo(admin, WEBP, 'playa.webp');
+      const rutaPrimera = await rutaDelFondo(empresa.id);
+      const segunda = await subirFondo(admin, JPG, 'taller.jpg');
+
+      expect(primera.status).toBe(200);
+      expect(primera.body.fondoUrl).toMatch(new RegExp(`/api/v1/archivos/${empresa.id}/[0-9a-f-]{36}\\.webp\\?.*tipo=image%2Fwebp`));
+      expect(segunda.body.fondoUrl).toMatch(/\.jpg\?.*tipo=image%2Fjpeg/);
+      expect(existsSync(join(CARPETA_DE_ARCHIVOS, rutaPrimera!))).toBe(false);
+      expect(existsSync(join(CARPETA_DE_ARCHIVOS, (await rutaDelFondo(empresa.id))!))).toBe(true);
+      // El logo es otra cosa: cambiar el fondo no lo toca.
+      expect(await rutaDelLogo(empresa.id)).toBeNull();
+      expect((await perfil(admin)).empresa.marca.fondoUrl).toMatch(/\.jpg\?/);
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
+        accion: 'EMPRESA_EDITADA', detalle: { cambios: { fondo: { antes: true, despues: true } }, archivo: 'taller.jpg' },
+      });
+    });
+
+    it('rechaza un PNG, lo que solo se llama .webp y lo que supera 512 KB', async () => {
+      const { token: admin, empresa } = await registrarEmpresa(app);
+
+      const png = await subirFondo(admin, PNG, 'fondo.png');
+      expect(png.status).toBe(415);
+      expect(png.body.error.mensaje).toBe('El fondo debe ser una imagen WebP o JPG');
+      expect((await subirFondo(admin, PNG, 'fondo.webp')).status).toBe(415);
+      expect((await subirFondo(admin, Buffer.from('RIFF0000AVI '), 'fondo.webp')).status).toBe(415);
+      const pesado = await subirFondo(admin, Buffer.concat([WEBP, Buffer.alloc(520 * 1024)]), 'fondo.webp');
+      expect(pesado.status).toBe(413);
+      expect(pesado.body.error.mensaje).toBe('El fondo supera los 512 KB');
+      expect((await request(app).put('/api/v1/empresa/identidad/fondo').set(conToken(admin))).body.error.mensaje).toBe('Adjunta la imagen del fondo');
+      expect(await rutaDelFondo(empresa.id)).toBeNull();
+    });
+
+    it('quitarla borra el archivo, deja el color y lo registra', async () => {
+      const { token: admin, empresa } = await registrarEmpresa(app);
+      await editar(admin, { colorFondo: '#f1e4c8' });
+      await subirFondo(admin, WEBP, 'fondo.webp');
+      const ruta = await rutaDelFondo(empresa.id);
+
+      const respuesta = await request(app).delete('/api/v1/empresa/identidad/fondo').set(conToken(admin));
+
+      expect(respuesta.body).toMatchObject({ fondoUrl: null, colorFondo: '#f1e4c8' });
+      expect(existsSync(join(CARPETA_DE_ARCHIVOS, ruta!))).toBe(false);
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({ accion: 'EMPRESA_EDITADA', detalle: { cambios: { fondo: { antes: true, despues: false } } } });
+    });
+  });
+
   describe('el Master', () => {
     it('da identidad a cualquier empresa desde la plataforma; queda en el historial de esa empresa como suyo', async () => {
       const master = await tokenDelMaster(app);
@@ -179,13 +256,17 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       const editada = await request(app).patch(`/api/v1/plataforma/empresas/${empresa.id}/identidad`).set(conToken(master))
         .send({ nombreComercial: 'Andinos', colorPrimario: '#1f3a6f' });
       const logo = await subirLogo(master, PNG, 'logo.png', `/api/v1/plataforma/empresas/${empresa.id}/identidad/logo`);
+      const fondo = await subirFondo(master, WEBP, 'fondo.webp', `/api/v1/plataforma/empresas/${empresa.id}/identidad/fondo`);
 
       expect(editada.status).toBe(200);
       expect(logo.status).toBe(200);
-      expect((await request(app).get(`/api/v1/plataforma/empresas/${empresa.id}`).set(conToken(master))).body.marca)
-        .toMatchObject({ nombreComercial: 'Andinos', colorPrimario: '#1f3a6f', logoUrl: expect.stringMatching(/\.png\?/) });
+      expect(fondo.status).toBe(200);
+      expect((await request(app).get(`/api/v1/plataforma/empresas/${empresa.id}`).set(conToken(master))).body.marca).toMatchObject({
+        nombreComercial: 'Andinos', colorPrimario: '#1f3a6f', logoUrl: expect.stringMatching(/\.png\?/), fondoUrl: expect.stringMatching(/\.webp\?/),
+      });
       expect((await historialDe(pool, empresa.id)).filter((a) => a.accion === 'EMPRESA_EDITADA').map((a) => a.rol_usuario))
-        .toEqual(['master', 'master']);
+        .toEqual(['master', 'master', 'master']);
+      expect((await request(app).delete(`/api/v1/plataforma/empresas/${empresa.id}/identidad/fondo`).set(conToken(master))).body.fondoUrl).toBeNull();
       expect((await perfil(admin)).empresa.marca.colorPrimario).toBe('#1f3a6f');
     });
 
@@ -214,6 +295,7 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       const usuario = await crearUsuarioEn(pool, a.empresa.id);
 
       expect(await intentar(a.empresa.id, { id: usuario.id, rol: 'usuario' }, "UPDATE empresas SET color_primario = '#000000'")).toBe(0);
+      expect(await intentar(a.empresa.id, { id: usuario.id, rol: 'usuario' }, "UPDATE empresas SET color_fondo = '#000000'")).toBe(0);
       expect(await intentar(a.empresa.id, { id: a.usuario.id, rol: 'administrador' },
         `UPDATE empresas SET color_primario = '#000000' WHERE id = '${b.empresa.id}'`)).toBe(0);
       expect(await intentar(a.empresa.id, { id: a.usuario.id, rol: 'administrador' }, "UPDATE empresas SET color_primario = '#000000'")).toBe(1);
@@ -235,6 +317,17 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       await expect(intentar(a.empresa.id, { id: a.usuario.id, rol: 'administrador' },
         `UPDATE empresas SET logo_ruta = '${b.empresa.id}/00000000-0000-0000-0000-000000000000.png'`))
         .rejects.toMatchObject({ code: '23514', constraint: 'empresas_logo_en_su_carpeta' });
+    });
+
+    it('un fondo tampoco: solo en la carpeta de su empresa, y solo WebP o JPG', async () => {
+      const a = await registrarEmpresa(app);
+      const b = await registrarEmpresa(app);
+      const admin = { id: a.usuario.id, rol: 'administrador' as const };
+
+      await expect(intentar(a.empresa.id, admin, `UPDATE empresas SET fondo_ruta = '${b.empresa.id}/00000000-0000-0000-0000-000000000000.webp'`))
+        .rejects.toMatchObject({ code: '23514', constraint: 'empresas_fondo_en_su_carpeta' });
+      await expect(intentar(a.empresa.id, admin, `UPDATE empresas SET fondo_ruta = '${a.empresa.id}/00000000-0000-0000-0000-000000000000.svg'`))
+        .rejects.toMatchObject({ code: '23514' });
     });
   });
 

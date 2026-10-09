@@ -45,7 +45,9 @@ erDiagram
         boolean activa
         varchar nombre_comercial "opcional"
         char color_primario "opcional, #rrggbb"
+        char color_fondo "opcional, #rrggbb"
         varchar logo_ruta "opcional, en su carpeta"
+        varchar fondo_ruta "opcional, en su carpeta"
         timestamptz creado_en
         timestamptz actualizado_en
     }
@@ -174,7 +176,9 @@ erDiagram
 | activa | boolean | no | por defecto, verdadero | Desactivada, nadie de ella puede entrar (RN24) |
 | nombre_comercial | varchar(60) | sí | no vacío | El que se ve en el menú; sin él, el nombre (RN31) |
 | color_primario | char(7) | sí | `#rrggbb` en minúsculas | El de botones y enlaces; el contraste lo valida la API (RN31) |
+| color_fondo | char(7) | sí | `#rrggbb` en minúsculas | Solo cuenta su tono: la interfaz fija la claridad en cada modo, así que no hay contraste que validar (RN31, D39) |
 | logo_ruta | varchar(255) | sí | `<empresa>/<uuid>.png` o `.jpg`, en la carpeta de esta empresa | En el bucket privado de los documentos (RN31) |
+| fondo_ruta | varchar(255) | sí | `<empresa>/<uuid>.webp` o `.jpg`, en la carpeta de esta empresa | La imagen de fondo, también en el bucket privado (RN31, D39) |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
@@ -373,8 +377,8 @@ No dependen de que el código se acuerde de comprobarlas.
 | Solo se autoriza a personas de la propia empresa (RN29) | Claves foráneas compuestas de `categoria_accesos` |
 | Una categoría restringida no se ve sin acceso (RN29) | Políticas RLS restrictivas: `puede_ver_categoria()` en `categorias` y `categorias_visibles()` en `documentos` (§3.1) |
 | Solo se purga lo que está en la papelera (RN28) | `purgado_en` exige `eliminado_en` |
-| Solo el administrador cambia la identidad de su empresa, y nada más de ella (RN31) | `app_empresa` solo puede actualizar `nombre_comercial`, `color_primario` y `logo_ruta`, y una política de UPDATE exige su empresa y el rol `administrador` (§3.1) |
-| El logo de una empresa está en su carpeta | `logo_ruta` debe empezar por el `id` de la empresa |
+| Solo el administrador cambia la identidad de su empresa, y nada más de ella (RN31) | `app_empresa` solo puede actualizar `nombre_comercial`, `color_primario`, `color_fondo`, `logo_ruta` y `fondo_ruta`, y una política de UPDATE exige su empresa y el rol `administrador` (§3.1) |
+| El logo y el fondo de una empresa están en su carpeta | `logo_ruta` y `fondo_ruta` deben empezar por el `id` de la empresa |
 | Una versión no cambia ni se borra (RN33) | `app_empresa` solo tiene SELECT e INSERT sobre `documento_versiones` |
 | Cada número de versión, una vez por documento | Único (`documento_id`, `numero`); el número lo decide la API con el documento bloqueado |
 | Una versión oculta como su documento (RN29) | Política restrictiva: la versión solo se ve si su documento se ve (§3.1) |
@@ -413,7 +417,8 @@ arreglo las categorías que ve quien actúa (la misma regla) y que PostgreSQL ev
 Ahora puede actualizar tres columnas de ella —`nombre_comercial`, `color_primario` y `logo_ruta`, por
 permiso de columna— y una política de UPDATE exige que sea su empresa y que quien actúa sea
 administrador. Un usuario que lo intente por debajo de la API cambia cero filas; el nombre, el RUC o el
-estado no los puede tocar nadie de la empresa (error 42501).
+estado no los puede tocar nadie de la empresa (error 42501). La 012 (D39) suma a ese permiso las dos
+columnas del fondo, `color_fondo` y `fondo_ruta`, bajo la misma política.
 
 **Versiones (009, D30).** `documento_versiones` tiene la política de aislamiento por empresa y otra
 restrictiva que exige que su documento exista para quien pregunta. Esa subconsulta pasa a su vez por la

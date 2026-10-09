@@ -1,9 +1,10 @@
 import { CircleUser, LogOut, Menu, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, Outlet, useLocation } from 'react-router';
 import { Boton } from '../componentes/Boton';
 import { Modal } from '../componentes/Modal';
+import { urlDeCss } from '../sesion/apariencia';
 import { useSesion } from '../sesion/SesionContext';
 import { inicioDe, NOMBRES_DE_ROLES } from '../utilidades/roles';
 import { Campana } from './Campana';
@@ -112,17 +113,37 @@ function PieDelMenu() {
   );
 }
 
+/**
+ * La imagen de fondo de la empresa (D39), fija detrás de todo. La pide estilos.css solo desde 1024 px, así que
+ * en el celular este elemento queda vacío y la imagen no se descarga.
+ */
+function ImagenDeFondo({ url }: { url: string }) {
+  return (
+    <div aria-hidden data-testid="imagen-de-fondo" className="imagen-de-fondo pointer-events-none fixed inset-0 -z-10 bg-cover bg-center print:hidden"
+      style={{ '--imagen-de-fondo': urlDeCss(url) } as CSSProperties} />
+  );
+}
+
+/**
+ * Con imagen de fondo, el contenido va en un panel opaco del color de la página y la imagen se ve alrededor:
+ * ningún texto queda encima de una foto, que con cualquier velo podría dejarlo ilegible (D39).
+ */
+const PANEL_SOBRE_LA_IMAGEN = 'lg:my-6 lg:w-[calc(100%-3rem)] lg:rounded-2xl lg:bg-pagina lg:shadow-sm lg:ring-1 lg:ring-slate-900/5 ' +
+  'print:my-0 print:w-full print:rounded-none print:bg-transparent print:shadow-none print:ring-0';
+
 /** El marco de todas las pantallas con sesión: barra lateral en escritorio, menú desplegable en el celular. */
 export function Layout() {
-  const { esMaster } = useSesion();
+  const { sesion, esMaster } = useSesion();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const ubicacion = useLocation();
+  const imagenDeFondo = sesion?.empresa?.marca.fondoUrl;
 
   // Al navegar desde el menú del celular, el menú se cierra solo.
   useEffect(() => setMenuAbierto(false), [ubicacion.pathname]);
 
   return (
     <div className="min-h-dvh lg:pl-64 print:pl-0">
+      {imagenDeFondo && <ImagenDeFondo url={imagenDeFondo} />}
       <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-superficie focus:px-3 focus:py-2">
         Saltar al contenido
       </a>
@@ -164,7 +185,7 @@ export function Layout() {
         </div>
       </header>
 
-      <main id="contenido" className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 print:max-w-none print:p-0">
+      <main id="contenido" className={`mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 print:max-w-none print:p-0 ${imagenDeFondo ? PANEL_SOBRE_LA_IMAGEN : ''}`}>
         <Outlet />
       </main>
     </div>

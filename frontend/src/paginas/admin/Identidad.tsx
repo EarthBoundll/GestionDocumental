@@ -37,7 +37,7 @@ function IdentidadDeLaEmpresa({ razonSocial }: { razonSocial: string }) {
     <>
       <EncabezadoDePagina
         titulo="Identidad"
-        descripcion="El nombre comercial, el color y el logo con los que todas las personas de tu empresa ven el sistema."
+        descripcion="El nombre comercial, los colores, el logo y el fondo con los que todas las personas de tu empresa ven el sistema."
       />
       {consulta.error ? (
         <ErrorDeCarga error={consulta.error} alReintentar={consulta.recargar} />

@@ -190,7 +190,8 @@ correcto» y las filas de cada tabla, o con el motivo por el que no se restaurar
 
 Un respaldo solo se restaura con las mismas migraciones con que se hizo. Por eso, después de desplegar
 una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones; la 010,
-la visibilidad por consulta y el listado documental; la 011, la constancia del cierre del estudio), pide un
+la visibilidad por consulta y el listado documental; la 011, la constancia del cierre del estudio; la 012, el
+fondo de cada empresa), pide un
 respaldo en el momento desde *Respaldos*: el de la noche anterior solo se restauraría con el código
 anterior.
 

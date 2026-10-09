@@ -23,7 +23,7 @@ const PERMISOS = {
   // RF35: el inventario de la empresa sale entero; un usuario busca y descarga lo suyo, no lo exporta.
   EXPORTAR_LISTADO: ['administrador'],
   VER_TABLERO: ['administrador'],
-  // RF31: el nombre comercial, el color y el logo de su empresa. El Master lo hace desde la plataforma.
+  // RF31: el nombre comercial, los colores, el logo y el fondo de su empresa. El Master lo hace desde la plataforma.
   GESTIONAR_IDENTIDAD: ['administrador'],
   // Empresas, sus administradores y métricas de la plataforma.
   GESTIONAR_PLATAFORMA: ['master'],

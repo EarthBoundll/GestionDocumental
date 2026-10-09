@@ -26,11 +26,15 @@ export interface UsuarioDeSesion {
   tema: Tema;
 }
 
-/** RF31: la identidad de una empresa, con el enlace del logo ya firmado. Null es «la de la plataforma». */
+/** RF31: la identidad de una empresa, con los enlaces de sus imágenes ya firmados. Null es «la de la plataforma». */
 export interface Marca {
   nombreComercial: string | null;
   colorPrimario: string | null;
+  /** Solo su tono tiñe las pantallas: la claridad la fija la interfaz, en claro y en oscuro (D39). */
+  colorFondo: string | null;
   logoUrl: string | null;
+  /** Detrás de las pantallas, solo en computadoras (D39). */
+  fondoUrl: string | null;
 }
 
 export interface Perfil {

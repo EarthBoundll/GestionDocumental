@@ -133,6 +133,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     ['ver la ficha de B en la plataforma', 'GET', `/api/v1/plataforma/empresas/${b.empresaId}`, undefined],
     ['cambiar la identidad de B por la ruta del Master', 'PATCH', `/api/v1/plataforma/empresas/${b.empresaId}/identidad`, { colorPrimario: '#000000' }],
     ['quitar el logo de B por la ruta del Master', 'DELETE', `/api/v1/plataforma/empresas/${b.empresaId}/identidad/logo`, undefined],
+    ['quitar el fondo de B por la ruta del Master', 'DELETE', `/api/v1/plataforma/empresas/${b.empresaId}/identidad/fondo`, undefined],
   ];
 
   describe.each(['administrador de A', 'usuario de A'] as const)('el %s', (quien) => {
@@ -170,7 +171,9 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     const { rows: [aviso] } = await pool.query('SELECT leida_en FROM notificaciones WHERE id = $1', [b.notificacionId]);
     const { rows: [medicion] } = await pool.query('SELECT duracion_cliente_ms FROM tiempos_respuesta WHERE id = $1', [b.medicionId]);
     const { rows: solicitudesDeB } = await pool.query('SELECT 1 FROM solicitudes WHERE documento_id = $1', [b.documentoId]);
-    const { rows: [identidad] } = await pool.query('SELECT nombre_comercial, color_primario, logo_ruta FROM empresas WHERE id = $1', [b.empresaId]);
+    const { rows: [identidad] } = await pool.query(
+      'SELECT nombre_comercial, color_primario, color_fondo, logo_ruta, fondo_ruta FROM empresas WHERE id = $1', [b.empresaId],
+    );
     const { rows: versionesDeB } = await pool.query('SELECT numero FROM documento_versiones WHERE documento_id = $1', [b.documentoId]);
 
     expect(documento).toEqual({ nombre: b.documentoNombre, eliminado_en: null });
@@ -181,7 +184,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     expect(aviso).toEqual({ leida_en: null });
     expect(medicion).toEqual({ duracion_cliente_ms: null });
     expect(solicitudesDeB).toHaveLength(1);
-    expect(identidad).toEqual({ nombre_comercial: null, color_primario: null, logo_ruta: null });
+    expect(identidad).toEqual({ nombre_comercial: null, color_primario: null, color_fondo: null, logo_ruta: null, fondo_ruta: null });
     expect(versionesDeB).toEqual([{ numero: 1 }]);
     expect(await iniciarSesion(app, (await pool.query('SELECT email FROM usuarios WHERE id = $1', [b.adminId])).rows[0].email))
       .toMatch(/^ey/);

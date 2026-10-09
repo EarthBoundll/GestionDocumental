@@ -24,6 +24,7 @@ Sistema web de gestión documental para micro y pequeñas empresas de Lima — t
 | B · Uso en el celular | Terminada el 9 de octubre de 2026, tras recorrer el sistema con los 40 documentos ficticios a 360 px: en el listado, los nombres en hasta tres líneas en vez de cortados; orden y fechas plegados tras «Más filtros»; al buscar en una pantalla táctil se cierra el teclado y quedan los resultados a la vista, y «Tomar foto» abre la cámara para subir un papel (D36). 79 pruebas del frontend y 55 de 55 ejecuciones funcionales |
 | B · Acceso y salida | Terminada el 9 de octubre de 2026: iniciar sesión, recuperar y restablecer la contraseña con un marco dividido, la imagen y el mensaje a la izquierda y el formulario a la derecha (en el celular, una franja arriba), con movimiento solo CSS que respeta «reducir movimiento»; cerrar sesión pide confirmación, se despide y el inicio de sesión lo confirma (D37). 80 pruebas del frontend y 56 de 56 ejecuciones funcionales |
 | B · Contacto, términos y privacidad | Terminada el 9 de octubre de 2026: el acceso ofrece «Solicita una cuenta» (un correo ya redactado y WhatsApp opcional, configurables en Vercel) y enlaza `/terminos` y `/privacidad`, que se leen con o sin sesión y describen solo lo que el sistema hace, alineados con la Ley 29733 y el consentimiento, también al pie del menú con la sesión iniciada (D38). 84 pruebas del frontend y 58 de 58 ejecuciones funcionales |
+| B · Fondo por empresa | Terminada el 9 de octubre de 2026: un color de fondo que tiñe las pantallas en claro y en oscuro sin perder legibilidad (solo cuenta su tono) y una imagen detrás en la computadora, comprimida en el navegador, que el celular no descarga y que nunca queda bajo el texto; medirlo llevó a oscurecer un punto el texto secundario (RF31, D39, migración 012). 365 pruebas del backend, 95 del frontend, 60 de 60 ejecuciones funcionales y 62 de 62 intentos de aislamiento |
 
 Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CLAUDE.md` v2, que es la vigente.
 
@@ -32,7 +33,7 @@ Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CL
 | [01 · Análisis](01-analisis.md) | Problema, actores (tres roles), requisitos, reglas de negocio, matriz de permisos, acciones auditables y de dónde sale cada indicador |
 | [02 · Arquitectura](02-arquitectura.md) | Diagrama, capas, la capa de acceso a datos, flujos críticos, despliegue, seguridad, decisiones técnicas, riesgos y encaje con Cloud Computing |
 | [03 · Modelo de datos](03-modelo-datos.md) | Diagrama entidad-relación, diccionario de datos, restricciones, RLS e índices |
-| [04 · API](04-api.md) | Convenciones, formato de errores, los 59 endpoints y qué pantalla usa cada uno |
+| [04 · API](04-api.md) | Convenciones, formato de errores, los 63 endpoints y qué pantalla usa cada uno |
 | [05 · Estructura](05-estructura.md) | Carpetas de backend y frontend, dependencias y variables de entorno |
 | [06 · Migración a v2](06-migracion-v2.md) | El diagnóstico de la v1 frente a la v2, las decisiones A–G y el plan que se siguió |
 | [07 · Despliegue](07-despliegue.md) | Supabase, Brevo, Render y Vercel paso a paso, la creación del Master, el monitor y las tareas programadas, cómo restaurar un respaldo, la comprobación, la integración continua y qué hacer durante la evaluación |

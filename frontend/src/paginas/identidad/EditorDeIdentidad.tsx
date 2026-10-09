@@ -10,6 +10,7 @@ import { Tarjeta } from '../../componentes/Pagina';
 import { COLOR_DE_LA_PLATAFORMA } from '../../sesion/apariencia';
 import { useSesion } from '../../sesion/SesionContext';
 import { CONTRASTE_MINIMO, contrasteConBlanco, esColorHex } from '../../utilidades/color';
+import { EditorDeFondo } from './EditorDeFondo';
 
 /** Los de la API (identidad.servicio.ts): se comprueban antes para no gastar datos del celular en un rechazo. */
 const PESO_MAXIMO_LOGO = 256 * 1024;
@@ -42,7 +43,7 @@ interface Props {
   alGuardar?(marca: Marca): void;
 }
 
-/** RF31: nombre comercial, color y logo. Lo usan el administrador en su empresa y el Master en cualquiera. */
+/** RF31: nombre comercial, color, logo y fondo. Lo usan el administrador en su empresa y el Master en cualquiera. */
 export function EditorDeIdentidad({ razonSocial, marca: inicial, operaciones, alGuardar }: Props) {
   const { previsualizarColor } = useSesion();
   const [marca, setMarca] = useState(inicial);
@@ -108,7 +109,7 @@ export function EditorDeIdentidad({ razonSocial, marca: inicial, operaciones, al
     if (!archivo) return;
     const problemaLogo = problemaDeLogo(archivo);
     if (problemaLogo) setErrorLogo(problemaLogo);
-    else void cambiarLogo(() => operaciones.cambiarLogo(archivo), 'Logo actualizado.');
+    else void cambiarLogo(() => operaciones.cambiarImagen('logo', archivo), 'Logo actualizado.');
   }
 
   const errores = errorDatos?.porCampo() ?? {};
@@ -181,13 +182,18 @@ export function EditorDeIdentidad({ razonSocial, marca: inicial, operaciones, al
             </Boton>
             {marca.logoUrl && (
               <Boton variante="fantasma" icono={Trash2} disabled={ocupado === 'logo'}
-                onClick={() => void cambiarLogo(() => operaciones.quitarLogo(), 'Logo quitado: se ve el icono de la plataforma.')}>
+                onClick={() => void cambiarLogo(() => operaciones.quitarImagen('logo'), 'Logo quitado: se ve el icono de la plataforma.')}>
                 Quitar logo
               </Boton>
             )}
           </div>
         </div>
       </Tarjeta>
+
+      <EditorDeFondo marca={marca} operaciones={operaciones} alGuardar={(nueva) => {
+        setMarca(nueva);
+        alGuardar?.(nueva);
+      }} />
     </div>
   );
 }
