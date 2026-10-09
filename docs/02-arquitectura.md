@@ -585,6 +585,15 @@ un instante y el inicio de sesión confirma la salida con `?motivo=salida`, como
 *Descartado:* una librería de animaciones (peso sin necesidad), la imagen en su resolución original (190 KB por datos
 móviles, indicador 5) y navegar desde el contexto al salir (dos redirecciones a la vez se pisaban el aviso).
 
+**D38 · Contacto, términos y privacidad, públicos y fieles al sistema.** Como no hay registro público (decisión B de la v2), el pie
+del acceso ofrece «Solicita una cuenta»: un correo ya redactado con lo mínimo para dar de alta una empresa y, si se
+configura, WhatsApp. `/terminos` y `/privacidad` se leen con o sin sesión; la privacidad sigue la Ley 29733 y el
+consentimiento (docs/10) y cada dato que nombra es uno que el sistema guarda de verdad (sin IP, RNF10). El contacto
+sale de `VITE_CONTACTO_EMAIL` y `VITE_CONTACTO_WHATSAPP`, no del código; sin ellas, la pantalla no lo ofrece.
+*Descartado:* un formulario de solicitud que guarde datos de empresas aún sin cuenta (sería tratar datos personales
+sin una relación previa y abrir una puerta sin autenticación) y textos legales genéricos que prometan lo que el
+sistema no hace.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

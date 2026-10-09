@@ -261,6 +261,8 @@ no se sube al repositorio, y nunca en Render.
 | Variable | Ejemplo | Para qué |
 |---|---|---|
 | `VITE_API_URL` | `https://<servicio>.onrender.com/api/v1` | Dirección de la API |
+| `VITE_CONTACTO_EMAIL` | `contacto@<dominio>` | Opcional (D38): para pedir una cuenta y ejercer los derechos sobre los datos |
+| `VITE_CONTACTO_WHATSAPP` | `51987654321` | Opcional (D38): el mismo pedido por WhatsApp |
 
 Todo lo que empieza por `VITE_` acaba dentro del JavaScript que descarga el navegador: ahí nunca va
 un secreto.

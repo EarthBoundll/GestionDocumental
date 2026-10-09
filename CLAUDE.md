@@ -332,6 +332,10 @@ búsqueda es una acción del historial, y las parciales lo enturbiarían.
 en WebP (55 KB y 27 KB), movimiento solo CSS que respeta «reducir movimiento», y cerrar sesión con confirmación,
 despedida y aviso al volver (D37). Se descartaron una librería de animaciones y la imagen original de 190 KB.
 
+**Contacto, términos y privacidad, públicos y fieles al sistema.** El acceso ofrece «Solicita una cuenta» (correo ya
+redactado y WhatsApp opcional, desde variables de Vercel) y enlaza `/terminos` y `/privacidad`, que describen solo lo
+que el sistema hace (D38). Se descartó un formulario público de solicitud: guardaría datos sin autenticación ni relación.
+
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.
 

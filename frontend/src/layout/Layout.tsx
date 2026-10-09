@@ -99,6 +99,19 @@ function Despedida({ nombre }: { nombre: string }) {
   );
 }
 
+/** Al pie del menú: la cuenta y, con la sesión iniciada, los términos y la privacidad (D38). */
+function PieDelMenu() {
+  return (
+    <div className="mt-auto">
+      <Link to="/cuenta" className="block rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Mi cuenta</Link>
+      <nav aria-label="Información legal" className="mt-1 flex gap-3 px-3 text-xs text-slate-500">
+        <Link to="/terminos" className="py-1 hover:text-marca-700 hover:underline">Términos</Link>
+        <Link to="/privacidad" className="py-1 hover:text-marca-700 hover:underline">Privacidad</Link>
+      </nav>
+    </div>
+  );
+}
+
 /** El marco de todas las pantallas con sesión: barra lateral en escritorio, menú desplegable en el celular. */
 export function Layout() {
   const { esMaster } = useSesion();
@@ -118,7 +131,7 @@ export function Layout() {
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 border-r border-slate-200 bg-superficie px-4 py-5 lg:flex print:hidden">
         <Marca />
         <Navegacion />
-        <Link to="/cuenta" className="mt-auto rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Mi cuenta</Link>
+        <PieDelMenu />
       </aside>
 
       {menuAbierto && (
@@ -132,7 +145,7 @@ export function Layout() {
               </button>
             </div>
             <Navegacion alNavegar={() => setMenuAbierto(false)} />
-            <Link to="/cuenta" className="mt-auto rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Mi cuenta</Link>
+            <PieDelMenu />
           </div>
         </div>
       )}

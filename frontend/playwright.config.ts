@@ -65,7 +65,8 @@ export default defineConfig({
       command: `npx vite build --outDir "${WEB}" --emptyOutDir && npx vite preview --outDir "${WEB}" --port ${PUERTO_WEB} --strictPort`,
       url: URL_WEB,
       timeout: 120_000,
-      env: { VITE_API_URL: URL_API },
+      // Un contacto de prueba (D38): así se recorre también «Solicita una cuenta».
+      env: { VITE_API_URL: URL_API, VITE_CONTACTO_EMAIL: 'contacto@ejemplo.pe' },
     },
   ],
 });
