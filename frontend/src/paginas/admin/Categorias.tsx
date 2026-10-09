@@ -45,7 +45,7 @@ export function Categorias() {
         ) : consulta.datos.datos.length === 0 ? (
           <EstadoVacio icono={Tags} titulo="Aún no hay categorías" />
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="escalonado divide-y divide-slate-100">
             {consulta.datos.datos.map((categoria) => (
               <li key={categoria.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">

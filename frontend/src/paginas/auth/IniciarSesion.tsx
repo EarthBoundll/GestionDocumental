@@ -1,3 +1,4 @@
+import { ArrowRight } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { ErrorApi } from '../../api/cliente';
@@ -50,7 +51,10 @@ export function IniciarSesion() {
         <p className="-my-2 text-right text-sm">
           <Link to="/recuperar-clave" state={{ email }} className="inline-block py-2 font-medium text-marca-700 hover:underline">¿Olvidaste tu contraseña?</Link>
         </p>
-        <Boton type="submit" cargando={enviando} className="w-full">Entrar</Boton>
+        <Boton type="submit" cargando={enviando} className="con-brillo group w-full">
+          Entrar
+          {!enviando && <ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-1" />}
+        </Boton>
       </form>
     </PantallaDeAcceso>
   );

@@ -30,7 +30,7 @@ export function Modal({ abierto, alCerrar, titulo, children, acciones }: Props) 
       ref={dialogo}
       aria-labelledby={idTitulo}
       onClose={alCerrar}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-xl bg-superficie p-0 text-slate-800 shadow-xl backdrop:bg-black/50"
+      className="m-auto w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-xl bg-superficie p-0 text-slate-800 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] motion-safe:open:animate-emerger motion-safe:backdrop:animate-aparecer"
     >
       {/* En un celular el formulario puede no caber: se desplaza el contenido, y título y botones quedan a la vista. */}
       <div className="flex max-h-[calc(100dvh-3rem)] flex-col">

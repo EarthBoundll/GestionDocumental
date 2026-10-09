@@ -12,7 +12,8 @@ Render tiene todas sus variables, con los proxies de confianza ajustados (§5); 
 usuario de la API y la cuenta Master ya están en la base, y el monitor corre en Supabase (§7). La
 comprobación desde fuera (§8, hecha con `pg_net` desde Supabase) dio todo en verde: la API y su base
 responden, CORS admite al frontend, el frontend se sirve con su CSP, un enlace interno no da 404 y el
-JavaScript publicado llama a esta API. Falta la prueba de humo con personas (§8) y, opcional, apagar la
+JavaScript publicado llama a esta API. La prueba de humo con personas (§8) se hizo en parte el 9 de octubre de 2026:
+lo marcado lo confirma el historial; falta lo que sigue sin marcar. Opcional: apagar la
 Data API (§1, paso 2): sin ella, `anon` y `authenticated` siguen sin permisos sobre nada (002, 003).
 
 Orden para repetirlo desde cero: Supabase → Brevo → Render → Vercel → Master → monitor → comprobación.
@@ -210,12 +211,13 @@ qué variable revisar. No crea datos ni inicia sesión.
 
 Después, a mano, la prueba de humo (unos diez minutos):
 
-- [ ] El Master entra desde la PC y da de alta la empresa del caso de validación con su administrador.
+- [x] El Master entra desde la PC y da de alta la empresa del caso de validación con su administrador.
 - [ ] Ese administrador entra **desde su celular**, sube un documento con la cámara o desde la galería,
-      lo busca, lo ve y lo descarga.
-- [ ] Desde la PC, pide recuperar su contraseña: el correo llega (revisa también *Spam*) y el enlace
+      lo busca, lo ve y lo descarga. *(9 de octubre: subido con «Tomar foto» y visto desde el celular; falta
+      buscarlo y descargarlo.)*
+- [x] Desde la PC, pide recuperar su contraseña: el correo llega (revisa también *Spam*) y el enlace
       funciona una sola vez.
-- [ ] Un usuario pide aprobar un documento y el administrador lo aprueba; la campana avisa a ambos.
+- [x] Un usuario pide aprobar un documento y el administrador lo aprueba; la campana avisa a ambos.
 - [ ] El historial muestra todo lo anterior y se exporta a CSV.
 - [ ] Desde la PC, la *Vista previa* de un PDF y de una foto se ve dentro de la ficha; en el celular, la
       de la foto.

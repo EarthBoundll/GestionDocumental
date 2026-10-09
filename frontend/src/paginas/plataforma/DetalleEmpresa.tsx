@@ -82,7 +82,7 @@ export function DetalleEmpresa() {
           </div>
           <Boton variante="secundario" icono={UserPlus} onClick={() => setAdministrador('nuevo')}>Nuevo administrador</Boton>
         </div>
-        <ul className="divide-y divide-slate-100">
+        <ul className="escalonado divide-y divide-slate-100">
           {empresa.administradores.map((elegido) => (
             <li key={elegido.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
               <div className="min-w-0 flex-1">

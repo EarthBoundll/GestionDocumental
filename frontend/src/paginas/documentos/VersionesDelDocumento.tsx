@@ -64,7 +64,7 @@ export function VersionesDelDocumento({ documento, alCambiar, alFallar, alConsul
       ) : !consulta.datos ? (
         <Cargando />
       ) : (
-        <ol className="divide-y divide-slate-100" aria-label="Versiones del documento">
+        <ol className="escalonado divide-y divide-slate-100" aria-label="Versiones del documento">
           {consulta.datos.datos.map((version) => (
             <FilaDeVersion
               key={version.numero}

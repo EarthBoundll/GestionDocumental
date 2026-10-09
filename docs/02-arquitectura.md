@@ -614,6 +614,25 @@ por qué un beige no sirve), la imagen detrás del texto con un velo (con una fo
 decoración) y comprimirla en el servidor (sumaba una librería nativa de imágenes a Render para algo que el navegador
 ya hace).
 
+**D40 · Movimiento moderno sin peso: solo CSS.** El acceso tiene un titular cuya palabra rota (documentos, facturas,
+contratos…), halos de color que se desplazan sobre la foto, tres tarjetas de vidrio que flotan con lo que hace el
+sistema (solo desde 1280 × 760 px, para no tapar el mensaje), textos que se enfocan al llegar, el formulario campo por
+campo y un ojo para ver la contraseña. Dentro, cada pantalla entra al abrirla, las listas y los indicadores llegan
+escalonados, lo que carga muestra su forma con un brillo, los botones se hunden al pulsarlos, los diálogos emergen
+sobre un fondo desenfocado, la campana late tres veces al llegar algo y los estados vacíos flotan. Todo anima
+`transform` y `opacity`, que el navegador mueve sin volver a dibujar, con una curva que frena al llegar. Cuesta 2,4 KB
+de CSS y 1,7 KB de JavaScript comprimidos, sin ninguna petición ni dependencia nueva; con «reducir movimiento» nada se
+mueve, y la prueba funcional lo comprueba en un navegador. Las entradas duran 280 ms y el escalonado se corta en el
+octavo elemento: la búsqueda se mide con cronómetro (indicador 2) y el movimiento no debe sumarle tiempo; la primera
+versión, más lenta, alargaba un 55 % las pruebas funcionales, que esperan a que todo esté quieto antes de pulsar, y
+dejaba el acceso en movimiento 1,3 s. Lo animado del acceso es adorno oculto al lector de
+pantalla, que lee la frase entera y quieta. Revisarlo en modo oscuro encontró que el vidrio de las tarjetas usaba la
+escala slate, que ese modo invierte: lo que va sobre la foto lleva colores fijos.
+*Descartado:* Framer Motion o GSAP (decenas de KB para lo que CSS ya hace), la API View Transitions (había que marcar
+cada enlace y cada navegación del código, y mientras dura la página no recibe clics), partículas en un canvas
+(consumen procesador sin parar en un celular) y contadores animados en el tablero (un indicador debe leerse exacto
+desde el primer instante).
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

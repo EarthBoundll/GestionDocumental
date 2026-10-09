@@ -39,13 +39,29 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   /*
-   * El movimiento del acceso y de la salida (D37): solo CSS, corto, y siempre con «motion-safe:», así que con
-   * «reducir movimiento» en el dispositivo nada se mueve y todo aparece en su sitio.
+   * El movimiento (D37, D40): solo CSS, con transform y opacity, que el navegador anima sin volver a dibujar la
+   * página, y siempre con «motion-safe:» o bajo prefers-reduced-motion: no-preference. Con «reducir
+   * movimiento» en el dispositivo nada se mueve y todo aparece en su sitio. La curva frena al llegar, como
+   * los movimientos de los sistemas operativos actuales.
    */
   --animate-acercar: acercar 24s ease-out both;
-  --animate-subir: subir 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  --animate-desde-derecha: desde-derecha 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-subir: subir 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-desde-derecha: desde-derecha 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-aparecer: aparecer 250ms ease-out both;
+  /* Aparece desenfocado y se enfoca al llegar: los titulares y las tarjetas del acceso. */
+  --animate-enfocar: enfocar 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /*
+   * Cada pantalla al abrirla y cada elemento nuevo de una lista. Corta: la búsqueda se mide con cronómetro
+   * (indicador 2) y el movimiento no debe sumarle tiempo. Solo hacia atrás: al terminar no deja transform.
+   */
+  --animate-entrar: entrar 280ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  /* Los diálogos. */
+  --animate-emerger: emerger 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-flotar: flotar 7s ease-in-out infinite;
+  --animate-aurora: aurora 22s ease-in-out infinite alternate;
+  --animate-palabras: palabras 12s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  /* Tres latidos al llegar algo nuevo a la campana, no un parpadeo sin fin. */
+  --animate-latido: latido 1.4s ease-out 3;
 
   @keyframes acercar {
     from { transform: scale(1.12); }
@@ -62,6 +78,39 @@
   @keyframes aparecer {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+  @keyframes enfocar {
+    from { opacity: 0; transform: translateY(14px); filter: blur(10px); }
+    to { opacity: 1; transform: none; filter: none; }
+  }
+  @keyframes entrar {
+    from { opacity: 0; transform: translateY(8px); }
+  }
+  @keyframes emerger {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes flotar {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes aurora {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(10%, -8%, 0) scale(1.15); }
+    100% { transform: translate3d(-8%, 6%, 0) scale(0.95); }
+  }
+  /* Cinco palabras y la primera repetida al final: al volver a empezar no se nota el salto. */
+  @keyframes palabras {
+    0%, 16% { transform: translateY(0); }
+    20%, 36% { transform: translateY(-16.6667%); }
+    40%, 56% { transform: translateY(-33.3333%); }
+    60%, 76% { transform: translateY(-50%); }
+    80%, 96% { transform: translateY(-66.6667%); }
+    100% { transform: translateY(-83.3333%); }
+  }
+  @keyframes latido {
+    0% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0.55); }
+    80%, 100% { box-shadow: 0 0 0 9px rgb(220 38 38 / 0); }
   }
 }
 
@@ -170,6 +219,87 @@
     color-scheme: dark;
     background-color: oklch(16% 0.035 264);
   }
+}
+
+/*
+ * Movimiento de las piezas (D40). Lo que va aquí y no en una clase de Tailwind es lo que depende del orden de
+ * los elementos (las listas escalonadas) o lo que se repite en un pseudoelemento (el brillo del botón).
+ */
+@media (prefers-reduced-motion: no-preference) {
+  /* Los elementos de una lista entran uno tras otro; a partir del octavo, todos a la vez: en medio segundo está entera. */
+  .escalonado > * {
+    animation: var(--animate-entrar);
+  }
+  .escalonado > :nth-child(2) { animation-delay: 30ms; }
+  .escalonado > :nth-child(3) { animation-delay: 60ms; }
+  .escalonado > :nth-child(4) { animation-delay: 90ms; }
+  .escalonado > :nth-child(5) { animation-delay: 120ms; }
+  .escalonado > :nth-child(6) { animation-delay: 150ms; }
+  .escalonado > :nth-child(7) { animation-delay: 180ms; }
+  .escalonado > :nth-child(n + 8) { animation-delay: 210ms; }
+
+  /*
+   * El formulario del acceso, campo por campo, mientras llega su tarjeta. Se puede escribir desde el primer
+   * instante, y a los 0,6 s todo está quieto: es la pantalla que más se repite.
+   */
+  .formulario-escalonado form > * {
+    animation: var(--animate-entrar);
+    animation-delay: 150ms;
+  }
+  .formulario-escalonado form > :nth-child(2) { animation-delay: 190ms; }
+  .formulario-escalonado form > :nth-child(3) { animation-delay: 230ms; }
+  .formulario-escalonado form > :nth-child(n + 4) { animation-delay: 270ms; }
+
+  /* Un destello cruza el botón al pasar por encima o al enfocarlo con el teclado. */
+  .con-brillo:enabled:is(:hover, :focus-visible)::after {
+    animation: brillo 900ms ease-out;
+  }
+  .esqueleto {
+    animation: esqueleto 1.6s linear infinite;
+  }
+}
+.con-brillo {
+  position: relative;
+  overflow: hidden;
+}
+.con-brillo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  pointer-events: none;
+}
+@keyframes brillo {
+  to { transform: translateX(100%); }
+}
+
+/* Lo que se está cargando tiene la forma de lo que va a llegar, con un brillo que lo recorre. */
+.esqueleto {
+  background: linear-gradient(90deg, var(--color-slate-100) 30%, var(--color-slate-200) 50%, var(--color-slate-100) 70%);
+  background-size: 300% 100%;
+}
+@keyframes esqueleto {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+
+/* Las tarjetas de muestra del acceso piden sitio: solo en pantallas anchas y altas, para no tapar el mensaje. */
+.tarjetas-de-muestra {
+  display: none;
+}
+@media (min-width: 80rem) and (min-height: 47.5rem) {
+  .tarjetas-de-muestra {
+    display: flex;
+  }
+}
+
+/* Detrás del formulario del acceso: una trama de puntos que se desvanece hacia los bordes y un halo de la marca. */
+.fondo-de-puntos {
+  background:
+    radial-gradient(36rem circle at 75% 15%, color-mix(in srgb, var(--marca) 14%, transparent), transparent 70%),
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-slate-400) 45%, transparent) 1px, transparent 0) 0 0 / 22px 22px;
+  mask-image: radial-gradient(ellipse at center, black 35%, transparent 80%);
 }
 
 /* Lo que se imprime (el historial, RF36): A4 con márgenes de oficina; la cabecera de la tabla se repite en cada hoja. */

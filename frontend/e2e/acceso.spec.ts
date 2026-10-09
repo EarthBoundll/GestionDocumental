@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { CLAVE, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, salir, ultimoCorreoPara } from './apoyo';
-import { URL_API } from './entorno';
+import { URL_API, URL_WEB } from './entorno';
 
 test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
   test('RF02 · Iniciar sesión con correo y contraseña; si fallan, el mismo mensaje exista o no la cuenta @movil @demo', async ({ page, request }) => {
@@ -10,7 +10,7 @@ test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
     for (const [email, clave] of [[usuaria.email, 'no-es-la-clave'], [`nadie.${usuaria.email}`, 'no-es-la-clave']] as const) {
       await page.goto('/login');
       await page.getByLabel('Correo').fill(email);
-      await page.getByLabel('Contraseña').fill(clave);
+      await page.getByLabel('Contraseña', { exact: true }).fill(clave);
       await page.getByRole('button', { name: 'Entrar' }).click();
       await expect(page.getByRole('alert')).toHaveText('Correo o contraseña incorrectos');
     }
@@ -18,6 +18,38 @@ test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
     await entrar(page, usuaria);
     await expect(page).toHaveURL(/\/documentos$/);
     await expect(page.getByRole('heading', { name: 'Documentos', level: 1 })).toBeVisible();
+  });
+
+  test('D40 · El acceso se mueve sin pesar: se detiene con «reducir movimiento» y la contraseña se puede ver @movil', async ({ page, browser }, prueba) => {
+    const animacion = (selector: string) => page.getByTestId(selector).locator(':scope > *').first().evaluate((elemento) => getComputedStyle(elemento).animationName);
+    if (prueba.project.name === 'escritorio') await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/login');
+
+    // Con movimiento: la palabra del titular rota y los halos se desplazan.
+    expect(await animacion('palabras-que-rotan')).toBe('palabras');
+    expect(await animacion('aurora')).toBe('aurora');
+    // Las tarjetas de muestra solo caben en una pantalla ancha y alta; en el celular, ni se muestran.
+    await expect(page.getByTestId('tarjetas-de-muestra')).toBeVisible({ visible: prueba.project.name === 'escritorio' });
+
+    // El ojo muestra lo escrito y lo vuelve a ocultar.
+    const clave = page.getByLabel('Contraseña', { exact: true });
+    await clave.fill('una-clave-larga');
+    await page.getByRole('button', { name: 'Mostrar la contraseña' }).click();
+    await expect(clave).toHaveAttribute('type', 'text');
+    await page.getByRole('button', { name: 'Mostrar la contraseña' }).click();
+    await expect(clave).toHaveAttribute('type', 'password');
+    // Con las animaciones terminadas: lo que se ve cuando todo llegó a su sitio.
+    await prueba.attach('acceso-con-movimiento', { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
+
+    // Con «reducir movimiento» en el dispositivo nada se mueve, y todo está en su sitio desde el primer momento.
+    const quieto = await browser.newContext({ baseURL: URL_WEB, locale: 'es-PE', reducedMotion: 'reduce' });
+    const pagina = await quieto.newPage();
+    await pagina.goto('/login');
+    for (const adorno of ['palabras-que-rotan', 'aurora']) {
+      expect(await pagina.getByTestId(adorno).locator(':scope > *').first().evaluate((elemento) => getComputedStyle(elemento).animationName)).toBe('none');
+    }
+    expect(await pagina.getByLabel('Correo').evaluate((campo) => getComputedStyle(campo.closest('form > *')!).opacity)).toBe('1');
+    await quieto.close();
   });
 
   test('RF03 · Cerrar sesión pide confirmación y la revoca en el servidor: el token anterior ya no sirve @movil', async ({ page, request }) => {

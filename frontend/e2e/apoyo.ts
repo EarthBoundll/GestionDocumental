@@ -102,7 +102,7 @@ export async function nuevaCategoria(
 export async function entrar(page: Page, cuenta: { email: string; clave: string }) {
   await page.goto('/login');
   await page.getByLabel('Correo').fill(cuenta.email);
-  await page.getByLabel('Contraseña').fill(cuenta.clave);
+  await page.getByLabel('Contraseña', { exact: true }).fill(cuenta.clave);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).not.toHaveURL(/\/login/);
 }

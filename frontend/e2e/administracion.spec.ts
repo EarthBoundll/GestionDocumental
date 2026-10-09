@@ -62,7 +62,7 @@ test.describe('Administración de la empresa', () => {
     const visitante = await browser.newPage({ baseURL: test.info().project.use.baseURL, locale: 'es-PE' });
     await visitante.goto('/login');
     await visitante.getByLabel('Correo').fill(pedro.email);
-    await visitante.getByLabel('Contraseña').fill(pedro.clave);
+    await visitante.getByLabel('Contraseña', { exact: true }).fill(pedro.clave);
     await visitante.getByRole('button', { name: 'Entrar' }).click();
     await expect(visitante.getByRole('alert')).toHaveText('Tu cuenta está desactivada. Consulta con el administrador de tu empresa');
 

@@ -64,7 +64,7 @@ export function Auditoria() {
           <EstadoVacio icono={ShieldCheck} titulo="No hay acciones con estos filtros" />
         ) : (
           <>
-            <ul className="divide-y divide-slate-100">
+            <ul className="escalonado divide-y divide-slate-100">
               {consulta.datos.datos.map((asiento) => <FilaDeHistorial key={asiento.id} asiento={asiento} conEmpresa />)}
             </ul>
             <Paginacion {...consulta.datos.paginacion} alCambiar={(pagina) => filtrar('pagina', String(pagina))} />

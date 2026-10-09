@@ -50,7 +50,7 @@ export function Papelera() {
         ) : consulta.datos.datos.length === 0 ? (
           <EstadoVacio icono={Trash2} titulo="La papelera está vacía">Los documentos eliminados aparecerán aquí.</EstadoVacio>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="escalonado divide-y divide-slate-100">
             {consulta.datos.datos.map((documento) => (
               <li key={documento.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
