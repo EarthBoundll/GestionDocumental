@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CLAVE, entrar, irDesdeElMenu, nuevaCategoria, nuevaCuenta, nuevaEmpresa, subirDocumento, unico } from './apoyo';
+import { CLAVE, entrar, irDesdeElMenu, nuevaCategoria, nuevaCuenta, nuevaEmpresa, salir, subirDocumento, unico } from './apoyo';
 import { MASTER, URL_WEB } from './entorno';
 
 test.describe('Plataforma: el Administrador Master', () => {
@@ -18,7 +18,7 @@ test.describe('Plataforma: el Administrador Master', () => {
 
     await expect(page.getByText('Empresa registrada.')).toBeVisible();
     await expect(page.getByRole('heading', { name: `Textiles ${sufijo} SAC` })).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     await entrar(page, { email: `rosa.${sufijo}@e2e.pe`, clave: CLAVE });
     await page.goto('/admin/categorias');

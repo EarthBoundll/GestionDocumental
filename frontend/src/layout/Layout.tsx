@@ -1,6 +1,9 @@
 import { CircleUser, LogOut, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, Outlet, useLocation } from 'react-router';
+import { Boton } from '../componentes/Boton';
+import { Modal } from '../componentes/Modal';
 import { useSesion } from '../sesion/SesionContext';
 import { inicioDe, NOMBRES_DE_ROLES } from '../utilidades/roles';
 import { Campana } from './Campana';
@@ -40,7 +43,18 @@ function Marca({ compacta = false }: { compacta?: boolean }) {
 
 function MenuDeUsuario() {
   const { sesion, cerrar } = useSesion();
+  const [confirmando, setConfirmando] = useState(false);
+  const [saliendo, setSaliendo] = useState(false);
   if (!sesion) return null;
+
+  async function salir() {
+    setConfirmando(false);
+    setSaliendo(true);
+    // Un instante para que se vea la despedida; con «reducir movimiento» (o sin forma de saberlo), sin espera.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === false) await new Promise((listo) => setTimeout(listo, 600));
+    await cerrar();
+  }
+
   return (
     <div className="flex items-center gap-1">
       <Link to="/cuenta" className="hidden items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-100 sm:flex">
@@ -48,10 +62,40 @@ function MenuDeUsuario() {
         <span className="max-w-40 truncate font-medium text-slate-700">{sesion.usuario.nombre}</span>
         <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[sesion.usuario.rol]}</span>
       </Link>
-      <button type="button" onClick={() => void cerrar()} className="rounded-lg p-2.5 text-slate-600 hover:bg-slate-100" aria-label="Cerrar sesión" title="Cerrar sesión">
+      {/* Se confirma: en el celular este botón queda junto a la campana, y un toque de más obligaría a volver a entrar. */}
+      <button type="button" onClick={() => setConfirmando(true)} className="rounded-lg p-2.5 text-slate-600 hover:bg-slate-100" aria-label="Cerrar sesión" title="Cerrar sesión">
         <LogOut aria-hidden className="size-5" />
       </button>
+      <Modal
+        abierto={confirmando}
+        alCerrar={() => setConfirmando(false)}
+        titulo="¿Cerrar sesión?"
+        acciones={<>
+          <Boton variante="secundario" onClick={() => setConfirmando(false)}>Cancelar</Boton>
+          <Boton icono={LogOut} onClick={() => void salir()}>Sí, cerrar sesión</Boton>
+        </>}
+      >
+        <p className="text-sm text-slate-600">Para volver a entrar necesitarás tu correo y tu contraseña.</p>
+      </Modal>
+      {saliendo && <Despedida nombre={sesion.usuario.nombre} />}
     </div>
+  );
+}
+
+/**
+ * Mientras se cierra la sesión, la pantalla se despide en lugar de quedarse quieta. Va a <body> con un portal:
+ * dentro de la cabecera, que tiene backdrop-blur, «fixed» se mediría contra ella y no contra la pantalla.
+ */
+function Despedida({ nombre }: { nombre: string }) {
+  return createPortal(
+    <div role="status" className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-superficie/85 px-6 text-center backdrop-blur-sm motion-safe:animate-aparecer">
+      <span className="flex size-14 items-center justify-center rounded-full bg-marca-50 text-marca-700 motion-safe:animate-subir">
+        <LogOut aria-hidden className="size-6" />
+      </span>
+      <p className="text-lg font-semibold text-slate-900">Cerrando sesión…</p>
+      <p className="text-sm text-slate-600">Hasta pronto, {nombre.split(' ')[0]}</p>
+    </div>,
+    document.body,
   );
 }
 

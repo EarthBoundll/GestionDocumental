@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { entrar, nuevaCuenta, nuevaEmpresa, subirDocumento } from './apoyo';
+import { entrar, nuevaCuenta, nuevaEmpresa, salir, subirDocumento } from './apoyo';
 
 const campana = (page: Page) => page.getByRole('button', { name: /^Notificaciones/ });
 
@@ -39,7 +39,7 @@ test.describe('Aprobación de un nivel y notificaciones', () => {
     await page.getByRole('button', { name: 'Solicitar aprobación' }).click();
     await page.getByRole('button', { name: 'Enviar solicitud' }).click();
     await expect(page.getByText('La solicitud se envió')).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     await entrar(page, empresa.administrador);
     await page.goto('/solicitudes?estado=pendiente');
@@ -50,7 +50,7 @@ test.describe('Aprobación de un nivel y notificaciones', () => {
     await page.getByLabel(/^Motivo del rechazo/).fill('Falta el sello del proveedor');
     await page.getByRole('dialog').getByRole('button', { name: 'Rechazar' }).click();
     await expect(page.getByText('Rechazaste el documento.')).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     await entrar(page, ana);
     await page.goto(`/documentos/${id}`);
@@ -59,7 +59,7 @@ test.describe('Aprobación de un nivel y notificaciones', () => {
     await page.getByRole('button', { name: 'Solicitar aprobación' }).click();
     await page.getByRole('button', { name: 'Enviar solicitud' }).click();
     await expect(page.getByText('La solicitud se envió')).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     await entrar(page, empresa.administrador);
     await page.goto(`/documentos/${id}`);
@@ -81,7 +81,7 @@ test.describe('Aprobación de un nivel y notificaciones', () => {
     await page.getByRole('button', { name: 'Enviar solicitud' }).click();
     await expect(page.getByText('La solicitud se envió')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Aprobar' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     await entrar(page, segundo);
     await page.goto(`/documentos/${id}`);
@@ -98,13 +98,13 @@ test.describe('Aprobación de un nivel y notificaciones', () => {
     await page.getByRole('button', { name: 'Solicitar aprobación' }).click();
     await page.getByRole('button', { name: 'Enviar solicitud' }).click();
     await expect(page.getByText('La solicitud se envió')).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
     await entrar(page, empresa.administrador);
     await page.goto(`/documentos/${id}`);
     await page.getByRole('button', { name: 'Aprobar' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Aprobar' }).click();
     await expect(page.getByText('Aprobaste el documento.')).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     await entrar(page, ana);
     await expect(campana(page)).toHaveAccessibleName('Notificaciones: 1 sin leer');

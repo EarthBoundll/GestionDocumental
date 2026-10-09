@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { CLAVE, entrar, nuevaCuenta, nuevaEmpresa, subirDocumento, unico } from './apoyo';
+import { CLAVE, entrar, nuevaCuenta, nuevaEmpresa, salir, subirDocumento, unico } from './apoyo';
 
 test.describe('Administración de la empresa', () => {
   test('RF13 · El administrador crea usuarios, les cambia el nombre y el rol, y restablece su contraseña', async ({ page, request }) => {
@@ -42,7 +42,7 @@ test.describe('Administración de la empresa', () => {
     await expect(dialogo.getByLabel('Rol')).toBeDisabled();
     await page.getByRole('button', { name: 'Cancelar' }).click();
 
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
     await entrar(page, { email: `ana.${sufijo}@e2e.pe`, clave: 'restablecida-clave-5' });
     await expect(page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Historial' })).toBeVisible();
   });
@@ -89,7 +89,7 @@ test.describe('Administración de la empresa', () => {
     // Una pantalla que no es de su rol: la API la niega y lo registra (indicador 6).
     await page.goto('/admin/historial');
     await expect(page.getByText('No tienes permiso para ver esto')).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     await entrar(page, empresa.administrador);
     await page.goto('/admin/historial');

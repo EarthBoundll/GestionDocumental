@@ -38,11 +38,12 @@ export function IniciarSesion() {
   return (
     <PantallaDeAcceso
       titulo="Iniciar sesión"
-      subtitulo="Los documentos de tu empresa, desde cualquier lugar"
+      subtitulo="Entra con el correo y la contraseña de tu cuenta."
       pie="¿Aún no tienes cuenta? Las crea el administrador de tu empresa."
     >
       <form onSubmit={(evento) => void enviar(evento)} className="space-y-4" noValidate>
         {parametros.get('motivo') === 'sesion' && !error && <Aviso>Tu sesión terminó. Vuelve a iniciar sesión para continuar.</Aviso>}
+        {parametros.get('motivo') === 'salida' && !error && <Aviso tipo="exito">Cerraste tu sesión. Hasta pronto.</Aviso>}
         {error && !error.detalles.length && <Aviso tipo="error">{error.mensaje}</Aviso>}
         <Campo etiqueta="Correo" type="email" autoComplete="username" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} error={errores.email} />
         <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" required value={clave} onChange={(e) => setClave(e.target.value)} error={errores.clave} />

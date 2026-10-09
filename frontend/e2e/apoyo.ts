@@ -107,6 +107,13 @@ export async function entrar(page: Page, cuenta: { email: string; clave: string 
   await expect(page).not.toHaveURL(/\/login/);
 }
 
+/** Cierra sesión como una persona: el botón de la cabecera y su confirmación (D37). */
+export async function salir(page: Page) {
+  await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+  await page.getByRole('dialog', { name: '¿Cerrar sesión?' }).getByRole('button', { name: 'Sí, cerrar sesión' }).click();
+  await expect(page).toHaveURL(/\/login\?motivo=salida$/);
+}
+
 /** En el celular el menú está plegado; en el escritorio, a la vista. */
 export async function irDesdeElMenu(page: Page, enlace: string) {
   const abrir = page.getByRole('button', { name: 'Abrir el menú' });
