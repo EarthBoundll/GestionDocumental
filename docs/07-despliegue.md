@@ -85,6 +85,10 @@ Sin él, `npm run local` levanta todo en tu máquina.
    detecta Vite; deja la compilación por defecto.
 2. Variable de entorno `VITE_API_URL` = `https://<servicio>.onrender.com/api/v1`. Se lee al compilar:
    si la cambias, vuelve a desplegar.
+   Opcionales (D38): `VITE_CONTACTO_EMAIL`, el correo al que las empresas piden su cuenta y las personas
+   ejercen sus derechos sobre sus datos (conviene uno propio para esto, no el de la cuenta del Master), y
+   `VITE_CONTACTO_WHATSAPP`, solo dígitos con el código del país (`51…`). Sin ellas, el inicio de sesión
+   no ofrece «Solicita una cuenta» y los términos remiten al consentimiento.
 3. El nombre del proyecto debe dar la dirección que pusiste en `CORS_ORIGEN`. Si Vercel te da otra,
    corrige `CORS_ORIGEN` y `URL_FRONTEND` en Render (*Environment*); Render se redespliega solo.
 

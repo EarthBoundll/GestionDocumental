@@ -43,6 +43,25 @@ test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
+  test('RNF10 · Desde el inicio de sesión, sin cuenta: pedir una cuenta por correo y leer los términos y la privacidad @movil', async ({ page }) => {
+    await page.goto('/login');
+
+    // No hay registro público: una empresa pide su cuenta con un correo ya redactado (D38).
+    const solicitar = new URL((await page.getByRole('link', { name: 'Solicita una cuenta' }).getAttribute('href'))!);
+    expect(solicitar.protocol).toBe('mailto:');
+    expect(solicitar.searchParams.get('subject')).toBe('Solicitud de cuenta para mi empresa');
+
+    const legal = page.getByRole('navigation', { name: 'Información legal' });
+    await legal.getByRole('link', { name: 'Privacidad' }).click();
+    await expect(page.getByRole('heading', { name: 'Política de privacidad', level: 1 })).toBeVisible();
+    await expect(page.getByText('El sistema no guarda tu dirección IP.', { exact: false })).toBeVisible();
+    await page.getByRole('navigation', { name: 'Información legal' }).getByRole('link', { name: 'Términos de uso' }).click();
+    await expect(page.getByRole('heading', { name: 'Términos de uso', level: 1 })).toBeVisible();
+
+    await page.getByRole('link', { name: 'Volver' }).click();
+    await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
+  });
+
   test('RF04 · Cambiar la propia contraseña: hace falta la actual, y la nueva sirve para entrar', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     const usuaria = await nuevaCuenta(request, empresa, 'usuario');

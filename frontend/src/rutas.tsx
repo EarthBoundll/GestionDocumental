@@ -15,6 +15,8 @@ import { DetalleDocumento } from './paginas/documentos/DetalleDocumento';
 import { ListaDocumentos } from './paginas/documentos/ListaDocumentos';
 import { SubirDocumento } from './paginas/documentos/SubirDocumento';
 import { NoEncontrado } from './paginas/errores/NoEncontrado';
+import { Privacidad } from './paginas/legal/Privacidad';
+import { Terminos } from './paginas/legal/Terminos';
 import { Notificaciones } from './paginas/notificaciones/Notificaciones';
 import { Auditoria } from './paginas/plataforma/Auditoria';
 import { DetalleEmpresa } from './paginas/plataforma/DetalleEmpresa';
@@ -43,6 +45,9 @@ export const rutas: RouteObject[] = [
       },
       // El enlace del correo se abre con o sin sesión: definir la contraseña cierra todas las sesiones.
       { path: '/restablecer-clave', element: <RestablecerClave /> },
+      // Lo legal se lee con o sin sesión (D38).
+      { path: '/terminos', element: <Terminos /> },
+      { path: '/privacidad', element: <Privacidad /> },
       {
         element: <RutaConSesion />,
         children: [

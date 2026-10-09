@@ -1,7 +1,9 @@
 import { History, Search, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import oficinaAncha from '../../assets/acceso/oficina-1408.webp';
 import oficinaAngosta from '../../assets/acceso/oficina-800.webp';
+import { contacto, correoParaSolicitarCuenta, whatsappParaSolicitarCuenta } from '../../utilidades/contacto';
 
 const VENTAJAS = [
   { icono: Search, texto: 'Un documento se encuentra en segundos, sin importar tildes ni mayúsculas' },
@@ -60,8 +62,34 @@ export function PantallaDeAcceso({ titulo, subtitulo, children, pie }: { titulo:
           <p className="mt-1 text-sm text-slate-600">{subtitulo}</p>
           <div className="mt-6 rounded-xl bg-superficie p-6 shadow-xs ring-1 ring-slate-200 sm:p-8">{children}</div>
           <p className="mt-6 text-center text-sm text-slate-600">{pie}</p>
+          <PieDeAcceso />
         </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * Lo que una empresa que aún no usa el sistema necesita (D38): cómo pedir su cuenta, ya que no hay registro
+ * público, y los términos y la privacidad, que se leen antes de entrar.
+ */
+function PieDeAcceso() {
+  const { correo, whatsapp } = contacto();
+  return (
+    <footer className="mt-8 border-t border-slate-200 pt-6 text-center">
+      {correo && (
+        <p className="text-sm text-slate-600">
+          ¿Tu empresa aún no usa el sistema?{' '}
+          <a href={correoParaSolicitarCuenta(correo)} className="font-medium text-marca-700 hover:underline">Solicita una cuenta</a>
+          {whatsapp && <> o <a href={whatsappParaSolicitarCuenta(whatsapp)} target="_blank" rel="noopener noreferrer" className="font-medium text-marca-700 hover:underline">escríbenos por WhatsApp</a></>}
+        </p>
+      )}
+      <nav aria-label="Información legal" className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500">
+        <Link to="/terminos" className="py-1 hover:text-marca-700 hover:underline">Términos de uso</Link>
+        <Link to="/privacidad" className="py-1 hover:text-marca-700 hover:underline">Privacidad</Link>
+        {correo && <a href={`mailto:${correo}`} className="py-1 hover:text-marca-700 hover:underline">Contacto</a>}
+      </nav>
+      <p className="mt-2 text-xs text-slate-400">Proyecto de tesis · Universidad Privada del Norte, 2026</p>
+    </footer>
   );
 }
