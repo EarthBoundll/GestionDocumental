@@ -41,7 +41,7 @@ export function Notificaciones() {
           <EstadoVacio icono={BellOff} titulo="No tienes notificaciones" />
         ) : (
           <>
-            <ul className="divide-y divide-slate-100">
+            <ul className="escalonado divide-y divide-slate-100">
               {consulta.datos.datos.map((notificacion) => (
                 <li key={notificacion.id}>
                   <button

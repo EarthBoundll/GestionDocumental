@@ -76,7 +76,7 @@ function Contenido({ datos }: { datos: DatosDelTablero }) {
   const { resumen, indicadores: i } = datos;
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="escalonado grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Cifra titulo="Documentos" valor={numero(resumen.documentos)} nota={`${numero(resumen.enPapelera)} en la papelera`} />
         <Cifra titulo="Almacenamiento" valor={formatearPeso(resumen.almacenamientoBytes)} nota="incluye la papelera" />
         <Cifra titulo="Usuarios activos" valor={`${numero(resumen.usuariosActivos)} de ${numero(resumen.usuarios)}`} nota={`${numero(resumen.categoriasActivas)} categorías activas`} />
@@ -150,7 +150,7 @@ function Contenido({ datos }: { datos: DatosDelTablero }) {
         {datos.recientes.length === 0 ? (
           <EstadoVacio icono={History} titulo="Todavía no hay actividad" />
         ) : (
-          <ul className="divide-y divide-slate-100" aria-label="Actividad reciente">
+          <ul className="escalonado divide-y divide-slate-100" aria-label="Actividad reciente">
             {datos.recientes.map((asiento) => <FilaDeHistorial key={asiento.id} asiento={asiento} />)}
           </ul>
         )}

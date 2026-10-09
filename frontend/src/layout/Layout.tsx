@@ -186,7 +186,10 @@ export function Layout() {
       </header>
 
       <main id="contenido" className={`mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 print:max-w-none print:p-0 ${imagenDeFondo ? PANEL_SOBRE_LA_IMAGEN : ''}`}>
-        <Outlet />
+        {/* Cada pantalla entra al abrirla (D40): la clave la vuelve a montar al cambiar de ruta. */}
+        <div key={ubicacion.pathname} className="motion-safe:animate-entrar">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

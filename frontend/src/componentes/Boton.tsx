@@ -5,7 +5,8 @@ type Variante = 'primario' | 'secundario' | 'peligro' | 'fantasma';
 type Tamano = 'normal' | 'pequeno';
 
 const VARIANTES: Record<Variante, string> = {
-  primario: 'bg-accion text-white hover:bg-accion-hover disabled:bg-accion/60',
+  // Al pasar por encima, una sombra del propio color: el botón principal se levanta un poco.
+  primario: 'bg-accion text-white hover:bg-accion-hover enabled:hover:shadow-md enabled:hover:shadow-accion/30 disabled:bg-accion/60',
   secundario: 'bg-superficie text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 disabled:text-slate-400',
   peligro: 'bg-peligro text-white hover:bg-peligro-hover disabled:bg-peligro/60',
   fantasma: 'text-slate-600 hover:bg-slate-100 disabled:text-slate-400',
@@ -19,7 +20,8 @@ const TAMANOS: Record<Tamano, string> = {
 
 /** Las clases de un botón, para usarlas también en un enlace que debe parecerlo. */
 export function clasesDeBoton(variante: Variante = 'primario', tamano: Tamano = 'normal'): string {
-  return `inline-flex items-center justify-center rounded-lg font-medium transition-colors disabled:cursor-not-allowed ${VARIANTES[variante]} ${TAMANOS[tamano]}`;
+  // Al pulsarlo se hunde un poco, como una tecla: se nota que se tocó, también en el celular.
+  return `inline-flex items-center justify-center rounded-lg font-medium transition duration-150 enabled:active:scale-[0.97] motion-reduce:transition-none disabled:cursor-not-allowed ${VARIANTES[variante]} ${TAMANOS[tamano]}`;
 }
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {

@@ -186,6 +186,7 @@ permisos dentro de una empresa.
 
 - Fondo por empresa: un color que tiñe las pantallas en los dos modos y una imagen detrás en la computadora;
   solo lo cambian el Administrador de Empresa y el Master (hecho)
+- Movimiento moderno y un acceso con más vida, solo con CSS y que respeta «reducir movimiento» (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -345,6 +346,11 @@ que el sistema hace (D38). Se descartó un formulario público de solicitud: gua
 fija la interfaz en cada modo, así que ningún color vuelve ilegible el texto; la imagen la comprime el navegador, la pide
 una regla de CSS desde 1024 px (el celular no la descarga) y el contenido va en un panel opaco (D39). Se descartaron
 validar el contraste del fondo, el texto encima de la foto con un velo y mostrarla en el celular.
+
+**Movimiento moderno sin peso: solo CSS.** El acceso con titular que rota, halos, tarjetas de vidrio que flotan y un ojo
+para la contraseña; dentro, pantallas que entran, listas escalonadas, esqueletos con brillo y diálogos que emergen. Solo
+`transform` y `opacity`, 4,1 KB comprimidos y nada con «reducir movimiento» (D40). Se descartaron Framer Motion y GSAP,
+la API View Transitions (había que marcar cada navegación) y partículas en un canvas.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

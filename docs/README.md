@@ -25,6 +25,7 @@ Sistema web de gestión documental para micro y pequeñas empresas de Lima — t
 | B · Acceso y salida | Terminada el 9 de octubre de 2026: iniciar sesión, recuperar y restablecer la contraseña con un marco dividido, la imagen y el mensaje a la izquierda y el formulario a la derecha (en el celular, una franja arriba), con movimiento solo CSS que respeta «reducir movimiento»; cerrar sesión pide confirmación, se despide y el inicio de sesión lo confirma (D37). 80 pruebas del frontend y 56 de 56 ejecuciones funcionales |
 | B · Contacto, términos y privacidad | Terminada el 9 de octubre de 2026: el acceso ofrece «Solicita una cuenta» (un correo ya redactado y WhatsApp opcional, configurables en Vercel) y enlaza `/terminos` y `/privacidad`, que se leen con o sin sesión y describen solo lo que el sistema hace, alineados con la Ley 29733 y el consentimiento, también al pie del menú con la sesión iniciada (D38). 84 pruebas del frontend y 58 de 58 ejecuciones funcionales |
 | B · Fondo por empresa | Terminada el 9 de octubre de 2026: un color de fondo que tiñe las pantallas en claro y en oscuro sin perder legibilidad (solo cuenta su tono) y una imagen detrás en la computadora, comprimida en el navegador, que el celular no descarga y que nunca queda bajo el texto; medirlo llevó a oscurecer un punto el texto secundario (RF31, D39, migración 012). 365 pruebas del backend, 95 del frontend, 60 de 60 ejecuciones funcionales y 62 de 62 intentos de aislamiento |
+| B · Movimiento y acceso | Terminada el 9 de octubre de 2026: el acceso con un titular cuya palabra rota, halos de color, tarjetas de vidrio que flotan y un ojo para ver la contraseña; dentro, pantallas que entran, listas escalonadas, esqueletos con brillo, botones que se hunden y diálogos que emergen. Solo CSS sobre `transform` y `opacity`, 4,1 KB comprimidos, y nada se mueve con «reducir movimiento» (D40). 98 pruebas del frontend y 62 de 62 ejecuciones funcionales |
 
 Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CLAUDE.md` v2, que es la vigente.
 
@@ -72,6 +73,8 @@ solo aparecen al desplegar. Con la v2 se aprobaron las decisiones A–G de
    fuera de la muestra.
 3. **La fecha del cierre del estudio**, con el asesor. El procedimiento ya está escrito y probado
    ([09 · Protocolo](09-protocolo-evaluacion.md) §10, D33).
-4. **La prueba de humo con personas** de [07 · Despliegue §8](07-despliegue.md): subir desde un celular y
-   recibir el correo de recuperación. Va antes del congelamiento ([07 §9.1](07-despliegue.md)), que cierra
-   la preparación: etiqueta, respaldo y su ensayo.
+4. **Terminar la prueba de humo con personas** de [07 · Despliegue §8](07-despliegue.md). El 9 de octubre se
+   hicieron el alta de la empresa, la subida con la cámara, la recuperación de la contraseña por correo y una
+   aprobación; faltan buscar y descargar desde el celular, las versiones, las exportaciones y la hoja para
+   imprimir. Va antes del congelamiento ([07 §9.1](07-despliegue.md)), que cierra la preparación: etiqueta,
+   respaldo y su ensayo.

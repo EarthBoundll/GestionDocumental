@@ -61,7 +61,7 @@ export function Campana() {
       >
         <Bell aria-hidden className="size-5" />
         {noLeidas > 0 && (
-          <span className="absolute top-1 right-1 flex size-4.5 items-center justify-center rounded-full bg-red-600 text-[0.65rem] font-semibold text-white">
+          <span className="absolute top-1 right-1 flex size-4.5 items-center justify-center rounded-full bg-red-600 text-[0.65rem] font-semibold text-white motion-safe:animate-latido">
             {noLeidas > 9 ? '9+' : noLeidas}
           </span>
         )}

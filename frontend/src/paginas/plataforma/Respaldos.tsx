@@ -46,7 +46,7 @@ export function Respaldos() {
         ) : consulta.datos.datos.length === 0 ? (
           <EstadoVacio icono={DatabaseBackup} titulo="Aún no hay respaldos">El primero se hará esta noche, o ahora mismo si lo pides.</EstadoVacio>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="escalonado divide-y divide-slate-100">
             {consulta.datos.datos.map((respaldo) => (
               <li key={respaldo.nombre} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                 <span className="font-medium text-slate-900">{formatearFechaHora(instanteDeRespaldo(respaldo.nombre))}</span>

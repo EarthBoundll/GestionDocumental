@@ -77,7 +77,7 @@ export function Resumen() {
             Cada empresa nace con su primer administrador, que después crea al resto de su equipo.
           </EstadoVacio>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="escalonado divide-y divide-slate-100">
             {empresas.map((empresa) => (
               <li key={empresa.id}>
                 <Link to={`/plataforma/empresas/${empresa.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">

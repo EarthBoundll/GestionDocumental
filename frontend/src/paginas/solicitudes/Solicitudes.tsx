@@ -60,7 +60,7 @@ export function Solicitudes() {
           </EstadoVacio>
         ) : (
           <>
-            <ul className="divide-y divide-slate-100">
+            <ul className="escalonado divide-y divide-slate-100">
               {consulta.datos.datos.map((solicitud) => (
                 <li key={solicitud.id} className="flex flex-col items-start gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">

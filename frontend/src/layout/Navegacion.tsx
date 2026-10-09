@@ -77,7 +77,7 @@ export function Navegacion({ alNavegar }: { alNavegar?: () => void }) {
                   onClick={alNavegar}
                   className={({ isActive }) =>
                     `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
-                      marcado(a, isActive) ? 'bg-marca-50 text-marca-800' : 'text-slate-700 hover:bg-slate-100'
+                      marcado(a, isActive) ? 'bg-marca-50 text-marca-800 shadow-[inset_3px_0_0_var(--color-marca-600)]' : 'text-slate-700 hover:bg-slate-100'
                     }`}
                 >
                   <Icono aria-hidden className="size-5 shrink-0" />

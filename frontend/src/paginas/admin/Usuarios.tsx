@@ -61,7 +61,7 @@ export function Usuarios() {
           <EstadoVacio icono={IconoUsuarios} titulo="Nadie coincide con la búsqueda" />
         ) : (
           <>
-            <ul className="divide-y divide-slate-100">
+            <ul className="escalonado divide-y divide-slate-100">
               {consulta.datos.datos.map((usuario) => {
                 const esUnoMismo = usuario.id === sesion?.usuario.id;
                 return (

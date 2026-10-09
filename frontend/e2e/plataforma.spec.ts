@@ -44,7 +44,7 @@ test.describe('Plataforma: el Administrador Master', () => {
     const visitante = await browser.newPage({ baseURL: URL_WEB, locale: 'es-PE' });
     await visitante.goto('/login');
     await visitante.getByLabel('Correo').fill(empresa.administrador.email);
-    await visitante.getByLabel('Contraseña').fill(empresa.administrador.clave);
+    await visitante.getByLabel('Contraseña', { exact: true }).fill(empresa.administrador.clave);
     await visitante.getByRole('button', { name: 'Entrar' }).click();
     await expect(visitante.getByRole('alert')).toHaveText('Tu empresa está desactivada en la plataforma. Consulta con su administrador');
 

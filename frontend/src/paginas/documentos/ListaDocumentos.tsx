@@ -167,7 +167,7 @@ export function ListaDocumentos() {
           ) : (
             <>
               <p className="sr-only" aria-live="polite">{listado.datos.paginacion.total} documentos encontrados</p>
-              <ul className={`divide-y divide-slate-100 ${listado.cargando ? 'opacity-60' : ''}`}>
+              <ul className={`escalonado divide-y divide-slate-100 ${listado.cargando ? 'opacity-60' : ''}`}>
                 {listado.datos.datos.map((documento) => (
                   <FilaDeDocumento key={documento.id} documento={documento} alAbrir={(modo) => void abrir(documento.id, modo)} />
                 ))}
