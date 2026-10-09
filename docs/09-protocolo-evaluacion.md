@@ -18,7 +18,8 @@ Preexperimental, con preprueba y posprueba en un solo grupo: G · O1 → X → O
 Como la preprueba no usa el sistema, puede hacerse en cuanto estén firmados los consentimientos, aunque
 el sistema siga en desarrollo. Lo que no se mueve es el **congelamiento**: desde la capacitación hasta
 terminar la posprueba el sistema no cambia, para que todos los participantes midan lo mismo. Se marca
-con una etiqueta de versión en git y un respaldo restaurado en una base vacía.
+con una etiqueta de versión en git y un respaldo cuya restauración se ensaya en una base vacía; el
+procedimiento está en [07 · Despliegue §9.1](07-despliegue.md).
 
 ## 2. Empresa y participantes
 
