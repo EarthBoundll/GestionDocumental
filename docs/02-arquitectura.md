@@ -448,7 +448,8 @@ copias de seguridad, y el historial es la evidencia del capítulo 3 (R3). A las 
 todas las tablas de negocio en una transacción de solo lectura (`row_to_json`), las comprime y las
 guarda en el bucket `respaldos`; conserva 30 días. Restaurar (`npm run respaldo -- restaurar`) vuelca
 el respaldo con `json_populate_recordset` en una base vacía con las mismas migraciones, todo o nada; una
-prueba de ida y vuelta compara las dos bases tabla por tabla. Leer y escribir todas las empresas exige
+prueba de ida y vuelta compara las dos bases tabla por tabla, y `npm run respaldo -- ensayar` repite la
+restauración en una base desechable cuando se quiera (D35). Leer y escribir todas las empresas exige
 la conexión dueña de las tablas: es otra excepción explícita, como la capa de identidad, y por eso el
 respaldo nunca sale por la API. El Master ve que existen y pide uno, sin descargarlo.
 *Descartado:* `pg_dump` (no está en Render y pide credenciales de superusuario), el plan Pro de Supabase
@@ -556,6 +557,16 @@ dependencias —un PDF de texto con las fuentes estándar— y siempre iguales, 
 categoría y fecha; con `--subir` los carga por la API, como una persona, en la empresa de la cuenta del `.env`.
 *Descartado:* documentos reales de la empresa evaluada fuera de la evaluación (docs/09 §3), una librería de PDF
 para algo que cabe en 50 líneas, y cargarlos directo en la base, que se saltaría las validaciones y el historial.
+
+**D35 · El congelamiento: una etiqueta, ninguna fusión y un respaldo ensayado.** Desde la capacitación hasta la
+última posprueba el sistema no cambia (docs/09 §1). La versión se marca con una etiqueta de git; como Vercel publica
+solo cada commit de `main`, durante ese periodo no se fusiona nada en `main`, y Render no se despliega. El estado
+inicial queda en un respaldo, y `npm run respaldo -- ensayar` comprueba que se restaura con el código de la etiqueta:
+lo vuelca en un PostgreSQL desechable, el mismo de las pruebas, sin tocar ninguna base ni instalar nada
+(docs/07 §9.1).
+*Descartado:* un segundo entorno solo para la evaluación (duplica Supabase y Render, y lo que se mide no sería lo
+desplegado), fijar a mano un despliegue en Vercel (no protege la API) y restaurar el ensayo en Supabase (una
+segunda base que habría que crear y borrar).
 
 ## 8. Riesgos
 

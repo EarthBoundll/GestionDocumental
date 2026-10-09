@@ -6,6 +6,8 @@
  *   npm run respaldo -- descargar <nombre>   copia un respaldo del depósito a la carpeta actual
  *   npm run respaldo -- restaurar <nombre|ruta.json.gz>
  *       vuelca el respaldo en la base de DATABASE_URL, que debe estar recién migrada y vacía.
+ *   npm run respaldo -- ensayar <nombre|ruta.json.gz>
+ *       lo restaura en un PostgreSQL desechable, sin tocar DATABASE_URL, y lo borra al terminar.
  */
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -46,8 +48,17 @@ try {
       console.log('Restaurado. Filas por tabla:', filas);
       break;
     }
+    case 'ensayar': {
+      if (!argumento) throw new Error('Indica el nombre del respaldo o la ruta de un archivo .json.gz');
+      const contenido = existsSync(argumento) ? await readFile(argumento) : await deposito.leer(argumento);
+      // Se importa aquí: embedded-postgres engancha la salida del proceso, y las demás órdenes no lo necesitan.
+      const { ensayarRestauracion } = await import('./ensayo-de-restauracion.js');
+      const filas = await ensayarRestauracion(contenido);
+      console.log(`Ensayo correcto: ${argumento} se restaura con esta versión del código. Filas por tabla:`, filas);
+      break;
+    }
     default:
-      throw new Error('Uso: npm run respaldo -- generar | listar | descargar <nombre> | restaurar <nombre|ruta>');
+      throw new Error('Uso: npm run respaldo -- generar | listar | descargar <nombre> | restaurar <nombre|ruta> | ensayar <nombre|ruta>');
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

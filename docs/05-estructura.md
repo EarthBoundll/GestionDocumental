@@ -23,6 +23,9 @@ backend/
 │   ├── local.ts                  el sistema completo en esta máquina, sin cuentas (D16)
 │   ├── informe-aislamiento.ts    ejecuta la batería A contra B y escribe su informe (indicador 6)
 │   ├── informe-carga.ts          la prueba de carga con 50.000 documentos y su informe (indicador 7, D31)
+│   ├── respaldo.ts               generar, listar, descargar, restaurar y ensayar un respaldo (D25)
+│   ├── ensayo-de-restauracion.ts restaura un respaldo en una base desechable y la borra (D35)
+│   ├── postgres-desechable.ts    un PostgreSQL 17 temporal: el de las pruebas y el del ensayo
 │   ├── cierre-del-estudio.ts     simulacro y borrado de los datos de una empresa al cerrar el estudio (D33)
 │   ├── documentos-de-prueba.ts   el juego de 40 documentos ficticios y, si se pide, su carga por la API (D34)
 │   ├── pdf-de-texto.ts           un PDF de texto sin dependencias, para esos documentos

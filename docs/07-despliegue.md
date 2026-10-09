@@ -179,9 +179,14 @@ sustituye una base perdida. Es todo o nada. No restaura sesiones ni enlaces de r
 persona vuelve a iniciar sesión. Los archivos de los documentos siguen en el bucket `documentos`, que no
 se toca. `npm run respaldo -- descargar <nombre>` copia uno a tu máquina, y `generar` hace uno al momento.
 
+Para comprobar un respaldo sin tocar ninguna base, `npm run respaldo -- ensayar <nombre>` lo restaura en un
+PostgreSQL desechable, recién migrado con el código de tu copia, y lo borra al terminar (D35). No usa la
+`DATABASE_URL` del `.env` ni instala nada; para leer del bucket, sí las claves de Supabase. Termina con «Ensayo
+correcto» y las filas de cada tabla, o con el motivo por el que no se restauraría.
+
 Un respaldo solo se restaura con las mismas migraciones con que se hizo. Por eso, después de desplegar
 una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones; la 010,
-la visibilidad por consulta y el listado documental), pide un
+la visibilidad por consulta y el listado documental; la 011, la constancia del cierre del estudio), pide un
 respaldo en el momento desde *Respaldos*: el de la noche anterior solo se restauraría con el código
 anterior.
 
@@ -227,6 +232,38 @@ Después, a mano, la prueba de humo (unos diez minutos):
 | Antes del piloto y de la capacitación | Carga los documentos ficticios en la empresa que corresponda: `npm run documentos-de-prueba -- lote --subir`, con `CARGA_API_URL`, `CARGA_EMAIL` y `CARGA_CLAVE` de su administrador en el `.env` | D34: nunca documentos reales fuera de la evaluación |
 | Antes de la sustentación | Comprueba en *Respaldos* (Master) que hay uno de cada noche | D25 |
 | Al cerrar el estudio | El procedimiento de [09 · Protocolo](09-protocolo-evaluacion.md) §10: desactivar la empresa, simulacro y `npm run cierre-del-estudio -- <id> --confirmar "<nombre>" --con-respaldos` | D33: lo promete el consentimiento |
+
+### 9.1 El congelamiento
+
+Desde la capacitación hasta terminar la última posprueba el sistema no cambia, para que todos los
+participantes midan lo mismo ([09 · Protocolo](09-protocolo-evaluacion.md) §1, D35). Se hace al final de la
+*Preparación*, con las empresas, las cuentas y el lote base ya cargados:
+
+1. **Lo último que entra.** Todo lo que se evaluará está fusionado en `main`, la integración continua está
+   en verde en su último commit y producción tiene ese commit: Render (*Events*) y Vercel (*Deployments*).
+   Antes de etiquetar, se ponen al día las cifras de pruebas del [guion](11-guion-sustentacion.md) con las de
+   esa ejecución: después ya no se fusiona nada.
+2. **La etiqueta**, desde la raíz del repositorio:
+   ```bash
+   git checkout main && git pull
+   git tag -a evaluacion-v1 -m "Versión congelada para la evaluación"
+   git push origin evaluacion-v1
+   ```
+   Es la versión que se cita en la tesis.
+3. **El estado inicial.** El Master pide un respaldo desde *Respaldos* y anota su nombre.
+4. **El ensayo**, desde `backend/`, en la copia de la etiqueta y con las claves de Supabase en el `.env`:
+   ```bash
+   git checkout evaluacion-v1
+   npm run respaldo -- ensayar <nombre del respaldo>
+   ```
+   Tiene que terminar con «Ensayo correcto». Su salida se guarda junto con las actas de las sesiones.
+5. **Se anota** en el registro de cambios del protocolo (§11) la fecha, la etiqueta, el commit y el respaldo.
+
+**Mientras dure:** ninguna fusión en `main` (Vercel publica cada commit de `main` en producción por sí
+solo) y ningún despliegue en Render. Lo que se quiera mejorar se trabaja en una rama y se fusiona al
+terminar la última posprueba. Si un fallo impide una sesión, se corrige, se anota en §11 del protocolo con
+su fecha y se decide con el asesor si las sesiones anteriores siguen valiendo; la etiqueta nueva es
+`evaluacion-v2`, con su propio respaldo y su propio ensayo.
 
 ## 10. Integración continua
 

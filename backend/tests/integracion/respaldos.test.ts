@@ -1,6 +1,10 @@
+import { readdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ensayarRestauracion } from '../../scripts/ensayo-de-restauracion.js';
 import { aplicarRetencion, generarRespaldo, nombreDeRespaldo, restaurarRespaldo, TABLAS } from '../../src/respaldos/respaldo.js';
 import { msHastaElProximo } from '../../src/tareas/respaldo-nocturno.js';
 import {
@@ -84,6 +88,29 @@ describe('Respaldos de la base (RF29)', () => {
     } finally {
       await destino.cerrar();
     }
+  });
+
+  describe('el ensayo de restauración (npm run respaldo -- ensayar)', () => {
+    /** Los directorios de PostgreSQL desechables que hay ahora: el de estas pruebas y los que no se borraron. */
+    const desechables = async () => (await readdir(tmpdir())).filter((nombre) => nombre.startsWith('gestion-documental-pg-'));
+
+    it('restaura el respaldo en un PostgreSQL desechable recién migrado y lo borra al terminar', async () => {
+      const { contenido, filas } = await generarRespaldo(origen.pool);
+      const antes = await desechables();
+
+      expect(await ensayarRestauracion(contenido)).toEqual(filas);
+      expect(await desechables()).toEqual(antes);
+    }, 60_000);
+
+    it('rechaza un respaldo de otra versión del código, y tampoco deja nada', async () => {
+      const { contenido } = await generarRespaldo(origen.pool);
+      const datos = JSON.parse(gunzipSync(contenido).toString('utf8'));
+      datos.migraciones = datos.migraciones.slice(0, -1);
+      const antes = await desechables();
+
+      await expect(ensayarRestauracion(gzipSync(JSON.stringify(datos)))).rejects.toThrow('misma versión del código');
+      expect(await desechables()).toEqual(antes);
+    }, 60_000);
   });
 
   it('el Master pide uno y lo ve en la lista, sin poder descargarlo; queda en el historial de la plataforma', async () => {

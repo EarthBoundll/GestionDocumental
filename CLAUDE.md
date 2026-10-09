@@ -319,6 +319,11 @@ del Master (borraría sin rastro) y anonimizar en vez de borrar (el consentimien
 que genera `npm run documentos-de-prueba` sin dependencias y que se cargan por la API (D34). Se descartaron documentos
 reales fuera de la evaluación y cargarlos directo en la base, que se saltaría validaciones e historial.
 
+**El congelamiento se apoya en git, no en otro entorno.** Una etiqueta marca la versión; mientras dura no se fusiona en
+`main` (Vercel publica solo) ni se despliega Render, y `npm run respaldo -- ensayar` comprueba en un PostgreSQL
+desechable que el respaldo inicial se restaura con ese código (D35). Se descartó un segundo entorno para la evaluación:
+duplica Supabase y Render, y lo que se mediría no sería lo desplegado.
+
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.
 

@@ -20,6 +20,7 @@ Sistema web de gestión documental para micro y pequeñas empresas de Lima — t
 | B · Versionado simplificado | Terminada el 7 de octubre de 2026: subir una versión nueva sin perder las anteriores, verlas y descargarlas, y restaurar una como la siguiente; la aprobación es de una versión y la purga borra todas (RF34, D30, migración 009). 327 pruebas del backend, 70 del frontend, 49 de 49 ejecuciones funcionales y 58 de 58 intentos de aislamiento |
 | B · Evidencia para el capítulo 3 | Terminada el 7 de octubre de 2026: listado documental en CSV (RF35), historial para imprimir o guardar como PDF con espacio para firmas (RF36) y prueba de carga con 50.000 documentos, que encontró la política por fila y la corrigió (D31, D32, migración 010). La prueba de backend ya no da verde con pruebas en rojo. 340 pruebas del backend, 74 del frontend, 51 de 51 ejecuciones funcionales y 60 de 60 intentos de aislamiento |
 | B · Preparación de la evaluación y la sustentación | Terminada el 8 de octubre de 2026: el cierre del estudio escrito y probado —simulacro, borrado de filas, archivos y respaldos de una empresa, y una constancia sin datos personales (D33, migración 011)—, 40 documentos ficticios reproducibles que se cargan por la API (D34) y el guion de la sustentación. 355 pruebas del backend |
+| B · Revisión y congelamiento | Terminada el 9 de octubre de 2026: una revisión de lo anterior corrigió que una versión nueva y una solicitud de aprobación a la vez pudieran cruzarse, la vista previa que seguía mostrando el archivo anterior y el generador de documentos de prueba; además, el procedimiento del congelamiento con el ensayo de restauración de un respaldo en una base desechable (D35). 360 pruebas del backend, 75 del frontend y 51 de 51 ejecuciones funcionales |
 
 Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CLAUDE.md` v2, que es la vigente.
 
@@ -65,8 +66,8 @@ solo aparecen al desplegar. Con la v2 se aprobaron las decisiones A–G de
    de uso antes de la posprueba. Es lo marcado **[Por definir]** en [09 · Protocolo](09-protocolo-evaluacion.md).
 2. **Revisar el protocolo y el consentimiento con el asesor**, y probarlos en el piloto con una persona
    fuera de la muestra.
-3. **El procedimiento de cierre del estudio:** eliminar los datos de la empresa evaluada en la fecha que
-   promete el consentimiento. El historial es inmutable para la aplicación (RN17), así que hace falta un
-   procedimiento manual del dueño de la base, escrito y probado antes de la preprueba.
+3. **La fecha del cierre del estudio**, con el asesor. El procedimiento ya está escrito y probado
+   ([09 · Protocolo](09-protocolo-evaluacion.md) §10, D33).
 4. **La prueba de humo con personas** de [07 · Despliegue §8](07-despliegue.md): subir desde un celular y
-   recibir el correo de recuperación. Va en el congelamiento, antes de la capacitación.
+   recibir el correo de recuperación. Va antes del congelamiento ([07 §9.1](07-despliegue.md)), que cierra
+   la preparación: etiqueta, respaldo y su ensayo.
