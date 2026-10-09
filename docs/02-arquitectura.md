@@ -231,8 +231,8 @@ se suspende en vez de cobrar.
 | El Master leyendo el contenido de una empresa | Su rol de base (`app_plataforma`) no tiene permisos sobre documentos, solicitudes, notificaciones ni tiempos de respuesta; sus cifras salen de una función que solo devuelve conteos (decisión E); del historial solo lee sus propias acciones y lo que no es de ninguna empresa (D24); los respaldos no se descargan por la API (D25) |
 | Recuperación de contraseña como oráculo de cuentas o puerta trasera | Misma respuesta y mismo tiempo exista o no el correo; token de 256 bits, de un solo uso, 60 minutos, guardado como huella SHA-256 y enviado en el fragmento del enlace; límite de peticiones por IP |
 | Inyección SQL | Solo consultas parametrizadas |
-| Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación. El logo de una empresa, además, solo PNG o JPG (un SVG puede llevar scripts) de hasta 256 KB, comprobado por su contenido, y la CSP solo admite imágenes de ese dominio (D28) |
-| Un empleado cambiando la identidad de su empresa, o una empresa la de otra | La API exige ser administrador, y la base también: el rol de empresa solo puede actualizar esas tres columnas de su propia fila y solo si quien actúa es administrador (migración 008); el logo debe estar en la carpeta de su empresa (D28) |
+| Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación. El logo de una empresa, además, solo PNG o JPG (un SVG puede llevar scripts) de hasta 256 KB, y su imagen de fondo solo WebP o JPG de hasta 512 KB, comprobados por su contenido, y la CSP solo admite imágenes de ese dominio (D28, D39) |
+| Un empleado cambiando la identidad de su empresa, o una empresa la de otra | La API exige ser administrador, y la base también: el rol de empresa solo puede actualizar las columnas de la identidad de su propia fila y solo si quien actúa es administrador (migraciones 008 y 012); el logo y el fondo deben estar en la carpeta de su empresa (D28, D39) |
 | Lectura de tablas por la API automática de Supabase | Data API desactivada; RLS activo en todas las tablas, con políticas solo para los roles propios de la API (D14, D17); y la migración 002 quita a `anon` y `authenticated` los permisos que Supabase les concede por defecto, también sobre las funciones, que RLS no cubre; la 003 quita a todos la ejecución directa de los triggers y fija el `search_path` de cada función |
 | Secretos en el repositorio | Variables de entorno; `.env` ignorado por git; la clave secreta de Supabase y la de Brevo solo existen en Render; los datos del Master solo en el `.env` de quien ejecuta el script |
 | Manipulación del historial | Solo inserción, impuesto por un trigger (M4) |
@@ -593,6 +593,26 @@ sale de `VITE_CONTACTO_EMAIL` y `VITE_CONTACTO_WHATSAPP`, no del código; sin el
 *Descartado:* un formulario de solicitud que guarde datos de empresas aún sin cuenta (sería tratar datos personales
 sin una relación previa y abrir una puerta sin autenticación) y textos legales genéricos que prometan lo que el
 sistema no hace.
+
+**D39 · Fondo por empresa: del color, solo el tono; la imagen, detrás de un panel y solo en la computadora.** Cada
+empresa puede tener un color y una imagen de fondo (RF31), que cambian su administrador y el Master, como el resto de
+la identidad (migración 012). Del color se toma el tono con los colores relativos de CSS
+(`oklch(from var(--fondo) 0.97 min(c, 0.04) h)`): la claridad queda fija, casi blanca en claro y casi negra en oscuro
+(0,17), con la intensidad acotada. Así el mismo color se adapta a los dos modos y ninguno vuelve ilegible el texto,
+sin validar nada en la API; la prueba funcional lo mide en el navegador con un fucsia. Medirlo encontró que el slate-500
+de Tailwind daba 4,55:1 sobre su propio gris, en el límite, y bajaba a 4,16:1 con el tono menos favorable: el texto
+secundario pasó de una claridad de 55,4 % a 52 % (5,25:1 sobre el gris, al menos 4,8:1 sobre cualquier tono). La imagen
+va fija detrás de todo con un velo del color de la página (20 % en claro, 55 % en oscuro) y el contenido se apoya en un
+panel opaco: ningún texto queda sobre la foto, que con cualquier velo podría dejarlo ilegible. La regla de CSS que la
+pide solo vale desde 1024 px, así que un celular no la descarga (indicador 5) y ve solo el color. El navegador la
+reduce a 1920 px y la comprime en WebP (o JPG si no sabe escribir WebP) antes de subirla, así que una foto de 5 MB
+llega en unos cientos de KB; la API comprueba formato, bytes y 512 KB, y la guarda en el bucket privado con enlace
+firmado, como el logo. Un navegador sin colores relativos ve el gris de siempre.
+*Descartado:* validar el contraste del color en la API (con la claridad fija no hace falta, y obligaría a explicar
+por qué un beige no sirve), la imagen detrás del texto con un velo (con una foto oscura el texto secundario bajaba de
+4,5:1 incluso con un velo del 90 %), mostrarla también en el celular (cientos de KB por datos móviles para una
+decoración) y comprimirla en el servidor (sumaba una librería nativa de imágenes a Render para algo que el navegador
+ya hace).
 
 ## 8. Riesgos
 

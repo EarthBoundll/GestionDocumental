@@ -6,9 +6,13 @@ import type { Marca, Rol, SesionIniciada } from '../../api/tipos';
 import { rutas } from '../../rutas';
 import { guardarSesion, paginaVacia, sesionDe, simularApi } from '../../pruebas/api-simulada';
 import { contrasteConBlanco, esColorHex } from '../../utilidades/color';
+import { prepararFondo } from '../../utilidades/imagen';
+
+// jsdom no dibuja: la preparación de la imagen tiene sus propias pruebas (imagen.test.ts).
+vi.mock('../../utilidades/imagen', async (original) => ({ ...await original<typeof import('../../utilidades/imagen')>(), prepararFondo: vi.fn() }));
 
 const raiz = document.documentElement;
-const SIN_MARCA: Marca = { nombreComercial: null, colorPrimario: null, logoUrl: null };
+const SIN_MARCA: Marca = { nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null };
 const METRICAS = { usuarios: 3, usuariosActivos: 3, documentos: 0, almacenamientoBytes: 0, ultimoAcceso: null };
 
 function sesionCon(rol: Rol, cambios: { tema?: SesionIniciada['usuario']['tema']; marca?: Marca } = {}): SesionIniciada {
@@ -119,7 +123,9 @@ describe('Tema de cada persona (RF32)', () => {
 });
 
 describe('Identidad de la empresa (RF31)', () => {
-  const MARCA_GUARDADA: Marca = { nombreComercial: 'Textiles Andinos', colorPrimario: '#1d4ed8', logoUrl: 'https://archivos.ejemplo/logo.png?firma=1' };
+  const MARCA_GUARDADA: Marca = {
+    ...SIN_MARCA, nombreComercial: 'Textiles Andinos', colorPrimario: '#1d4ed8', logoUrl: 'https://archivos.ejemplo/logo.png?firma=1',
+  };
 
   it('todos los de la empresa ven su color, su nombre comercial y su logo; al cerrar sesión vuelve el de la plataforma', async () => {
     dispositivoEnModo(false);
@@ -242,5 +248,118 @@ describe('Identidad de la empresa (RF31)', () => {
     expect(cambio.ruta).toBe('/plataforma/empresas/empresa-b/identidad');
     expect(cambio.cuerpo).toEqual({ nombreComercial: 'Contadores Lima', colorPrimario: '' });
     expect(screen.getAllByText('Administración de la plataforma').length).toBeGreaterThan(0);
+  });
+});
+
+describe('Fondo de la empresa (D39)', () => {
+  const FONDO = 'https://archivos.ejemplo/empresa-a/fondo.webp?firma=3';
+  const contenido = () => screen.getByRole('main');
+
+  it('su color tiñe todas las pantallas y la imagen queda detrás, con el contenido en un panel; al salir, vuelve lo neutro', async () => {
+    dispositivoEnModo(false);
+    abrir(sesionCon('usuario', { marca: { ...SIN_MARCA, colorFondo: '#5b8fd6', fondoUrl: FONDO } }), '/cuenta', { 'POST /auth/logout': { estado: 204 } });
+
+    await screen.findByRole('heading', { name: 'Mi cuenta' });
+    expect(raiz.style.getPropertyValue('--fondo')).toBe('#5b8fd6');
+    // estilos.css solo la pide desde 1024 px: en el celular el elemento existe, pero la imagen no se descarga.
+    expect(screen.getByTestId('imagen-de-fondo').style.getPropertyValue('--imagen-de-fondo')).toBe(`url("${FONDO}")`);
+    expect(contenido()).toHaveClass('lg:bg-pagina', 'lg:rounded-2xl');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sí, cerrar sesión' }));
+    await screen.findByRole('heading', { name: 'Iniciar sesión' });
+    expect(raiz.style.getPropertyValue('--fondo')).toBe('');
+    expect(screen.queryByTestId('imagen-de-fondo')).not.toBeInTheDocument();
+  });
+
+  it('sin imagen, el contenido va directo sobre la página, como siempre', async () => {
+    dispositivoEnModo(false);
+    abrir(sesionCon('usuario', { marca: { ...SIN_MARCA, colorFondo: '#5b8fd6' } }), '/cuenta');
+
+    await screen.findByRole('heading', { name: 'Mi cuenta' });
+    expect(screen.queryByTestId('imagen-de-fondo')).not.toBeInTheDocument();
+    expect(contenido()).not.toHaveClass('lg:bg-pagina');
+  });
+
+  it('el administrador elige un tono sugerido, lo ve en toda la pantalla antes de guardarlo y lo guarda', async () => {
+    dispositivoEnModo(false);
+    const { peticiones } = abrir(sesionCon('administrador'), '/admin/identidad', {
+      'GET /empresa/identidad': { cuerpo: SIN_MARCA },
+      'PATCH /empresa/identidad': ({ cuerpo }) => ({ cuerpo: { ...SIN_MARCA, ...(cuerpo as object) } }),
+    });
+    const usuario = userEvent.setup();
+
+    expect(await screen.findByRole('button', { name: 'Neutro' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Guardar el fondo' })).toBeDisabled();
+    await usuario.click(screen.getByRole('button', { name: 'Cielo' }));
+    expect(screen.getByRole('button', { name: 'Cielo' })).toHaveAttribute('aria-pressed', 'true');
+    expect(raiz.style.getPropertyValue('--fondo')).toBe('#5b8fd6');
+
+    await usuario.click(screen.getByRole('button', { name: 'Guardar el fondo' }));
+
+    expect(await screen.findByText(/Fondo guardado/)).toBeInTheDocument();
+    expect(peticiones.find((p) => p.metodo === 'PATCH')?.cuerpo).toEqual({ colorFondo: '#5b8fd6' });
+    expect(raiz.style.getPropertyValue('--fondo')).toBe('#5b8fd6');
+    expect(JSON.parse(localStorage.getItem('gestion-documental.sesion')!).empresa.marca.colorFondo).toBe('#5b8fd6');
+  });
+
+  it('un color escrito a mano se comprueba, y si sale sin guardar vuelve el que estaba', async () => {
+    dispositivoEnModo(false);
+    abrir(sesionCon('administrador', { marca: { ...SIN_MARCA, colorFondo: '#c8a165' } }), '/admin/identidad', {
+      'GET /empresa/identidad': { cuerpo: { ...SIN_MARCA, colorFondo: '#c8a165' } },
+      'GET /tablero': { estado: 503, cuerpo: { error: { codigo: 'ERROR', mensaje: 'No disponible' } } },
+    });
+    const usuario = userEvent.setup();
+
+    const campo = await screen.findByRole('textbox', { name: /Otro color de fondo/ });
+    await usuario.clear(campo);
+    await usuario.type(campo, 'rosado');
+    expect(screen.getByText('Usa un color en formato #f1e4c8')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guardar el fondo' })).toBeDisabled();
+    await usuario.clear(campo);
+    await usuario.type(campo, '#FDE047');
+    expect(raiz.style.getPropertyValue('--fondo')).toBe('#fde047');
+
+    await usuario.click(screen.getAllByRole('link', { name: 'Tablero' })[0]!);
+    await screen.findByRole('heading', { name: 'Tablero' });
+    expect(raiz.style.getPropertyValue('--fondo')).toBe('#c8a165');
+  });
+
+  it('la imagen se prepara en el navegador, se sube ya comprimida y queda detrás sin volver a entrar', async () => {
+    dispositivoEnModo(false);
+    const preparada = new File([new Uint8Array(1024)], 'playa.webp', { type: 'image/webp' });
+    vi.mocked(prepararFondo).mockResolvedValueOnce(preparada);
+    const { peticiones } = abrir(sesionCon('administrador'), '/admin/identidad', {
+      'GET /empresa/identidad': { cuerpo: SIN_MARCA },
+      'PUT /empresa/identidad/fondo': { cuerpo: { ...SIN_MARCA, fondoUrl: FONDO } },
+      'DELETE /empresa/identidad/fondo': { cuerpo: SIN_MARCA },
+    });
+    const usuario = userEvent.setup({ applyAccept: false });
+    const entrada = await screen.findByLabelText('Archivo del fondo');
+
+    await usuario.upload(entrada, new File(['GIF89a'], 'fondo.gif', { type: 'image/gif' }));
+    expect(await screen.findByText('El fondo debe ser una imagen JPG, PNG o WebP')).toBeInTheDocument();
+    expect(prepararFondo).not.toHaveBeenCalled();
+
+    await usuario.upload(entrada, new File([new Uint8Array(4 * 1024 * 1024)], 'playa.jpg', { type: 'image/jpeg' }));
+
+    expect(await screen.findByText('Imagen de fondo actualizada.')).toBeInTheDocument();
+    expect((peticiones.find((p) => p.ruta === '/empresa/identidad/fondo')!.cuerpo as FormData).get('archivo')).toBe(preparada);
+    expect(screen.getByTestId('imagen-de-fondo')).toBeInTheDocument();
+
+    await usuario.click(screen.getByRole('button', { name: 'Quitar imagen' }));
+    expect(await screen.findByText('Imagen de fondo quitada.')).toBeInTheDocument();
+    expect(screen.queryByTestId('imagen-de-fondo')).not.toBeInTheDocument();
+  });
+
+  it('si la imagen no sirve, lo dice y no sube nada', async () => {
+    dispositivoEnModo(false);
+    vi.mocked(prepararFondo).mockRejectedValueOnce(new Error('La imagen es pequeña (800 × 600 px) y se vería borrosa. Usa una de al menos 1000 px de ancho'));
+    const { peticiones } = abrir(sesionCon('administrador'), '/admin/identidad', { 'GET /empresa/identidad': { cuerpo: SIN_MARCA } });
+
+    await userEvent.upload(await screen.findByLabelText('Archivo del fondo'), new File(['x'], 'icono.png', { type: 'image/png' }));
+
+    expect(await screen.findByText(/La imagen es pequeña \(800 × 600 px\)/)).toBeInTheDocument();
+    expect(peticiones.some((p) => p.ruta === '/empresa/identidad/fondo')).toBe(false);
   });
 });

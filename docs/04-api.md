@@ -85,7 +85,7 @@ Todas las respuestas de error tienen la misma forma:
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
-| POST | `/auth/login` | Público | `email`, `clave` | 200 `{ token, expiraEn, usuario, empresa }`: el usuario con su `tema`, y la empresa con su `marca` (nombre comercial, color y enlace firmado del logo); `empresa` es nula para el Master | `SESION_INICIADA` o `SESION_FALLIDA` |
+| POST | `/auth/login` | Público | `email`, `clave` | 200 `{ token, expiraEn, usuario, empresa }`: el usuario con su `tema`, y la empresa con su `marca` (nombre comercial, colores y enlaces firmados del logo y del fondo); `empresa` es nula para el Master | `SESION_INICIADA` o `SESION_FALLIDA` |
 | POST | `/auth/logout` | Sesión | — | 204 | `SESION_CERRADA` |
 | GET | `/auth/yo` | Sesión | — | 200 `{ usuario, empresa }`, como el inicio de sesión | — |
 | PUT | `/auth/preferencias` | Sesión | `tema`: `sistema`, `claro` u `oscuro` | 200 `{ tema }`; vale en todos sus dispositivos (RN32) | — (no es una acción sobre datos) |
@@ -109,6 +109,8 @@ Todas las respuestas de error tienen la misma forma:
 | PATCH | `/plataforma/empresas/:id/identidad` | Master | Como `PATCH /empresa/identidad` | 200 con la `marca` | `EMPRESA_EDITADA` |
 | PUT | `/plataforma/empresas/:id/identidad/logo` | Master | Como `PUT /empresa/identidad/logo` | 200 con la `marca` | `EMPRESA_EDITADA` |
 | DELETE | `/plataforma/empresas/:id/identidad/logo` | Master | — | 200 con la `marca` | `EMPRESA_EDITADA` |
+| PUT | `/plataforma/empresas/:id/identidad/fondo` | Master | Como `PUT /empresa/identidad/fondo` | 200 con la `marca` | `EMPRESA_EDITADA` |
+| DELETE | `/plataforma/empresas/:id/identidad/fondo` | Master | — | 200 con la `marca` | `EMPRESA_EDITADA` |
 
 | GET | `/plataforma/historial` | Master | `?empresaId`, `accion`, `desde`, `hasta` y paginación | 200 paginado: sus propias acciones —también sobre cada empresa, con `empresa { id, nombre }`— y los asientos sin empresa; nunca la actividad de las personas de una empresa (D24) | — |
 | GET | `/plataforma/respaldos` | Master | — | 200 `{ datos: [{ nombre, bytes, creadoEn }], diasDeRetencion }` | — |
@@ -188,16 +190,18 @@ categoría no existe». Lo decide la base (D22).
 
 ### Identidad de la empresa
 
-La de la empresa de la sesión (RF31, D28): la empresa sale de la sesión, nunca de la petición. `marca` es
-`{ nombreComercial, colorPrimario, logoUrl }`; cada campo es nulo si la empresa no lo eligió, y `logoUrl`
-es un enlace firmado que dura lo que la sesión.
+La de la empresa de la sesión (RF31, D28, D39): la empresa sale de la sesión, nunca de la petición. `marca` es
+`{ nombreComercial, colorPrimario, colorFondo, logoUrl, fondoUrl }`; cada campo es nulo si la empresa no lo
+eligió, y `logoUrl` y `fondoUrl` son enlaces firmados que duran lo que la sesión.
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
 | GET | `/empresa/identidad` | Empresa | — | 200 con la `marca` | — |
-| PATCH | `/empresa/identidad` | Admin | `nombreComercial?` (2 a 60 caracteres), `colorPrimario?` (`#rrggbb`); vacío lo quita; al menos uno | 200 con la `marca`. 400 si el color no da 4,5:1 con el texto blanco | `EMPRESA_EDITADA` con el antes y el después |
+| PATCH | `/empresa/identidad` | Admin | `nombreComercial?` (2 a 60 caracteres), `colorPrimario?`, `colorFondo?` (`#rrggbb`); vacío lo quita; al menos uno | 200 con la `marca`. 400 si el color principal no da 4,5:1 con el texto blanco; el de fondo no se valida, solo cuenta su tono | `EMPRESA_EDITADA` con el antes y el después |
 | PUT | `/empresa/identidad/logo` | Admin | `multipart/form-data` con `archivo`: PNG o JPG, por su contenido | 200 con la `marca`; reemplaza al anterior y lo borra. 415 si no es PNG ni JPG, 413 si supera 256 KB | `EMPRESA_EDITADA` (`logo` y el nombre del archivo) |
 | DELETE | `/empresa/identidad/logo` | Admin | — | 200 con la `marca` | `EMPRESA_EDITADA` |
+| PUT | `/empresa/identidad/fondo` | Admin | `multipart/form-data` con `archivo`: WebP o JPG, por su contenido; el navegador ya lo redujo y comprimió | 200 con la `marca`; reemplaza al anterior y lo borra. 415 si no es WebP ni JPG, 413 si supera 512 KB | `EMPRESA_EDITADA` (`fondo` y el nombre del archivo) |
+| DELETE | `/empresa/identidad/fondo` | Admin | — | 200 con la `marca` | `EMPRESA_EDITADA` |
 
 ### Tiempos de respuesta
 
@@ -205,10 +209,10 @@ es un enlace firmado que dura lo que la sesión.
 |---|---|---|---|---|---|
 | PATCH | `/tiempos-respuesta/:id` | Empresa; solo el suyo, y una vez | `duracionClienteMs` | 204 | — |
 
-En total, 59 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
+En total, 63 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
 plataforma, los siete que añadió la auditoría (papelera, tablero, auditoría y respaldos del Master) y, de la
-segunda, la actividad de un documento, las preferencias de cada persona, siete de identidad (cuatro de la
-empresa y tres del Master), tres de versiones y dos de evidencia (el listado documental y el historial para
+segunda, la actividad de un documento, las preferencias de cada persona, once de identidad (seis de la
+empresa y cinco del Master, cuatro de ellos del fondo), tres de versiones y dos de evidencia (el listado documental y el historial para
 imprimir).
 
 ## 4. Respuestas de ejemplo
@@ -223,7 +227,10 @@ imprimir).
   "empresa": {
     "id": "1b7e…",
     "nombre": "Distribuidora Ejemplo SAC",
-    "marca": { "nombreComercial": "Distribuidora Ejemplo", "colorPrimario": "#1d4ed8", "logoUrl": "https://…supabase.co/storage/v1/object/sign/documentos/1b7e…/…png?token=…" }
+    "marca": {
+      "nombreComercial": "Distribuidora Ejemplo", "colorPrimario": "#1d4ed8", "colorFondo": "#c8a165",
+      "logoUrl": "https://…supabase.co/storage/v1/object/sign/documentos/1b7e…/…png?token=…", "fondoUrl": null
+    }
   }
 }
 ```
@@ -306,6 +313,10 @@ solicitud pendiente (RN11):
   vuelve el guardado.
 - **El logo** se muestra sobre blanco también en el modo oscuro, y si su enlace ya no sirve vuelve el
   icono. La CSP de Vercel solo admite imágenes del propio dominio y del de Supabase.
+- **El fondo (D39).** El color va en la variable `--fondo`, de la que estilos.css toma el tono para cada
+  modo; como con el color principal, mientras se elige toda la pantalla lo muestra. La imagen la pide una
+  regla de CSS que solo vale desde 1024 px, con el contenido en un panel opaco; en el celular no se descarga.
+  Antes de subirla, el navegador la reduce a 1920 px y la comprime en WebP (o JPG).
 - **Vista previa (RF33).** «Vista previa» pide `/documentos/:id/archivo?modo=ver`, como «Ver», y muestra
   el enlace en un `<img>` (PNG, JPG) o en un marco (PDF, solo si `navigator.pdfViewerEnabled`). Abrirlo
   después en otra pestaña reutiliza ese enlace: no es una segunda consulta. La CSP admite marcos solo del
@@ -324,14 +335,14 @@ lo usa alguien.
 | Marco común: barras lateral y superior | — | Todos; las notificaciones, solo Administrador y Usuario | `GET /auth/yo`, `GET /notificaciones`, `POST /auth/logout` |
 | Plataforma: cifras y empresas | `/plataforma` | Master | `GET /plataforma/metricas`, `GET /plataforma/empresas`, `GET /plataforma/respaldos` (el último respaldo y lo que ocupan, frente al GB gratuito) |
 | Nueva empresa | `/plataforma/empresas/nueva` | Master | `POST /plataforma/empresas` |
-| Ficha de una empresa | `/plataforma/empresas/:id` | Master | `GET /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id/estado`, `POST /plataforma/empresas/:id/administradores`, `PATCH /plataforma/administradores/:id`, `PATCH /plataforma/administradores/:id/estado`, `PATCH /plataforma/empresas/:id/identidad`, `PUT` y `DELETE /plataforma/empresas/:id/identidad/logo` |
+| Ficha de una empresa | `/plataforma/empresas/:id` | Master | `GET /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id/estado`, `POST /plataforma/empresas/:id/administradores`, `PATCH /plataforma/administradores/:id`, `PATCH /plataforma/administradores/:id/estado`, `PATCH /plataforma/empresas/:id/identidad`, `PUT` y `DELETE /plataforma/empresas/:id/identidad/logo` y `/fondo` |
 | Documentos: listado y búsqueda | `/documentos` | Administrador y Usuario; exportar el listado, solo el administrador | `GET /documentos`, `GET /categorias`, `PATCH /tiempos-respuesta/:id`, `GET /documentos/exportar` |
 | Subir documento | `/documentos/nuevo` | Administrador y Usuario | `GET /categorias`, `POST /documentos` |
 | Detalle de documento | `/documentos/:id` | Administrador y Usuario; las acciones, según `permisos` | `GET /documentos/:id`, `GET /documentos/:id/actividad`, `GET /documentos/:id/versiones`, `POST /documentos/:id/versiones`, `POST /documentos/:id/versiones/:numero/restauracion`, `GET /documentos/:id/archivo`, `PATCH /documentos/:id`, `DELETE /documentos/:id`, `POST /documentos/:id/solicitudes`, `POST /solicitudes/:id/resolucion`, `GET /categorias` |
 | Solicitudes | `/solicitudes` | Administrador y Usuario; el administrador ve la bandeja de toda su empresa | `GET /solicitudes` |
 | Notificaciones | `/notificaciones` | Administrador y Usuario | `GET /notificaciones`, `PATCH /notificaciones/:id/leida`, `PATCH /notificaciones/leidas` |
 | Mi cuenta | `/cuenta` | Todos | `GET /auth/yo`, `PUT /auth/clave`, `PUT /auth/preferencias` |
-| Identidad | `/admin/identidad` | Administrador; a los demás la pantalla no se les abre | `GET /empresa/identidad`, `PATCH /empresa/identidad`, `PUT /empresa/identidad/logo`, `DELETE /empresa/identidad/logo` |
+| Identidad | `/admin/identidad` | Administrador; a los demás la pantalla no se les abre | `GET /empresa/identidad`, `PATCH /empresa/identidad`, `PUT` y `DELETE /empresa/identidad/logo` y `/fondo` |
 | Usuarios | `/admin/usuarios` | Administrador; para los demás, 403 registrado | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/:id`, `PATCH /usuarios/:id/estado` |
 | Categorías | `/admin/categorias` | Administrador | `GET /categorias?incluirInactivas=true`, `POST /categorias`, `PATCH /categorias/:id`, `GET /usuarios` (para elegir quién ve una restringida) |
 | Historial | `/admin/historial` | Administrador | `GET /historial`, `GET /historial/exportar`, `GET /usuarios` (para el filtro) |

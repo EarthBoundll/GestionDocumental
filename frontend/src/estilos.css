@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /*
- * La apariencia sale de dos datos (RF31, RF32, D28): el color de la empresa, en --marca, y el tema de la
- * persona, en data-tema de <html>. Tailwind compila cada color a una variable (bg-slate-50 es
+ * La apariencia sale de tres datos (RF31, RF32, D28, D39): el color de la empresa, en --marca; su color de
+ * fondo, en --fondo, y el tema de la persona, en data-tema de <html>. Tailwind compila cada color a una variable (bg-slate-50 es
  * var(--color-slate-50)), así que el modo oscuro redefine variables y ningún componente cambia de clases.
  */
 
@@ -27,6 +27,14 @@
   --color-peligro-hover: oklch(50.5% 0.213 27.518);
   /* Tarjetas, menús, campos y diálogos: blanco en claro. El blanco de verdad (texto de botones, fondo del logo) no cambia. */
   --color-superficie: #fff;
+  /* Detrás de las tarjetas: el gris muy claro de siempre, o el tono del fondo de la empresa (D39). */
+  --color-pagina: var(--pagina-clara);
+  /*
+   * El texto secundario, un punto más oscuro que el slate-500 de Tailwind (55,4 %), que sobre su propio slate-50
+   * daba 4,55:1, justo en el límite. Con 52 % da 5,25:1 sobre el gris y al menos 4,8:1 sobre cualquier fondo
+   * teñido, también el del tono menos favorable (D39).
+   */
+  --color-slate-500: oklch(52% 0.046 257.417);
   /* Fuentes del sistema: nada que descargar antes de mostrar la primera pantalla (indicador 7). */
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
@@ -61,6 +69,41 @@
 :root {
   --marca: #0f766e;
   color-scheme: light;
+  --velo: var(--velo-claro);
+}
+
+/*
+ * El fondo de la empresa (D39). De su color solo se toma el tono: la claridad queda fija, casi blanca en el
+ * modo claro y casi negra en el oscuro, y la intensidad tiene un tope. Así cualquier color, también uno
+ * chillón, deja el texto tan legible como el gris de siempre, y el mismo color se adapta a los dos modos.
+ * Sin --fondo, o en un navegador sin colores relativos, las variables quedan inválidas y vale el gris.
+ * La vista previa de la pantalla de identidad usa la misma clase con su propio --fondo.
+ */
+@supports (color: oklch(from red l c h)) {
+  :root,
+  .tonos-de-fondo {
+    --tono-claro: oklch(from var(--fondo) 0.97 min(c, 0.04) h);
+    --tono-oscuro: oklch(from var(--fondo) 0.17 min(c, 0.05) h);
+  }
+}
+:root,
+.tonos-de-fondo {
+  /* Los mismos grises que slate-50 en cada modo. */
+  --pagina-clara: var(--tono-claro, oklch(98.4% 0.003 247.858));
+  --pagina-oscura: var(--tono-oscuro, oklch(16% 0.035 264));
+  /* Sobre la imagen, un velo del color de la página: apenas en claro, más denso en oscuro para no deslumbrar. */
+  --velo-claro: color-mix(in srgb, var(--pagina-clara) 20%, transparent);
+  --velo-oscuro: color-mix(in srgb, var(--pagina-oscura) 55%, transparent);
+}
+
+/*
+ * La imagen de fondo, solo desde 1024 px: un celular ni la descarga, porque la regla que la pide no se cumple
+ * (indicador 5). El texto nunca queda encima: el contenido va en un panel opaco (Layout.tsx).
+ */
+@media screen and (min-width: 64rem) {
+  .imagen-de-fondo {
+    background-image: linear-gradient(var(--velo), var(--velo)), var(--imagen-de-fondo);
+  }
 }
 
 /*
@@ -83,6 +126,8 @@
     --color-slate-800: oklch(92.9% 0.013 255.508);
     --color-slate-900: oklch(96.8% 0.007 247.896);
     --color-slate-950: oklch(98.4% 0.003 247.858);
+    --color-pagina: var(--pagina-oscura);
+    --velo: var(--velo-oscuro);
 
     /* La marca sobre fondo oscuro: los fondos, teñidos de la superficie; los textos, aclarados con blanco. */
     --color-marca-50: color-mix(in srgb, var(--marca) 22%, var(--color-superficie));
@@ -138,7 +183,7 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-slate-50 text-slate-800 antialiased;
+    @apply bg-pagina text-slate-800 antialiased;
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-marca-600;

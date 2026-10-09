@@ -89,7 +89,7 @@ backend/
 │       ├── historial/            incluye registrarAccion(), que usan los demás servicios
 │       ├── tiempos-respuesta/
 │       ├── tablero/              el estado de la empresa y sus indicadores (RF28)
-│       ├── identidad/            nombre comercial, color (con su contraste WCAG) y logo de una empresa (RF31)
+│       ├── identidad/            nombre comercial, colores (el principal, con su contraste WCAG), logo y fondo de una empresa (RF31, D39)
 │       └── salud/
 ├── tests/
 │   ├── apoyo/                    PostgreSQL de pruebas y datos de ejemplo (E7)
@@ -151,11 +151,11 @@ frontend/
 │   │   ├── solicitudes/
 │   │   ├── notificaciones/
 │   │   ├── cuenta/               MiCuenta: datos, contraseña y tema
-│   │   ├── identidad/            EditorDeIdentidad, que usan el administrador y el Master
+│   │   ├── identidad/            EditorDeIdentidad y su EditorDeFondo, que usan el administrador y el Master
 │   │   ├── admin/                Tablero, Usuarios, Categorias, Historial (y su hoja para imprimir), Papelera, Identidad
 │   │   └── errores/              NoEncontrado (el 403 lo explica ErrorDeCarga, en componentes/Pagina)
 │   ├── hooks/                    useConsulta (cancela la petición anterior) y la medición del listado (indicador 7)
-│   ├── utilidades/               fechas en hora de Lima, pesos de archivo, resumen del historial…
+│   ├── utilidades/               fechas en hora de Lima, pesos de archivo, resumen del historial, la imagen de fondo comprimida en el navegador…
 │   ├── pruebas/                  preparación de Vitest y una API simulada en memoria
 │   └── **/*.test.ts(x)           pruebas junto a lo que prueban: sesión, marco, documentos, apariencia, cliente
 ├── e2e/                          pruebas funcionales de punta a punta (E8)

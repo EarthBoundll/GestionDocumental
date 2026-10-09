@@ -72,7 +72,7 @@ export function crearApp({ pool, entorno, almacenamiento, correo, respaldos }: D
   // Ningún módulo de negocio recibe el pool: solo el acceso que la autenticación crea para cada petición.
   const { empresa, plataforma } = crearPuertas(autenticar);
   const tiempos = crearServicioTiempos();
-  // El enlace del logo dura lo que una sesión: el marco lo muestra mientras la persona esté dentro.
+  // Los enlaces del logo y del fondo duran lo que una sesión: el marco lo muestra mientras la persona esté dentro.
   const servicioIdentidad = crearServicioIdentidad({ almacenamiento, vigenciaSegundos: entorno.JWT_DURACION_HORAS * 3600 });
   const servicioAuth = crearServicioAuth({
     pool,

@@ -3,7 +3,7 @@ import type { Rol } from '../../compartido/permisos.js';
 import type { Credencial } from '../../compartido/tokens.js';
 import { primeraFila } from '../../db/filas.js';
 import type { Consultor } from '../../db/pool.js';
-import type { FilaIdentidad } from '../identidad/identidad.repositorio.js';
+import { SELECT_IDENTIDAD, type FilaIdentidad } from '../identidad/identidad.repositorio.js';
 
 /*
  * La capa de identidad. Averigua quién es alguien antes de saber a qué empresa pertenece, así que no
@@ -85,11 +85,8 @@ export async function buscarCuentaPorEmail(db: Consultor, email: string): Promis
 }
 
 export async function buscarPerfil(db: Consultor, usuarioId: string): Promise<FilaPerfil | null> {
-  const { rows } = await db.query<FilaUsuario & {
-    dni: string | null; tema: Tema; empresa_nombre: string | null;
-    nombre_comercial: string | null; color_primario: string | null; logo_ruta: string | null;
-  }>(
-    `SELECT ${COLUMNAS_USUARIO}, u.dni, u.tema, e.nombre AS empresa_nombre, e.nombre_comercial, e.color_primario, e.logo_ruta
+  const { rows } = await db.query<FilaUsuario & FilaIdentidad & { dni: string | null; tema: Tema; empresa_nombre: string | null }>(
+    `SELECT ${COLUMNAS_USUARIO}, u.dni, u.tema, e.nombre AS empresa_nombre, ${SELECT_IDENTIDAD}
      FROM usuarios u LEFT JOIN empresas e ON e.id = u.empresa_id
      WHERE u.id = $1`,
     [usuarioId],
@@ -101,7 +98,10 @@ export async function buscarPerfil(db: Consultor, usuarioId: string): Promise<Fi
     empresa: fila.empresa_id === null ? null : {
       id: fila.empresa_id,
       nombre: fila.empresa_nombre ?? '',
-      identidad: { nombreComercial: fila.nombre_comercial, colorPrimario: fila.color_primario, logoRuta: fila.logo_ruta },
+      identidad: {
+        nombreComercial: fila.nombreComercial, colorPrimario: fila.colorPrimario, colorFondo: fila.colorFondo,
+        logoRuta: fila.logoRuta, fondoRuta: fila.fondoRuta,
+      },
     },
   };
 }

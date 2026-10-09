@@ -1,62 +1,36 @@
 import { randomUUID } from 'node:crypto';
 import type { Almacenamiento } from '../../almacenamiento/almacenamiento.js';
 import { calcularCambios, valoresNuevos } from '../../compartido/cambios.js';
-import { ErrorAplicacion, noEncontrado } from '../../compartido/errores.js';
+import { noEncontrado } from '../../compartido/errores.js';
 import type { Actor } from '../../compartido/peticion.js';
-import { identificarTipo } from '../../compartido/tipos-de-archivo.js';
 import { registrarAccion, type Autor } from '../historial/historial.registro.js';
 import type { CambiosIdentidad } from './identidad.esquemas.js';
+import { formatoDe, IMAGENES, mimeDeRuta, type ArchivoDeImagen, type Imagen } from './identidad.imagenes.js';
 import { actualizarIdentidad, leerIdentidad, type FilaIdentidad } from './identidad.repositorio.js';
 
-/**
- * El logo se descarga en cada inicio de sesión (su enlace firmado cambia y el navegador no lo guarda),
- * también desde el celular: por eso es pequeño.
- */
-export const PESO_MAXIMO_LOGO_BYTES = 256 * 1024;
-/** Solo imágenes de mapa de bits: un SVG puede llevar scripts. */
-const EXTENSIONES_DE_LOGO = ['png', 'jpg', 'jpeg'];
-
-/** La identidad que ve quien usa el sistema: con el enlace del logo ya firmado. */
+/** La identidad que ve quien usa el sistema: con los enlaces de sus imágenes ya firmados. */
 export interface Marca {
   nombreComercial: string | null;
   colorPrimario: string | null;
+  colorFondo: string | null;
   logoUrl: string | null;
-}
-
-export interface ArchivoDeLogo {
-  nombreOriginal: string;
-  contenido: Buffer;
-}
-
-const logoNoAdmitido = () => new ErrorAplicacion(415, 'TIPO_NO_PERMITIDO', 'El logo debe ser una imagen PNG o JPG');
-
-/** Lo que dice ser y lo que es, como con los documentos (RN09), pero solo PNG y JPG. */
-function tipoDeLogo({ nombreOriginal, contenido }: ArchivoDeLogo) {
-  const extension = /\.([a-z0-9]+)$/i.exec(nombreOriginal)?.[1]?.toLowerCase() ?? '';
-  if (!EXTENSIONES_DE_LOGO.includes(extension)) throw logoNoAdmitido();
-  if (contenido.length > PESO_MAXIMO_LOGO_BYTES) {
-    throw new ErrorAplicacion(413, 'ARCHIVO_DEMASIADO_GRANDE', 'El logo supera los 256 KB');
-  }
-  try {
-    return identificarTipo(nombreOriginal, contenido);
-  } catch {
-    throw logoNoAdmitido();
-  }
+  fondoUrl: string | null;
 }
 
 export type ServicioIdentidad = ReturnType<typeof crearServicioIdentidad>;
 
 /**
- * RF31: el nombre comercial, el color y el logo de una empresa. Lo usan dos puertas con el mismo código:
- * el administrador sobre la suya y el Master sobre cualquiera. Cada una llega con su acceso (D17) y su
+ * RF31: el nombre comercial, los colores, el logo y el fondo de una empresa. Lo usan dos puertas con el
+ * mismo código: el administrador sobre la suya y el Master sobre cualquiera. Cada una llega con su acceso (D17) y su
  * autor; la base decide además que, del lado de la empresa, solo un administrador puede cambiarla (008).
  */
 export function crearServicioIdentidad({ almacenamiento, vigenciaSegundos }: { almacenamiento: Almacenamiento; vigenciaSegundos: number }) {
-  async function marcaDe({ nombreComercial, colorPrimario, logoRuta }: FilaIdentidad): Promise<Marca> {
-    const logoUrl = logoRuta
-      ? await almacenamiento.firmarEnlace(logoRuta, { segundos: vigenciaSegundos, tipoMime: logoRuta.endsWith('.png') ? 'image/png' : 'image/jpeg' })
-      : null;
-    return { nombreComercial, colorPrimario, logoUrl };
+  const firmar = (ruta: string | null) =>
+    ruta ? almacenamiento.firmarEnlace(ruta, { segundos: vigenciaSegundos, tipoMime: mimeDeRuta(ruta) }) : null;
+
+  async function marcaDe({ nombreComercial, colorPrimario, colorFondo, logoRuta, fondoRuta }: FilaIdentidad): Promise<Marca> {
+    const [logoUrl, fondoUrl] = await Promise.all([firmar(logoRuta), firmar(fondoRuta)]);
+    return { nombreComercial, colorPrimario, colorFondo, logoUrl, fondoUrl };
   }
 
   async function identidadExistente(actor: Actor, empresaId: string): Promise<FilaIdentidad> {
@@ -84,45 +58,51 @@ export function crearServicioIdentidad({ almacenamiento, vigenciaSegundos }: { a
 
     async editar(actor: Actor, empresaId: string, autor: Autor, propuesta: CambiosIdentidad): Promise<Marca> {
       const actual = await identidadExistente(actor, empresaId);
-      const cambios = calcularCambios({ nombreComercial: actual.nombreComercial, colorPrimario: actual.colorPrimario }, propuesta);
+      const { nombreComercial, colorPrimario, colorFondo } = actual;
+      const cambios = calcularCambios({ nombreComercial, colorPrimario, colorFondo }, propuesta);
       if (Object.keys(cambios).length > 0) await guardar(actor, empresaId, autor, valoresNuevos(cambios), { cambios });
       return marcaDe({ ...actual, ...valoresNuevos(cambios) });
     },
 
     /**
-     * El archivo sube antes que la fila, como un documento: si lo de después falla, se borra el nuevo; si
-     * todo sale bien, se borra el anterior. Cada logo tiene un nombre nuevo, así que nunca se pisa.
+     * El logo o el fondo. El archivo sube antes que la fila, como un documento: si lo de después falla, se
+     * borra el nuevo; si todo sale bien, se borra el anterior. Cada imagen tiene un nombre nuevo, así que
+     * nunca se pisa.
      */
-    async cambiarLogo(actor: Actor, empresaId: string, autor: Autor, archivo: ArchivoDeLogo): Promise<Marca> {
-      const tipo = tipoDeLogo(archivo);
+    async cambiarImagen(actor: Actor, empresaId: string, autor: Autor, imagen: Imagen, archivo: ArchivoDeImagen): Promise<Marca> {
+      const { extension, mime } = formatoDe(imagen, archivo);
+      const { columna } = IMAGENES[imagen];
       const actual = await identidadExistente(actor, empresaId);
-      const ruta = `${empresaId}/${randomUUID()}.${tipo.mime === 'image/png' ? 'png' : 'jpg'}`;
-      await almacenamiento.subir(ruta, archivo.contenido, tipo.mime);
+      const anterior = actual[columna];
+      const ruta = `${empresaId}/${randomUUID()}.${extension}`;
+      await almacenamiento.subir(ruta, archivo.contenido, mime);
       try {
-        await guardar(actor, empresaId, autor, { logoRuta: ruta }, {
-          cambios: { logo: { antes: actual.logoRuta !== null, despues: true } }, archivo: archivo.nombreOriginal,
+        await guardar(actor, empresaId, autor, { [columna]: ruta }, {
+          cambios: { [imagen]: { antes: anterior !== null, despues: true } }, archivo: archivo.nombreOriginal,
         });
       } catch (error) {
         await almacenamiento.eliminar(ruta).catch(() => undefined);
         throw error;
       }
-      if (actual.logoRuta) await borrarSinBloquear(almacenamiento, actual.logoRuta);
-      return marcaDe({ ...actual, logoRuta: ruta });
+      if (anterior) await borrarSinBloquear(almacenamiento, anterior);
+      return marcaDe({ ...actual, [columna]: ruta });
     },
 
-    async quitarLogo(actor: Actor, empresaId: string, autor: Autor): Promise<Marca> {
+    async quitarImagen(actor: Actor, empresaId: string, autor: Autor, imagen: Imagen): Promise<Marca> {
+      const { columna } = IMAGENES[imagen];
       const actual = await identidadExistente(actor, empresaId);
-      if (!actual.logoRuta) return marcaDe(actual);
-      await guardar(actor, empresaId, autor, { logoRuta: null }, { cambios: { logo: { antes: true, despues: false } } });
-      await borrarSinBloquear(almacenamiento, actual.logoRuta);
-      return marcaDe({ ...actual, logoRuta: null });
+      const anterior = actual[columna];
+      if (!anterior) return marcaDe(actual);
+      await guardar(actor, empresaId, autor, { [columna]: null }, { cambios: { [imagen]: { antes: true, despues: false } } });
+      await borrarSinBloquear(almacenamiento, anterior);
+      return marcaDe({ ...actual, [columna]: null });
     },
   };
 }
 
-/** Un logo viejo que no se pudo borrar solo ocupa espacio: no debe deshacer un cambio ya confirmado. */
+/** Una imagen vieja que no se pudo borrar solo ocupa espacio: no debe deshacer un cambio ya confirmado. */
 async function borrarSinBloquear(almacenamiento: Almacenamiento, ruta: string): Promise<void> {
   await almacenamiento.eliminar(ruta).catch((error: unknown) => {
-    console.error(`[identidad] quedó un logo huérfano en ${ruta}:`, error);
+    console.error(`[identidad] quedó una imagen huérfana en ${ruta}:`, error);
   });
 }

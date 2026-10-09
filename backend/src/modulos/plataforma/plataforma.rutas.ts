@@ -3,7 +3,7 @@ import { actorDe, idDeRuta } from '../../compartido/peticion.js';
 import { recibirArchivo } from '../../middlewares/recibir-archivo.js';
 import { autorDelMasterSobre } from '../historial/historial.registro.js';
 import { esquemaIdentidad } from '../identidad/identidad.esquemas.js';
-import { logoDe } from '../identidad/identidad.rutas.js';
+import { imagenDe, IMAGENES_DE_IDENTIDAD } from '../identidad/identidad.rutas.js';
 import type { ServicioIdentidad } from '../identidad/identidad.servicio.js';
 import {
   esquemaCambiosAdministrador, esquemaCambiosEmpresa, esquemaEstadoAdministrador, esquemaEstadoEmpresa,
@@ -50,17 +50,19 @@ export function crearRutasPlataforma(
     res.json(await identidad.editar(actor, id, autorDelMasterSobre(actor.autenticacion.usuario, id), cambios));
   });
 
-  rutas.put('/empresas/:id/identidad/logo', recibirArchivo, async (req, res) => {
-    const actor = actorDe(req);
-    const id = idDeRuta(req);
-    res.json(await identidad.cambiarLogo(actor, id, autorDelMasterSobre(actor.autenticacion.usuario, id), logoDe(req)));
-  });
+  for (const imagen of IMAGENES_DE_IDENTIDAD) {
+    rutas.put(`/empresas/:id/identidad/${imagen}`, recibirArchivo, async (req, res) => {
+      const actor = actorDe(req);
+      const id = idDeRuta(req);
+      res.json(await identidad.cambiarImagen(actor, id, autorDelMasterSobre(actor.autenticacion.usuario, id), imagen, imagenDe(req, imagen)));
+    });
 
-  rutas.delete('/empresas/:id/identidad/logo', async (req, res) => {
-    const actor = actorDe(req);
-    const id = idDeRuta(req);
-    res.json(await identidad.quitarLogo(actor, id, autorDelMasterSobre(actor.autenticacion.usuario, id)));
-  });
+    rutas.delete(`/empresas/:id/identidad/${imagen}`, async (req, res) => {
+      const actor = actorDe(req);
+      const id = idDeRuta(req);
+      res.json(await identidad.quitarImagen(actor, id, autorDelMasterSobre(actor.autenticacion.usuario, id), imagen));
+    });
+  }
 
   rutas.patch('/empresas/:id', async (req, res) => {
     const id = idDeRuta(req);

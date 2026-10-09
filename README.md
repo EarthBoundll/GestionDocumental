@@ -9,8 +9,8 @@ Administrador de Empresa, que gestiona su equipo, sus categorías (también las 
 ven las personas que elija), las aprobaciones, la papelera, el historial y un tablero con los
 indicadores; y el Usuario, que sube, busca, ve y descarga documentos y pide su aprobación. Toda acción
 queda registrada en un historial inalterable, del que salen los indicadores de la tesis, y la base se
-respalda cada noche. Cada empresa puede llevar su nombre comercial, su color y su logo, y cada persona
-elige el modo claro u oscuro, que la sigue de un dispositivo a otro.
+respalda cada noche. Cada empresa puede llevar su nombre comercial, su color, su logo y su fondo, y cada
+persona elige el modo claro u oscuro, que la sigue de un dispositivo a otro.
 
 | Carpeta | Qué hay | Despliegue |
 |---|---|---|
@@ -38,11 +38,11 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 
 | Dónde | Comando | Qué prueba |
 |---|---|---|
-| `backend/` | `npm test` | 360 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan, y que decida una vez por consulta), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad y las versiones de cada documento (también una versión y una aprobación a la vez), el listado documental y el historial para imprimir, el cierre del estudio, los documentos de prueba, la identidad de cada empresa (con su contraste y su logo), el tema de cada persona y la ida y vuelta de un respaldo, también en una base desechable |
+| `backend/` | `npm test` | 365 pruebas contra un PostgreSQL 17 real: reglas, permisos, RLS (también en las tablas que se añadan, y que decida una vez por consulta), aislamiento endpoint por endpoint, papelera, bloqueo por cuenta, la actividad y las versiones de cada documento (también una versión y una aprobación a la vez), el listado documental y el historial para imprimir, el cierre del estudio, los documentos de prueba, la identidad de cada empresa (con su contraste, su logo y su fondo), el tema de cada persona y la ida y vuelta de un respaldo, también en una base desechable |
 | `backend/` | `npm run informe:aislamiento` | La batería A contra B, con su informe en [`docs/evidencias/`](docs/evidencias/aislamiento-entre-empresas.md) (indicador 6) |
 | `backend/` | `npm run informe:carga` | El listado, la búsqueda y las exportaciones con 50.000 documentos, con su informe en [`docs/evidencias/`](docs/evidencias/prueba-de-carga.md) (indicador 7). Tarda unos dos minutos |
-| `frontend/` | `npm test` | 84 pruebas de pantallas, sesión (también su cierre con confirmación), contacto, términos y privacidad, roles, tema, identidad, vista previa, versiones, exportaciones, uso en el celular y cliente HTTP |
-| `frontend/` | `npm run pruebas:funcionales` | Los 36 requisitos en un navegador real (42 casos, 58 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
+| `frontend/` | `npm test` | 95 pruebas de pantallas, sesión (también su cierre con confirmación), contacto, términos y privacidad, roles, tema, identidad, fondo (con la imagen preparada en el navegador), vista previa, versiones, exportaciones, uso en el celular y cliente HTTP |
+| `frontend/` | `npm run pruebas:funcionales` | Los 36 requisitos en un navegador real (43 casos, 60 ejecuciones en escritorio y celular), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
 | `frontend/` | `npm run pruebas:demo` | El guion de la sustentación: los casos marcados `@demo`, en un navegador visible y a velocidad de lectura |
 
 GitHub Actions ejecuta las tres primeras filas y las funcionales en cada push a `main` y en cada pull
