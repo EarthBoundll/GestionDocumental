@@ -576,6 +576,15 @@ ejecutándose al pulsar «Buscar» o Enter: cada búsqueda es una acción del hi
 *Descartado:* buscar mientras se escribe («r», «re», «rem» quedarían como búsquedas y enturbiarían el historial y sus
 indicadores) y un rediseño visual (no mueve ningún indicador y cambiaría lo que conoció el piloto).
 
+**D37 · Un acceso con imagen y movimiento, sin pesar en el celular; y salir, con confirmación.** Iniciar sesión,
+recuperar y restablecer la contraseña comparten un marco dividido: la imagen y el mensaje ocupan la mayor parte y el
+formulario va a la derecha; en el celular la imagen es una franja arriba y el formulario queda a la vista. La imagen
+va en WebP en dos tamaños (55 KB y 27 KB, antes 190 KB) y el navegador elige; el movimiento es solo CSS y se apaga con
+«reducir movimiento». Cerrar sesión pide confirmación (en el celular el botón está junto a la campana), se despide
+un instante y el inicio de sesión confirma la salida con `?motivo=salida`, como ya hacía con una sesión caducada.
+*Descartado:* una librería de animaciones (peso sin necesidad), la imagen en su resolución original (190 KB por datos
+móviles, indicador 5) y navegar desde el contexto al salir (dos redirecciones a la vez se pisaban el aviso).
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

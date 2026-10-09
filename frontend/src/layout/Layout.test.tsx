@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Rol } from '../api/tipos';
 import { rutas } from '../rutas';
 import { CATEGORIAS, guardarSesion, paginaVacia, sesionDe, simularApi } from '../pruebas/api-simulada';
@@ -63,6 +63,26 @@ describe('Marco común según el rol', () => {
 
     expect(await screen.findByText(/No se pudo consultar el depósito de respaldos/)).toBeInTheDocument();
     expect(screen.getByText(/los respaldos no se pudieron consultar/)).toBeInTheDocument();
+  });
+
+  it('cerrar sesión pide confirmación; al confirmar se despide, avisa a la API y el inicio de sesión lo confirma', async () => {
+    // Un dispositivo sin «reducir movimiento»: la despedida se ve un instante antes de salir.
+    vi.stubGlobal('matchMedia', (consulta: string) => ({ matches: false, media: consulta, addEventListener() {}, removeEventListener() {} }));
+    const { peticiones } = abrirComo('usuario', '/documentos', { 'POST /auth/logout': { estado: 204 } });
+    const cierres = () => peticiones.filter((p) => p.ruta === '/auth/logout').length;
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Cerrar sesión' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: '¿Cerrar sesión?' })).getByRole('button', { name: 'Cancelar' }));
+    expect(cierres()).toBe(0);
+    expect(screen.getByRole('heading', { name: 'Documentos', level: 1 })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sí, cerrar sesión' }));
+    expect(screen.getByText('Cerrando sesión…')).toBeInTheDocument();
+
+    expect(await screen.findByRole('heading', { name: 'Iniciar sesión' }, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText('Cerraste tu sesión. Hasta pronto.')).toBeInTheDocument();
+    expect(cierres()).toBe(1);
   });
 
   it('el usuario ve documentos y aprobaciones, pero no la administración', async () => {

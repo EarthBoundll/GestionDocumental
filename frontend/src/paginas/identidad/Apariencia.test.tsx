@@ -131,6 +131,7 @@ describe('Identidad de la empresa (RF31)', () => {
     expect(within(menu).getAllByRole('presentation')[0]).toHaveAttribute('src', MARCA_GUARDADA.logoUrl);
 
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sí, cerrar sesión' }));
     await screen.findByRole('heading', { name: 'Iniciar sesión' });
     expect(raiz.style.getPropertyValue('--marca')).toBe('');
   });

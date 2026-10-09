@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { archivoPdf, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PDF, PNG, subirDocumento } from './apoyo';
+import { archivoPdf, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PDF, PNG, salir, subirDocumento } from './apoyo';
 import { URL_API } from './entorno';
 
 test.describe('Documentos y categorías', () => {
@@ -77,7 +77,7 @@ test.describe('Documentos y categorías', () => {
     await expect(page.getByText('Los cambios se guardaron.')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Cotización de telas para uniformes' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
     await entrar(page, pedro);
     await page.goto(`/documentos/${id}`);
     await expect(page.getByRole('heading', { name: 'Cotización de telas para uniformes' })).toBeVisible();

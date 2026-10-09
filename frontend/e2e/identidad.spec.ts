@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PNG } from './apoyo';
+import { entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PNG, salir } from './apoyo';
 import { URL_WEB } from './entorno';
 
 /** La API mira los primeros bytes, no la extensión. */
@@ -52,7 +52,7 @@ test.describe('Identidad de la empresa y tema de cada persona', () => {
     await irDesdeElMenu(page, 'Historial');
     await expect(page.getByText(/^cambió (color, nombre comercial|nombre comercial, color)$/)).toBeVisible();
     await expect(page.getByText('cambió logo')).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     // Ana lo ve al entrar: su nombre comercial, su logo y su color, sin tocar nada.
     await entrar(page, ana);
@@ -62,7 +62,7 @@ test.describe('Identidad de la empresa y tema de cada persona', () => {
     await expect(cabecera.locator('img[src*=".png"]')).toBeVisible();
     await irDesdeElMenu(page, 'Subir documento');
     await colorDelBoton(page, 'Subir documento', VIOLETA);
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     // Otra empresa sigue con lo suyo: la identidad no se cruza entre empresas.
     await entrar(page, otra.administrador);

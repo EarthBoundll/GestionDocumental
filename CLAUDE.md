@@ -328,6 +328,10 @@ duplica Supabase y Render, y lo que se mediría no sería lo desplegado.
 plegados, teclado cerrado al buscar y «Tomar foto» para un papel (D36). Se descartó buscar mientras se escribe: cada
 búsqueda es una acción del historial, y las parciales lo enturbiarían.
 
+**Un acceso con imagen y movimiento, sin pesar en el celular; salir, con confirmación.** Marco dividido con la imagen
+en WebP (55 KB y 27 KB), movimiento solo CSS que respeta «reducir movimiento», y cerrar sesión con confirmación,
+despedida y aviso al volver (D37). Se descartaron una librería de animaciones y la imagen original de 190 KB.
+
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.
 

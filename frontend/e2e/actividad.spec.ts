@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { entrar, nuevaCuenta, nuevaEmpresa, PNG, subirDocumento, tokenDe } from './apoyo';
+import { entrar, nuevaCuenta, nuevaEmpresa, PNG, salir, subirDocumento, tokenDe } from './apoyo';
 import { URL_API } from './entorno';
 
 test.describe('Actividad de un documento', () => {
@@ -27,7 +27,7 @@ test.describe('Actividad de un documento', () => {
     await page.getByRole('navigation', { name: 'Ruta' }).getByRole('link', { name: 'Contratos' }).click();
     await expect(page).toHaveURL(/categoriaId=/);
     await expect(page.getByRole('link', { name: 'Contrato de alquiler' })).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     await entrar(page, empresa.administrador);
     await page.goto(`/documentos/${id}`);
@@ -70,7 +70,7 @@ test.describe('Vista previa del archivo', () => {
     } else {
       await expect(page.getByRole('button', { name: 'Vista previa' })).toHaveCount(0);
     }
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
 
     // Para el administrador, verla cuenta como verlo (indicador 3); abrir la ficha, no.
     await entrar(page, empresa.administrador);

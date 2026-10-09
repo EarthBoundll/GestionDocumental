@@ -1,5 +1,4 @@
 import { createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
 import { conectarSesion } from '../api/cliente';
 import { auth } from '../api/recursos';
 import type { Marca, Perfil, SesionIniciada, Tema } from '../api/tipos';
@@ -12,6 +11,8 @@ interface ValorSesion {
   sesion: SesionIniciada | null;
   /** La API dejó de aceptar la sesión (caducó, o se desactivó la cuenta o la empresa): se avisa al volver a entrar. */
   caducada: boolean;
+  /** La persona cerró su sesión: el inicio de sesión se lo confirma (D37). */
+  cerrada: boolean;
   esAdministrador: boolean;
   /** El Master no pertenece a ninguna empresa: su área es la plataforma. */
   esMaster: boolean;
@@ -60,8 +61,8 @@ function guardar(sesion: SesionIniciada | null): void {
 export function SesionProvider({ children }: { children: ReactNode }) {
   const [sesion, setSesion] = useState<SesionIniciada | null>(leerGuardada);
   const [caducada, setCaducada] = useState(false);
+  const [cerrada, setCerrada] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
-  const navegar = useNavigate();
   const actual = useRef(sesion);
   actual.current = sesion;
 
@@ -120,17 +121,20 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const valor = useMemo<ValorSesion>(() => ({
     sesion,
     caducada,
+    cerrada,
     esAdministrador: sesion?.usuario.rol === 'administrador',
     esMaster: sesion?.usuario.rol === 'master',
     iniciar(nueva) {
       cambiar(nueva);
       setCaducada(false);
+      setCerrada(false);
     },
     async cerrar() {
       // Se avisa a la API para que revoque la sesión (RF03); si no responde, se olvida igualmente aquí.
       await auth.cerrarSesion().catch(() => {});
+      // Como al caducar, no se navega desde aquí: RutaConSesion lleva a iniciar sesión con el motivo.
+      setCerrada(true);
       olvidar();
-      navegar('/login', { replace: true });
     },
     async cambiarTema(nuevo) {
       const antes = actual.current;
@@ -146,7 +150,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     },
     actualizarMarca,
     previsualizarColor: setVistaPrevia,
-  }), [sesion, caducada, navegar, cambiar, olvidar, actualizarMarca]);
+  }), [sesion, caducada, cerrada, cambiar, olvidar, actualizarMarca]);
 
   return <Contexto value={valor}>{children}</Contexto>;
 }

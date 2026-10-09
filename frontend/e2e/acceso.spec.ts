@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CLAVE, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, ultimoCorreoPara } from './apoyo';
+import { CLAVE, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, salir, ultimoCorreoPara } from './apoyo';
 import { URL_API } from './entorno';
 
 test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
@@ -20,14 +20,23 @@ test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
     await expect(page.getByRole('heading', { name: 'Documentos', level: 1 })).toBeVisible();
   });
 
-  test('RF03 · Cerrar sesión la revoca en el servidor: el token anterior ya no sirve', async ({ page, request }) => {
+  test('RF03 · Cerrar sesión pide confirmación y la revoca en el servidor: el token anterior ya no sirve @movil', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     await entrar(page, empresa.administrador);
     const token = await page.evaluate(() => JSON.parse(localStorage.getItem('gestion-documental.sesion') ?? '{}').token as string);
     expect((await request.get(`${URL_API}/auth/yo`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(200);
 
+    // Un toque de más (en el celular el botón está junto a la campana) no cierra nada.
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
-    await expect(page).toHaveURL(/\/login$/);
+    await page.getByRole('dialog', { name: '¿Cerrar sesión?' }).getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByRole('heading', { name: 'Documentos', level: 1 })).toBeVisible();
+    expect((await request.get(`${URL_API}/auth/yo`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(200);
+
+    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await page.getByRole('dialog', { name: '¿Cerrar sesión?' }).getByRole('button', { name: 'Sí, cerrar sesión' }).click();
+    await expect(page.getByText('Cerrando sesión…')).toBeVisible();
+    await expect(page).toHaveURL(/\/login\?motivo=salida$/);
+    await expect(page.getByText('Cerraste tu sesión. Hasta pronto.')).toBeVisible();
     expect((await request.get(`${URL_API}/auth/yo`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(401);
 
     await page.goto('/documentos');
@@ -50,7 +59,7 @@ test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
     await page.getByRole('button', { name: 'Cambiar contraseña' }).click();
     await expect(page.getByText('Tu contraseña se cambió.')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await salir(page);
     await entrar(page, { email: usuaria.email, clave: 'otra-clave-segura-2' });
   });
 
