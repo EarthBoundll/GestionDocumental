@@ -568,6 +568,14 @@ lo vuelca en un PostgreSQL desechable, el mismo de las pruebas, sin tocar ningun
 desplegado), fijar a mano un despliegue en Vercel (no protege la API) y restaurar el ensayo en Supabase (una
 segunda base que habría que crear y borrar).
 
+**D36 · En el celular, primero el resultado; la búsqueda, al confirmarla.** Un recorrido a 360 px con 40 documentos
+mostró nombres cortados justo donde va lo que los distingue (número, cliente) y filtros que llenaban la primera
+pantalla. Ahora el nombre ocupa hasta tres líneas, orden y fechas se pliegan, y al buscar en una pantalla táctil se
+cierra el teclado y la lista sube a la vista; para un papel, «Tomar foto» abre la cámara. La búsqueda sigue
+ejecutándose al pulsar «Buscar» o Enter: cada búsqueda es una acción del historial (`BUSQUEDA_REALIZADA`).
+*Descartado:* buscar mientras se escribe («r», «re», «rem» quedarían como búsquedas y enturbiarían el historial y sus
+indicadores) y un rediseño visual (no mueve ningún indicador y cambiaría lo que conoció el piloto).
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

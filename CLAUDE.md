@@ -324,6 +324,10 @@ reales fuera de la evaluación y cargarlos directo en la base, que se saltaría 
 desechable que el respaldo inicial se restaura con ese código (D35). Se descartó un segundo entorno para la evaluación:
 duplica Supabase y Render, y lo que se mediría no sería lo desplegado.
 
+**En el celular, primero el resultado; la búsqueda, al confirmarla.** Nombres en hasta tres líneas, orden y fechas
+plegados, teclado cerrado al buscar y «Tomar foto» para un papel (D36). Se descartó buscar mientras se escribe: cada
+búsqueda es una acción del historial, y las parciales lo enturbiarían.
+
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.
 

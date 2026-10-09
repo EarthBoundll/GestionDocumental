@@ -1,11 +1,11 @@
-import { FileUp, Upload } from 'lucide-react';
+import { Camera, FileUp, Upload } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { ErrorApi } from '../../api/cliente';
 import { categorias, documentos } from '../../api/recursos';
 import type { Documento } from '../../api/tipos';
 import { Aviso } from '../../componentes/Avisos';
-import { Boton } from '../../componentes/Boton';
+import { Boton, clasesDeBoton } from '../../componentes/Boton';
 import { AreaTexto, Campo, Selector } from '../../componentes/Campos';
 import { EncabezadoDePagina, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
@@ -15,6 +15,8 @@ import { formatearPeso, hoyEnLima, nombreSugerido } from '../../utilidades/forma
 export function SubirDocumento() {
   const { datos: lista } = useConsulta((senal) => categorias.listar(false, senal), []);
   const entradaArchivo = useRef<HTMLInputElement>(null);
+  const entradaFoto = useRef<HTMLInputElement>(null);
+  const formulario = useRef<HTMLFormElement>(null);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [nombre, setNombre] = useState('');
   const [nombreTocado, setNombreTocado] = useState(false);
@@ -37,12 +39,16 @@ export function SubirDocumento() {
     resultado.current?.focus({ preventScroll: true });
   }, [subido, error]);
 
-  function elegir(elegido: File | undefined) {
+  function elegir(elegido: File | undefined, { foto = false } = {}) {
     if (!elegido) return;
     const problema = problemaConArchivo(elegido);
     setError(problema ? new ErrorApi(400, 'VALIDACION', problema, [{ campo: 'archivo', mensaje: problema }]) : null);
     setArchivo(problema ? null : elegido);
-    if (!problema && !nombreTocado) setNombre(nombreSugerido(elegido.name));
+    if (problema || nombreTocado) return;
+    // El nombre de una foto («IMG_20261009_104512») no dice qué es: se deja vacío para escribir uno que sirva al buscar.
+    setNombre(foto ? '' : nombreSugerido(elegido.name));
+    // Después: al cerrarse la cámara, el navegador devuelve el foco al campo del archivo.
+    if (foto) setTimeout(() => (formulario.current?.elements.namedItem('nombre') as HTMLInputElement | null)?.focus());
   }
 
   function soltar(evento: DragEvent) {
@@ -73,6 +79,7 @@ export function SubirDocumento() {
       setNombreTocado(false);
       setDescripcion('');
       if (entradaArchivo.current) entradaArchivo.current.value = '';
+      if (entradaFoto.current) entradaFoto.current.value = '';
     } catch (causa) {
       setError(causa as ErrorApi);
     } finally {
@@ -94,7 +101,7 @@ export function SubirDocumento() {
       )}
 
       <Tarjeta className="p-4 sm:p-6">
-        <form onSubmit={(evento) => void enviar(evento)} noValidate>
+        <form ref={formulario} onSubmit={(evento) => void enviar(evento)} noValidate>
           {/* Mientras sube, nada se puede tocar: al terminar se vacía el formulario y se perdería lo elegido. */}
           <fieldset disabled={enviando} className="min-w-0 space-y-5">
             {error && !error.detalles.length && <div ref={resultado} tabIndex={-1} className="outline-none"><Aviso tipo="error">{error.mensaje}</Aviso></div>}
@@ -116,7 +123,9 @@ export function SubirDocumento() {
                   </span>
                 ) : (
                   <span className="text-sm text-slate-600">
-                    <span className="font-medium text-marca-700">Elige el archivo</span> o arrástralo aquí
+                    <span className="font-medium text-marca-700">Elige el archivo</span>
+                    {/* En una pantalla táctil no hay nada que arrastrar. */}
+                    <span className="pointer-coarse:hidden"> o arrástralo aquí</span>
                   </span>
                 )}
                 <input
@@ -129,11 +138,28 @@ export function SubirDocumento() {
                   onChange={(evento) => elegir(evento.target.files?.[0])}
                 />
               </label>
+              {/* En el celular, un papel se fotografía: la cámara se abre directo, sin pasar por el selector de archivos. */}
+              <div className="mt-3 hidden pointer-coarse:block">
+                <label className={`${clasesDeBoton('secundario')} w-full cursor-pointer gap-2`}>
+                  <Camera aria-hidden className="size-4" />
+                  Tomar foto
+                  <input
+                    ref={entradaFoto}
+                    type="file"
+                    className="sr-only"
+                    accept="image/*"
+                    capture="environment"
+                    aria-label="Tomar una foto del documento"
+                    onChange={(evento) => elegir(evento.target.files?.[0], { foto: true })}
+                  />
+                </label>
+              </div>
               {errores.archivo && <p className="mt-1.5 text-sm text-red-700">{errores.archivo}</p>}
             </div>
 
             <Campo
               etiqueta="Nombre del documento"
+              name="nombre"
               required
               ayuda="Es lo que se busca después: mejor «Contrato de alquiler del local» que «scan0012»."
               value={nombre}
