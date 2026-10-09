@@ -41,11 +41,16 @@ export interface InventarioDeEmpresa {
   filas: Record<string, number>;
 }
 
-/** El simulacro: qué se borraría, tabla por tabla, sin tocar nada. */
-export async function inventariarEmpresa(pool: pg.Pool, empresaId: string): Promise<InventarioDeEmpresa> {
+async function buscarEmpresa(pool: pg.Pool, empresaId: string): Promise<InventarioDeEmpresa['empresa']> {
   const { rows: [empresa] } = await pool.query<InventarioDeEmpresa['empresa']>(
     'SELECT id, nombre, activa FROM empresas WHERE id = $1', [empresaId]);
   if (!empresa) throw new Error(`No existe una empresa con el id ${empresaId}`);
+  return empresa;
+}
+
+/** El simulacro: qué se borraría, tabla por tabla, sin tocar nada. */
+export async function inventariarEmpresa(pool: pg.Pool, empresaId: string): Promise<InventarioDeEmpresa> {
+  const empresa = await buscarEmpresa(pool, empresaId);
   const filas: Record<string, number> = {};
   for (const [tabla, condicion] of TABLAS) {
     const { rows: [conteo] } = await pool.query<{ total: number }>(
@@ -66,6 +71,10 @@ export interface ResultadoDelCierre {
  * para que la vea la auditoría del Master). Exige que la empresa esté desactivada y su nombre exacto como
  * confirmación. Si se corta a la mitad, se vuelve a ejecutar: vaciar una carpeta vacía no falla, y la base
  * se borra entera o no se borra.
+ *
+ * Los archivos van primero a propósito. Al revés, un corte después de borrar las filas dejaría archivos
+ * que ya nadie podría encontrar: la empresa no existiría para volver a ejecutar el cierre. Así, lo peor
+ * que queda es una empresa desactivada con filas sin archivo, y repetir el comando la termina de borrar.
  */
 export async function eliminarDatosDeEmpresa(
   pool: pg.Pool,
@@ -73,7 +82,7 @@ export async function eliminarDatosDeEmpresa(
   empresaId: string,
   { confirmacion }: { confirmacion: string },
 ): Promise<ResultadoDelCierre> {
-  const { empresa } = await inventariarEmpresa(pool, empresaId);
+  const empresa = await buscarEmpresa(pool, empresaId);
   if (empresa.activa) {
     throw new Error(`«${empresa.nombre}» sigue activa: desactívala desde la plataforma antes de borrar sus datos`);
   }

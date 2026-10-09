@@ -6,6 +6,8 @@ import {
 } from '../apoyo/api.js';
 import { DOCX, PDF } from '../apoyo/archivos.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
+import { insertarSolicitud } from '../../src/modulos/solicitudes/solicitudes.repositorio.js';
+import { bloquearParaVersion, hacerVigente, insertarVersion } from '../../src/modulos/documentos/versiones.repositorio.js';
 
 type App = ReturnType<typeof crearAppDePruebas>;
 
@@ -150,6 +152,59 @@ describe('Versiones de un documento (RF34)', () => {
     const documento = (await ficha(autora.token, documentoId)).body;
     expect(documento.version).toBe(2);
     expect(documento.ultimaSolicitud).toMatchObject({ estado: 'aprobada', version: 1 });
+  });
+
+  describe('una versión y una solicitud de aprobación a la vez se ordenan (D30)', () => {
+    /** Dos transacciones abiertas a la vez, como dos pestañas: la segunda espera el bloqueo de la primera. */
+    async function enParalelo<A, B>(primera: (db: pg.PoolClient) => Promise<A>, segunda: (db: pg.PoolClient) => Promise<B>) {
+      const [uno, dos] = [await pool.connect(), await pool.connect()];
+      try {
+        await uno.query('BEGIN');
+        await dos.query('BEGIN');
+        const resultadoUno = await primera(uno);
+        const pendienteDos = segunda(dos);
+        // La segunda ya está esperando el bloqueo cuando la primera confirma.
+        await new Promise((resolver) => setTimeout(resolver, 200));
+        await uno.query('COMMIT');
+        const resultadoDos = await pendienteDos;
+        await dos.query('COMMIT');
+        return { resultadoUno, resultadoDos };
+      } finally {
+        uno.release();
+        dos.release();
+      }
+    }
+
+    it('si la solicitud llega primero, la versión que esperaba la ve pendiente y no se sube', async () => {
+      const { empresa, autora, documentoId } = await escenario();
+
+      const { resultadoDos } = await enParalelo(
+        (db) => insertarSolicitud(db, { empresaId: empresa.id, documentoId, solicitanteId: autora.id, comentario: null }),
+        (db) => bloquearParaVersion(db, empresa.id, documentoId),
+      );
+
+      expect(resultadoDos).toMatchObject({ version: 1, pendiente: true });
+    });
+
+    it('si la versión llega primero, la solicitud que esperaba pide aprobar esa versión, no la anterior', async () => {
+      const { empresa, autora, documentoId } = await escenario();
+      const nueva = {
+        empresaId: empresa.id, documentoId, numero: 2, archivoNombreOriginal: 'v2.pdf', archivoRuta: `${empresa.id}/carrera-v2.pdf`,
+        archivoTipoMime: 'application/pdf', archivoPesoBytes: 10, subidaPor: autora.id, comentario: null, restauradaDe: null,
+      };
+
+      const { resultadoDos: solicitudId } = await enParalelo(
+        async (db) => {
+          await bloquearParaVersion(db, empresa.id, documentoId);
+          await insertarVersion(db, nueva);
+          await hacerVigente(db, nueva);
+        },
+        (db) => insertarSolicitud(db, { empresaId: empresa.id, documentoId, solicitanteId: autora.id, comentario: null }),
+      );
+
+      const { rows: [solicitud] } = await pool.query<{ version: number }>('SELECT version FROM solicitudes WHERE id = $1', [solicitudId]);
+      expect(solicitud?.version).toBe(2);
+    });
   });
 
   it('las versiones salen en la actividad del documento', async () => {

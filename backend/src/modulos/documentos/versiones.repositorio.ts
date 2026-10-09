@@ -64,22 +64,28 @@ export async function buscarVersion(db: Consultor, empresaId: string, documentoI
 /**
  * Bloquea el documento vigente hasta el final de la transacción y dice su versión y si tiene una
  * solicitud pendiente. Dos versiones subidas a la vez se ordenan aquí: la segunda espera y toma el
- * número siguiente.
+ * número siguiente. Pedir la aprobación toma el mismo bloqueo (insertarSolicitud), así que una versión
+ * y una solicitud a la vez también se ordenan.
  */
 export async function bloquearParaVersion(
   db: Consultor,
   empresaId: string,
   documentoId: string,
 ): Promise<{ nombre: string; version: number; pendiente: boolean } | null> {
-  const { rows } = await db.query<{ nombre: string; version: number; pendiente: boolean }>(
-    `SELECT d.nombre, d.version,
-            EXISTS (SELECT 1 FROM solicitudes s WHERE s.documento_id = d.id AND s.estado = 'pendiente') AS pendiente
-     FROM documentos d
-     WHERE d.empresa_id = $1 AND d.id = $2 AND d.eliminado_en IS NULL
-     FOR UPDATE OF d`,
+  const { rows: [documento] } = await db.query<{ nombre: string; version: number }>(
+    `SELECT nombre, version FROM documentos
+     WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NULL
+     FOR UPDATE`,
     [empresaId, documentoId],
   );
-  return rows[0] ?? null;
+  if (!documento) return null;
+  // En otra sentencia, ya con el bloqueo: así ve la solicitud que otra transacción confirmó mientras se
+  // esperaba. Dentro de la misma, la subconsulta usaría la foto de antes de esperar.
+  const { rows: [solicitud] } = await db.query<{ pendiente: boolean }>(
+    "SELECT EXISTS (SELECT 1 FROM solicitudes WHERE documento_id = $1 AND estado = 'pendiente') AS pendiente",
+    [documentoId],
+  );
+  return { ...documento, pendiente: solicitud?.pendiente ?? false };
 }
 
 export interface NuevaVersion {

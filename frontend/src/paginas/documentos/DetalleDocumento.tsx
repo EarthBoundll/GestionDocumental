@@ -136,7 +136,11 @@ export function DetalleDocumento() {
 
       <VersionesDelDocumento
         documento={documento}
-        alCambiar={terminar}
+        // La vista previa abierta es de la versión anterior: se cierra para no mostrar otro archivo.
+        alCambiar={(texto) => {
+          setVista(null);
+          terminar(texto);
+        }}
         alFallar={(texto) => setAviso({ tipo: 'error', texto })}
         alConsultar={() => setPasosNuevos((n) => n + 1)}
       />

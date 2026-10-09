@@ -264,6 +264,24 @@ describe('Documentos', () => {
       expect(envio.get('comentario')).toBe('Firma del arrendador');
     });
 
+    it('al subir una versión, la vista previa abierta (que era de la anterior) se cierra', async () => {
+      abrir('/documentos/doc-1', {
+        ...rutasBase(ficha({ archivo: { tipoMime: 'image/png', pesoBytes: 1000, nombreOriginal: 'plano-v2.png' } })),
+        'GET /documentos/:id/archivo': { cuerpo: { url: 'https://archivos.ejemplo/v2', expiraEn: '2026-10-07T10:05:00Z' } },
+        'POST /documentos/:id/versiones': { estado: 201, cuerpo: ficha({ version: 3 }) },
+      });
+      await userEvent.click(await screen.findByRole('button', { name: 'Vista previa' }));
+      expect(await screen.findByRole('img', { name: 'Contrato de alquiler del local' })).toHaveAttribute('src', 'https://archivos.ejemplo/v2');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Subir versión nueva' }));
+      const dialogo = screen.getByRole('dialog');
+      await userEvent.upload(within(dialogo).getByLabelText('Archivo'), new File(['%PDF-1.4'], 'contrato-v3.pdf', { type: 'application/pdf' }));
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Subir versión 3' }));
+
+      expect(await screen.findByText(/Se subió la versión 3/)).toBeInTheDocument();
+      expect(screen.queryByRole('img', { name: 'Contrato de alquiler del local' })).not.toBeInTheDocument();
+    });
+
     it('restaurar pide la versión elegida; con una aprobación pendiente no se puede, y una aprobada en otra versión no cubre la vigente', async () => {
       const { peticiones } = abrir('/documentos/doc-1', {
         ...rutasBase(ficha({

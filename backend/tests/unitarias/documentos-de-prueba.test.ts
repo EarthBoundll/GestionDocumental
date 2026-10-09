@@ -19,6 +19,11 @@ describe('Documentos de prueba con datos ficticios (D34)', () => {
     }
   });
 
+  it('reparte los datos: aparecen todos los clientes ficticios, no unos pocos', () => {
+    const clientes = new Set(generarDocumentos().map((d) => / - (.+)$/.exec(d.nombre)?.[1]).filter(Boolean));
+    expect(clientes.size).toBe(6);
+  });
+
   it('siempre el mismo juego: quien lo genera dos veces obtiene los mismos archivos', () => {
     const [primero, segundo] = [generarDocumentos(8), generarDocumentos(8)];
     expect(segundo.map((d) => d.contenido.toString('base64'))).toEqual(primero.map((d) => d.contenido.toString('base64')));

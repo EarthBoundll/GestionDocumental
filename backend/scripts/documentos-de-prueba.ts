@@ -11,6 +11,7 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { aCsv } from '../src/compartido/csv.js';
 import { pdfDeTexto, type Linea } from './pdf-de-texto.js';
@@ -40,12 +41,18 @@ const TIPOS = [
   { tipo: 'Acta de reunión', categoria: 'Otros', serie: 'AC', comercial: false },
 ] as const;
 
-/** Un generador con semilla: el mismo juego cada vez, sin depender de Math.random. */
+/**
+ * Un generador con semilla (mulberry32): el mismo juego cada vez, sin depender de Math.random. Opera en
+ * 32 bits con Math.imul; una multiplicación en números de JavaScript pasaría de 2^53, perdería los bits
+ * bajos y repetiría casi siempre los mismos valores.
+ */
 function aleatorio(semilla: number) {
-  let estado = semilla;
+  let estado = semilla >>> 0;
   return (maximo: number) => {
-    estado = (estado * 1_103_515_245 + 12_345) % 2_147_483_648;
-    return estado % maximo;
+    estado = (estado + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(estado ^ (estado >>> 15), estado | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return (((t ^ (t >>> 14)) >>> 0) / 4_294_967_296 * maximo) | 0;
   };
 }
 
@@ -117,12 +124,16 @@ export async function subirDocumentos(
   try {
     const { datos } = await pedir<{ datos: { id: string; nombre: string }[] }>('/categorias', { headers: autorizacion });
     const categorias = new Map(datos.map((categoria) => [categoria.nombre, categoria.id]));
+    const otros = categorias.get('Otros');
     for (const nombre of new Set(documentos.map((documento) => documento.categoria))) {
       if (categorias.has(nombre)) continue;
       const creada = await pedir<{ id: string }>('/categorias', {
         method: 'POST', headers: { ...autorizacion, 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }),
       }).catch(() => null);
-      categorias.set(nombre, creada?.id ?? categorias.get('Otros')!);
+      const destino = creada?.id ?? otros;
+      // Se comprueba antes de subir nada: mejor no empezar que dejar medio juego cargado.
+      if (!destino) throw new Error(`No se pudo crear la categoría «${nombre}» y la empresa no tiene «Otros» activa`);
+      categorias.set(nombre, destino);
     }
     for (const [indice, documento] of documentos.entries()) {
       const formulario = new FormData();
@@ -138,7 +149,8 @@ export async function subirDocumentos(
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Solo al ejecutarlo, no al importarlo en las pruebas. pathToFileURL: en Windows o con espacios, la ruta no es la URL.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { positionals: [carpeta], values } = parseArgs({
     allowPositionals: true,
     options: { cantidad: { type: 'string', default: '40' }, subir: { type: 'boolean', default: false } },
