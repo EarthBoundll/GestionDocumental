@@ -230,9 +230,11 @@ la preprueba y la posprueba.
 - **Consentimiento** firmado antes de la preprueba ([10 · Consentimiento](10-consentimiento-informado.md)),
   y la autorización escrita de la empresa para usar sus procesos y copias de sus documentos.
 - **Datos mínimos en el sistema:** el nombre de cada participante es su código (P01…); el correo, el que
-  la persona elija, incluso uno creado para la evaluación; el DNI no se registra.
+  la persona elija, incluso uno creado para la evaluación, pero **al que pueda entrar**: su cuenta se activa con
+  la invitación que le llega ahí (D41), así que se crea unos días antes de la capacitación y se comprueba que
+  la invitación llegó; el DNI no se registra.
 - **Dónde quedan:** la base y los archivos en Supabase y la API en Render, ambos en Virginia (EE. UU.); el
-  correo de recuperación sale por Brevo. Es una transferencia internacional de datos según la Ley 29733 y
+  correo de invitación y el de recuperación salen por Brevo. Es una transferencia internacional de datos según la Ley 29733 y
   su reglamento (D. S. 016-2024-JUS), y el consentimiento la nombra.
 - **Retiro:** quien se retira deja de participar en ese momento; su cuenta se desactiva y sus datos se
   excluyen del análisis. El historial ya registrado no se puede modificar desde el sistema, porque eso

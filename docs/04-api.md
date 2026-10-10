@@ -49,9 +49,13 @@ Todas las respuestas de error tienen la misma forma:
 | 401 | `CREDENCIALES_INVALIDAS` | Correo o contraseña incorrectos, con el mismo mensaje en ambos casos |
 | 429 | `CUENTA_BLOQUEADA` | Cinco contraseñas incorrectas para ese correo en 15 minutos, exista o no la cuenta (RN27); se registra `SESION_FALLIDA` con motivo `CUENTA_BLOQUEADA` |
 | 403 | `SIN_PERMISO` | El rol o la propiedad no lo permiten; se registra `ACCESO_DENEGADO` |
-| 400 | `ENLACE_INVALIDO` | El enlace de recuperación no existe, ya se usó o caducó |
-| 403 | `USUARIO_INACTIVO` | Inicio de sesión de un usuario desactivado, con la contraseña correcta |
-| 403 | `EMPRESA_INACTIVA` | Inicio de sesión en una empresa desactivada, con la contraseña correcta |
+| 400 | `ENLACE_INVALIDO` | El enlace del correo (recuperación, invitación o verificación) no existe, ya se usó, caducó, es de otro propósito o se envió a un correo que ya no es el de la cuenta |
+| 403 | `CORREO_SIN_VERIFICAR` | Inicio de sesión con la contraseña correcta de una cuenta que no confirmó su correo; se le envía el enlace si no se le envió hace poco (RN36) |
+| 409 | `YA_VERIFICADO` | Se pide reenviar el enlace a una cuenta que ya confirmó su correo |
+| 429 | `ENVIO_LIMITADO` | Reenvío antes de 2 minutos del anterior, o el sexto en 24 horas, al mismo correo (RN38); el mensaje dice cuánto esperar |
+| 502 | `CORREO_NO_ENVIADO` | El servicio de correo no aceptó el reenvío: se puede volver a intentar |
+| 403 | `USUARIO_INACTIVO` | Inicio de sesión de un usuario desactivado, con la contraseña correcta. 409 al reenviarle el enlace |
+| 403 | `EMPRESA_INACTIVA` | Inicio de sesión en una empresa desactivada, con la contraseña correcta. 409 al reenviar el enlace a uno de sus administradores |
 | 404 | `NO_ENCONTRADO` | No existe, o es de otra empresa: indistinguibles a propósito |
 | 409 | `EMAIL_EN_USO` | Ya hay un usuario con ese correo |
 | 409 | `RUC_EN_USO` | Ya hay una empresa con ese RUC |
@@ -65,7 +69,7 @@ Todas las respuestas de error tienen la misma forma:
 | 413 | `ARCHIVO_DEMASIADO_GRANDE` | El archivo supera los 10 MB |
 | 413 | `CUERPO_DEMASIADO_GRANDE` | Un cuerpo JSON supera los 100 kB |
 | 415 | `TIPO_NO_PERMITIDO` | El tipo de archivo no está en la lista blanca |
-| 429 | `DEMASIADOS_INTENTOS` | Desde la misma IP: diez inicios de sesión fallidos en 15 minutos, diez peticiones de recuperación en una hora o diez confirmaciones fallidas en 15 minutos (RN20) |
+| 429 | `DEMASIADOS_INTENTOS` | Desde la misma IP: diez inicios de sesión fallidos en 15 minutos, diez peticiones de recuperación en una hora o diez confirmaciones, activaciones o verificaciones fallidas en 15 minutos (RN20) |
 | 500 | `ERROR_INTERNO` | Cualquier otro fallo; en producción, sin detalles técnicos |
 | 503 | `SERVICIO_NO_DISPONIBLE` | `/salud`, cuando la base no responde |
 
@@ -90,8 +94,10 @@ Todas las respuestas de error tienen la misma forma:
 | GET | `/auth/yo` | Sesión | — | 200 `{ usuario, empresa }`, como el inicio de sesión | — |
 | PUT | `/auth/preferencias` | Sesión | `tema`: `sistema`, `claro` u `oscuro` | 200 `{ tema }`; vale en todos sus dispositivos (RN32) | — (no es una acción sobre datos) |
 | PUT | `/auth/clave` | Sesión | `claveActual`, `claveNueva` | 204; cierra las demás sesiones. 400 si la actual no coincide o, para el Master, si la nueva no cumple sus reglas (RN23) | `CLAVE_CAMBIADA` |
-| POST | `/auth/recuperacion` | Público | `email` | 202 `{ mensaje }`, siempre el mismo exista o no el correo; si existe, envía el enlace | `RECUPERACION_SOLICITADA` |
-| POST | `/auth/recuperacion/confirmar` | Público | `token`, `claveNueva` | 204; cierra todas las sesiones. 400 `ENLACE_INVALIDO` | `CLAVE_RESTABLECIDA` |
+| POST | `/auth/recuperacion` | Público | `email` | 202 `{ mensaje }`, siempre el mismo exista o no el correo; si existe, envía el enlace, y a una cuenta que aún no aceptó su invitación, la invitación otra vez | `RECUPERACION_SOLICITADA` (y `INVITACION_ENVIADA`) |
+| POST | `/auth/recuperacion/confirmar` | Público | `token`, `claveNueva` | 204; cierra todas las sesiones y verifica el correo. 400 `ENLACE_INVALIDO` | `CLAVE_RESTABLECIDA` |
+| POST | `/auth/activacion` | Público | `token` (de la invitación), `claveNueva` | 200 `{ email }`; define la primera contraseña y verifica el correo (RN35). 400 `ENLACE_INVALIDO` | `CORREO_VERIFICADO` |
+| POST | `/auth/verificacion` | Público | `token` (del enlace de verificación) | 200 `{ email }`; la contraseña no cambia (RN36). 400 `ENLACE_INVALIDO` | `CORREO_VERIFICADO` |
 
 ### Plataforma (solo el Master)
 
@@ -99,12 +105,13 @@ Todas las respuestas de error tienen la misma forma:
 |---|---|---|---|---|---|
 | GET | `/plataforma/metricas` | Master | — | 200 `{ empresas, empresasActivas, usuarios, usuariosActivos, documentos, almacenamientoBytes, ultimoAcceso }` | — |
 | GET | `/plataforma/empresas` | Master | — | 200 `{ datos }`: cada empresa con sus `metricas` (solo cifras) | — |
-| POST | `/plataforma/empresas` | Master | `empresa { nombre, ruc? }`, `administrador { nombre, email, dni?, clave }` | 201 `{ empresa, administrador }`; crea también las categorías iniciales | `EMPRESA_CREADA`, `USUARIO_CREADO` |
+| POST | `/plataforma/empresas` | Master | `empresa { nombre, ruc? }`, `administrador { nombre, email, dni? }`, sin contraseña | 201 `{ empresa, administrador }`, el administrador con `estado: pendiente` e `invitacionEnviada`; crea también las categorías iniciales y le envía su invitación (RN35) | `EMPRESA_CREADA`, `USUARIO_CREADO`, `INVITACION_ENVIADA` |
 | GET | `/plataforma/empresas/:id` | Master | — | 200 con la empresa, sus `metricas`, sus `administradores` y su `marca` | — |
 | PATCH | `/plataforma/empresas/:id` | Master | `nombre?`, `ruc?` | 200 con la empresa | `EMPRESA_EDITADA` |
 | PATCH | `/plataforma/empresas/:id/estado` | Master | `activa` | 200 con la empresa; desactivarla cierra las sesiones de todos sus usuarios | `EMPRESA_DESACTIVADA` o `EMPRESA_REACTIVADA` |
-| POST | `/plataforma/empresas/:id/administradores` | Master | `nombre`, `email`, `dni?`, `clave` | 201 con el administrador | `USUARIO_CREADO` |
-| PATCH | `/plataforma/administradores/:id` | Master | `nombre?`, `email?`, `dni?`, `clave?` | 200; restablecer la clave cierra sus sesiones. 404 si no es un administrador | `USUARIO_EDITADO` |
+| POST | `/plataforma/empresas/:id/administradores` | Master | `nombre`, `email`, `dni?`, sin contraseña | 201 con el administrador, `estado: pendiente` e `invitacionEnviada` | `USUARIO_CREADO`, `INVITACION_ENVIADA` |
+| PATCH | `/plataforma/administradores/:id` | Master | `nombre?`, `email?`, `dni?`, `clave?` | 200; restablecer la clave cierra sus sesiones; cambiar el correo las cierra, lo deja sin verificar, le envía el enlace y avisa al anterior (RN36). 404 si no es un administrador | `USUARIO_EDITADO` (y `VERIFICACION_ENVIADA`) |
+| POST | `/plataforma/administradores/:id/invitacion` | Master | — | 200 `{ enviado: true }`: la invitación, o el enlace de verificación si ya tiene contraseña. 409 `YA_VERIFICADO`, `USUARIO_INACTIVO` o `EMPRESA_INACTIVA`; 429 `ENVIO_LIMITADO` | `INVITACION_ENVIADA` o `VERIFICACION_ENVIADA` |
 | PATCH | `/plataforma/administradores/:id/estado` | Master | `activo` | 200; desactivar revoca sus sesiones | `USUARIO_DESACTIVADO` o `USUARIO_REACTIVADO` |
 | PATCH | `/plataforma/empresas/:id/identidad` | Master | Como `PATCH /empresa/identidad` | 200 con la `marca` | `EMPRESA_EDITADA` |
 | PUT | `/plataforma/empresas/:id/identidad/logo` | Master | Como `PUT /empresa/identidad/logo` | 200 con la `marca` | `EMPRESA_EDITADA` |
@@ -122,10 +129,11 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
-| GET | `/usuarios` | Admin | `?q`, `rol`, `activo` y paginación | 200 paginado | — |
-| POST | `/usuarios` | Admin | `nombre`, `email`, `dni?`, `clave`, `rol` (`administrador` o `usuario`; nunca `master`) | 201 con el usuario | `USUARIO_CREADO` |
+| GET | `/usuarios` | Admin | `?q`, `rol`, `activo` y paginación | 200 paginado; cada usuario con su `estado`: `pendiente`, `sin_verificar` o `verificado` (RN37) | — |
+| POST | `/usuarios` | Admin | `nombre`, `email`, `dni?`, `rol` (`administrador` o `usuario`; nunca `master`), sin contraseña | 201 con el usuario, `estado: pendiente` e `invitacionEnviada`; si el correo no salió, la cuenta queda creada y se reenvía (RN35) | `USUARIO_CREADO`, `INVITACION_ENVIADA` |
 | PATCH | `/usuarios/:id` | Admin | `nombre?`, `dni?`, `rol?`, `clave?` | 200 con el usuario; restablecer la clave cierra sus sesiones | `USUARIO_EDITADO` |
 | PATCH | `/usuarios/:id/estado` | Admin | `activo` | 200 con el usuario; desactivar revoca sus sesiones | `USUARIO_DESACTIVADO` o `USUARIO_REACTIVADO` |
+| POST | `/usuarios/:id/invitacion` | Admin | — | 200 `{ enviado: true }`: la invitación, o el enlace de verificación si ya tiene contraseña. 409 `YA_VERIFICADO` o `USUARIO_INACTIVO`; 429 `ENVIO_LIMITADO`; 404 si es de otra empresa | `INVITACION_ENVIADA` o `VERIFICACION_ENVIADA` |
 
 ### Categorías
 
@@ -209,11 +217,12 @@ eligió, y `logoUrl` y `fondoUrl` son enlaces firmados que duran lo que la sesi�
 |---|---|---|---|---|---|
 | PATCH | `/tiempos-respuesta/:id` | Empresa; solo el suyo, y una vez | `duracionClienteMs` | 204 | — |
 
-En total, 63 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
+En total, 67 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
 plataforma, los siete que añadió la auditoría (papelera, tablero, auditoría y respaldos del Master) y, de la
 segunda, la actividad de un documento, las preferencias de cada persona, once de identidad (seis de la
 empresa y cinco del Master, cuatro de ellos del fondo), tres de versiones y dos de evidencia (el listado documental y el historial para
-imprimir).
+imprimir); y los cuatro de la verificación del correo (activar, verificar y reenviar, desde la empresa y desde la
+plataforma).
 
 ## 4. Respuestas de ejemplo
 
@@ -301,8 +310,12 @@ solicitud pendiente (RN11):
   resultado está en pantalla, y lo envía a `/tiempos-respuesta/{tiempoRespuestaId}`. Si ese envío
   falla, se pierde esa medición y nada más: nunca bloquea la interfaz.
 - **401 en cualquier petición:** la sesión ya no vale; se borra el token y se vuelve a `/login`.
-- **El enlace de recuperación** llega como `/restablecer-clave#<token>`. La página lee el fragmento,
-  lo quita de la barra de direcciones y lo envía en el cuerpo de `/auth/recuperacion/confirmar`.
+- **Los enlaces del correo** llegan como `/restablecer-clave#<token>`, `/activar-cuenta#<token>` o
+  `/verificar-correo#<token>`. La página lee el fragmento, lo quita de la barra de direcciones y lo envía en el
+  cuerpo de su endpoint. La verificación se confirma con un botón y no al abrir la página: hay filtros de correo
+  que abren los enlaces para revisarlos.
+- **403 `CORREO_SIN_VERIFICAR` al entrar** se muestra como un paso pendiente (aviso, no error): el mensaje dice
+  si se acaba de enviar el enlace.
 - **El Master** no tiene empresa: su menú es la plataforma y su marco no consulta notificaciones, que
   le responderían 403.
 - **403:** se muestra «sin permiso». La API ya lo registró.
@@ -332,10 +345,12 @@ lo usa alguien.
 | Iniciar sesión | `/login` | Visitante | `POST /auth/login` |
 | Recuperar la contraseña | `/recuperar-clave` | Visitante | `POST /auth/recuperacion` |
 | Definir una contraseña nueva | `/restablecer-clave` | Quien abre el enlace | `POST /auth/recuperacion/confirmar` |
+| Activar la cuenta | `/activar-cuenta` | Quien abre la invitación | `POST /auth/activacion` |
+| Confirmar el correo | `/verificar-correo` | Quien abre el enlace | `POST /auth/verificacion` |
 | Marco común: barras lateral y superior | — | Todos; las notificaciones, solo Administrador y Usuario | `GET /auth/yo`, `GET /notificaciones`, `POST /auth/logout` |
 | Plataforma: cifras y empresas | `/plataforma` | Master | `GET /plataforma/metricas`, `GET /plataforma/empresas`, `GET /plataforma/respaldos` (el último respaldo y lo que ocupan, frente al GB gratuito) |
 | Nueva empresa | `/plataforma/empresas/nueva` | Master | `POST /plataforma/empresas` |
-| Ficha de una empresa | `/plataforma/empresas/:id` | Master | `GET /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id/estado`, `POST /plataforma/empresas/:id/administradores`, `PATCH /plataforma/administradores/:id`, `PATCH /plataforma/administradores/:id/estado`, `PATCH /plataforma/empresas/:id/identidad`, `PUT` y `DELETE /plataforma/empresas/:id/identidad/logo` y `/fondo` |
+| Ficha de una empresa | `/plataforma/empresas/:id` | Master | `GET /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id/estado`, `POST /plataforma/empresas/:id/administradores`, `PATCH /plataforma/administradores/:id`, `PATCH /plataforma/administradores/:id/estado`, `POST /plataforma/administradores/:id/invitacion`, `PATCH /plataforma/empresas/:id/identidad`, `PUT` y `DELETE /plataforma/empresas/:id/identidad/logo` y `/fondo` |
 | Documentos: listado y búsqueda | `/documentos` | Administrador y Usuario; exportar el listado, solo el administrador | `GET /documentos`, `GET /categorias`, `PATCH /tiempos-respuesta/:id`, `GET /documentos/exportar` |
 | Subir documento | `/documentos/nuevo` | Administrador y Usuario | `GET /categorias`, `POST /documentos` |
 | Detalle de documento | `/documentos/:id` | Administrador y Usuario; las acciones, según `permisos` | `GET /documentos/:id`, `GET /documentos/:id/actividad`, `GET /documentos/:id/versiones`, `POST /documentos/:id/versiones`, `POST /documentos/:id/versiones/:numero/restauracion`, `GET /documentos/:id/archivo`, `PATCH /documentos/:id`, `DELETE /documentos/:id`, `POST /documentos/:id/solicitudes`, `POST /solicitudes/:id/resolucion`, `GET /categorias` |
@@ -343,7 +358,7 @@ lo usa alguien.
 | Notificaciones | `/notificaciones` | Administrador y Usuario | `GET /notificaciones`, `PATCH /notificaciones/:id/leida`, `PATCH /notificaciones/leidas` |
 | Mi cuenta | `/cuenta` | Todos | `GET /auth/yo`, `PUT /auth/clave`, `PUT /auth/preferencias` |
 | Identidad | `/admin/identidad` | Administrador; a los demás la pantalla no se les abre | `GET /empresa/identidad`, `PATCH /empresa/identidad`, `PUT` y `DELETE /empresa/identidad/logo` y `/fondo` |
-| Usuarios | `/admin/usuarios` | Administrador; para los demás, 403 registrado | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/:id`, `PATCH /usuarios/:id/estado` |
+| Usuarios | `/admin/usuarios` | Administrador; para los demás, 403 registrado | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/:id`, `PATCH /usuarios/:id/estado`, `POST /usuarios/:id/invitacion` |
 | Categorías | `/admin/categorias` | Administrador | `GET /categorias?incluirInactivas=true`, `POST /categorias`, `PATCH /categorias/:id`, `GET /usuarios` (para elegir quién ve una restringida) |
 | Historial | `/admin/historial` | Administrador | `GET /historial`, `GET /historial/exportar`, `GET /usuarios` (para el filtro) |
 | Historial para imprimir | `/admin/historial/impresion` | Administrador | `GET /historial/impresion`, `GET /usuarios` (el nombre de la persona filtrada) |

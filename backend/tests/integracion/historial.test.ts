@@ -27,15 +27,18 @@ describe('Historial: consulta y exportación (RF19, RF20)', () => {
     const respuesta = await consultar(token);
 
     expect(respuesta.status).toBe(200);
-    expect(respuesta.body.datos.map((a: { accion: string }) => a.accion)).toEqual(['SESION_INICIADA', 'USUARIO_CREADO', 'EMPRESA_CREADA']);
+    // La invitación de su administrador y su aceptación también quedan (D41).
+    expect(respuesta.body.datos.map((a: { accion: string }) => a.accion))
+      .toEqual(['SESION_INICIADA', 'CORREO_VERIFICADO', 'INVITACION_ENVIADA', 'USUARIO_CREADO', 'EMPRESA_CREADA']);
     expect(respuesta.body.datos[0]).toMatchObject({
       usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email },
       rolUsuario: 'administrador',
       esMovil: true,
     });
     // Lo que hizo el Master con la empresa queda en su historial, pero sin los datos de su cuenta: no es de esta empresa.
-    expect(respuesta.body.datos[2]).toMatchObject({ usuario: null, rolUsuario: 'master', entidad: { tipo: 'empresa', id: empresa.id } });
-    expect(respuesta.body.paginacion).toEqual({ pagina: 1, porPagina: 20, total: 3 });
+    expect(respuesta.body.datos[4]).toMatchObject({ usuario: null, rolUsuario: 'master', entidad: { tipo: 'empresa', id: empresa.id } });
+    expect(respuesta.body.datos[2]).toMatchObject({ usuario: null, rolUsuario: 'master', entidad: { tipo: 'usuario', id: usuario.id } });
+    expect(respuesta.body.paginacion).toEqual({ pagina: 1, porPagina: 20, total: 5 });
   });
 
   it('filtra por usuario, acción y entidad, y nunca muestra nada de otra empresa', async () => {
@@ -49,8 +52,8 @@ describe('Historial: consulta y exportación (RF19, RF20)', () => {
     expect(delEmpleado.body.datos.map((a: { accion: string }) => a.accion)).toEqual(['SESION_FALLIDA', 'SESION_INICIADA']);
     expect((await consultar(token, '?accion=SESION_FALLIDA')).body.paginacion.total).toBe(1);
     expect((await consultar(token, `?entidadTipo=empresa&entidadId=${empresa.id}`)).body.paginacion.total).toBe(1);
-    // Los tres de la creación de la empresa y del primer acceso del administrador, más los dos del empleado.
-    expect((await consultar(token)).body.paginacion.total).toBe(5);
+    // Los cinco de la creación de la empresa, la invitación de su administrador y su primer acceso, más los dos del empleado.
+    expect((await consultar(token)).body.paginacion.total).toBe(7);
     expect((await consultar(token, '?accion=INVENTADA')).status).toBe(400);
   });
 

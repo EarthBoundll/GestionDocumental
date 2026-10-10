@@ -85,6 +85,11 @@ export function crearRutasPlataforma(
     res.json(await servicio.editarAdministrador(actorDe(req), id, esquemaCambiosAdministrador.parse(req.body)));
   });
 
+  // D41: otra invitación (o verificación) para un administrador que no la recibió o la dejó caducar.
+  rutas.post('/administradores/:id/invitacion', async (req, res) => {
+    res.json(await servicio.reenviarInvitacion(actorDe(req), idDeRuta(req)));
+  });
+
   rutas.patch('/administradores/:id/estado', async (req, res) => {
     const id = idDeRuta(req);
     const { activo } = esquemaEstadoAdministrador.parse(req.body);

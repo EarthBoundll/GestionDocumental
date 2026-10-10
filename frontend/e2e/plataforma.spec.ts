@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { CLAVE, entrar, irDesdeElMenu, nuevaCategoria, nuevaCuenta, nuevaEmpresa, salir, subirDocumento, unico } from './apoyo';
+import { CLAVE, enlaceDelCorreo, entrar, irDesdeElMenu, nuevaCategoria, nuevaCuenta, nuevaEmpresa, salir, subirDocumento, unico } from './apoyo';
 import { MASTER, URL_WEB } from './entorno';
 
 test.describe('Plataforma: el Administrador Master', () => {
-  test('RF01 · El Master da de alta una empresa con su primer administrador, que entra y encuentra cinco categorías', async ({ page }) => {
+  test('RF01, RF37 · El Master da de alta una empresa con su primer administrador, que activa su cuenta con su correo, entra y encuentra cinco categorías', async ({ page }) => {
     const sufijo = unico();
     await entrar(page, MASTER);
     await expect(page).toHaveURL(/\/plataforma$/);
@@ -12,14 +12,20 @@ test.describe('Plataforma: el Administrador Master', () => {
     await page.getByLabel('Nombre o razón social').fill(`Textiles ${sufijo} SAC`);
     await page.getByLabel('Nombre', { exact: true }).fill('Rosa Quispe');
     await page.getByLabel('Correo').fill(`rosa.${sufijo}@e2e.pe`);
-    await page.getByLabel('Contraseña inicial').fill(CLAVE);
-    await page.getByLabel('Repite la contraseña').fill(CLAVE);
+    // D41: el Master no le pone contraseña; la elige ella al abrir su invitación.
+    await expect(page.getByLabel(/Contraseña/)).toHaveCount(0);
     await page.getByRole('button', { name: 'Registrar empresa' }).click();
 
-    await expect(page.getByText('Empresa registrada.')).toBeVisible();
+    await expect(page.getByText(`Empresa registrada. Le enviamos a rosa.${sufijo}@e2e.pe una invitación.`)).toBeVisible();
     await expect(page.getByRole('heading', { name: `Textiles ${sufijo} SAC` })).toBeVisible();
+    await expect(page.getByRole('listitem').filter({ hasText: `rosa.${sufijo}@e2e.pe` }).getByText('Pendiente de activar')).toBeVisible();
     await salir(page);
 
+    await page.goto(enlaceDelCorreo(`rosa.${sufijo}@e2e.pe`, '/activar-cuenta'));
+    await page.getByLabel('Contraseña nueva', { exact: true }).fill(CLAVE);
+    await page.getByLabel('Repite la contraseña nueva').fill(CLAVE);
+    await page.getByRole('button', { name: 'Activar mi cuenta' }).click();
+    await expect(page.getByText('Tu cuenta está activa y tu correo quedó confirmado.')).toBeVisible();
     await entrar(page, { email: `rosa.${sufijo}@e2e.pe`, clave: CLAVE });
     await page.goto('/admin/categorias');
     for (const categoria of ['Facturas y boletas', 'Contratos', 'Cotizaciones', 'Recursos humanos', 'Otros']) {
@@ -56,15 +62,13 @@ test.describe('Plataforma: el Administrador Master', () => {
     await visitante.close();
   });
 
-  test('RF23 · El Master añade, edita y desactiva a los administradores de una empresa', async ({ page }) => {
+  test('RF23, RF38 · El Master añade a un administrador, que queda pendiente de activar, lo edita y lo desactiva', async ({ page }) => {
     const sufijo = unico();
     await entrar(page, MASTER);
     await page.getByRole('link', { name: 'Nueva empresa' }).first().click();
     await page.getByLabel('Nombre o razón social').fill(`Consultora ${sufijo}`);
     await page.getByLabel('Nombre', { exact: true }).fill('Primer administrador');
     await page.getByLabel('Correo').fill(`primero.${sufijo}@e2e.pe`);
-    await page.getByLabel('Contraseña inicial').fill(CLAVE);
-    await page.getByLabel('Repite la contraseña').fill(CLAVE);
     await page.getByRole('button', { name: 'Registrar empresa' }).click();
 
     // Los campos se buscan en el diálogo: detrás, la ficha tiene los de su identidad («Nombre comercial»).
@@ -73,10 +77,11 @@ test.describe('Plataforma: el Administrador Master', () => {
     await dialogo.getByLabel('Nombre').fill('Luis Huamán');
     await dialogo.getByLabel('Correo').fill(`luis.${sufijo}@e2e.pe`);
     await dialogo.getByLabel(/^DNI/).fill('45678912');
-    await dialogo.getByLabel('Contraseña inicial').fill(CLAVE);
     await page.getByRole('button', { name: 'Crear administrador' }).click();
+    await expect(page.getByText(`Le enviamos a luis.${sufijo}@e2e.pe una invitación.`)).toBeVisible();
     const fila = page.getByRole('listitem').filter({ hasText: `luis.${sufijo}@e2e.pe` });
     await expect(fila).toContainText('DNI 45678912');
+    await expect(fila.getByText('Pendiente de activar')).toBeVisible();
 
     await fila.getByRole('button', { name: 'Editar' }).click();
     await dialogo.getByLabel('Nombre').fill('Luis Huamán Rojas');

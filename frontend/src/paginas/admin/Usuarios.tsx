@@ -1,4 +1,4 @@
-import { Pencil, Search, UserPlus, Users as IconoUsuarios } from 'lucide-react';
+import { Pencil, Search, Send, UserPlus, Users as IconoUsuarios } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { ErrorApi } from '../../api/cliente';
 import { usuarios } from '../../api/recursos';
@@ -6,11 +6,12 @@ import type { RolDeEmpresa, Usuario } from '../../api/tipos';
 import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton } from '../../componentes/Boton';
 import { Campo, Selector } from '../../componentes/Campos';
-import { Insignia } from '../../componentes/Insignia';
+import { Insignia, InsigniaDeCorreo } from '../../componentes/Insignia';
 import { Modal } from '../../componentes/Modal';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
 import { useSesion } from '../../sesion/SesionContext';
+import { avisoDeInvitacion, type AvisoDePagina } from '../../utilidades/invitaciones';
 
 export function Usuarios() {
   const { sesion } = useSesion();
@@ -18,7 +19,8 @@ export function Usuarios() {
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
   const [editando, setEditando] = useState<Usuario | 'nuevo' | null>(null);
-  const [aviso, setAviso] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(null);
+  const [aviso, setAviso] = useState<AvisoDePagina | null>(null);
+  const [reenviando, setReenviando] = useState<string | null>(null);
   const consulta = useConsulta((senal) => usuarios.listar({ q: busqueda || undefined, pagina }, senal), [busqueda, pagina]);
 
   async function cambiarEstado(usuario: Usuario) {
@@ -29,6 +31,19 @@ export function Usuarios() {
       consulta.recargar();
     } catch (error) {
       setAviso({ tipo: 'error', texto: (error as ErrorApi).mensaje });
+    }
+  }
+
+  async function reenviar(usuario: Usuario) {
+    setAviso(null);
+    setReenviando(usuario.id);
+    try {
+      await usuarios.reenviarInvitacion(usuario.id);
+      setAviso({ tipo: 'exito', texto: `Le reenviamos el enlace a ${usuario.email}. El anterior ya no sirve.` });
+    } catch (error) {
+      setAviso({ tipo: 'error', texto: (error as ErrorApi).mensaje });
+    } finally {
+      setReenviando(null);
     }
   }
 
@@ -74,7 +89,13 @@ export function Usuarios() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Insignia tono={usuario.rol === 'administrador' ? 'marca' : 'neutro'}>{usuario.rol === 'administrador' ? 'Administrador' : 'Usuario'}</Insignia>
+                      <InsigniaDeCorreo estado={usuario.estado} />
                       {!usuario.activo && <Insignia tono="peligro">Desactivado</Insignia>}
+                      {usuario.activo && usuario.estado !== 'verificado' && (
+                        <Boton variante="fantasma" tamano="pequeno" icono={Send} cargando={reenviando === usuario.id} onClick={() => void reenviar(usuario)}>
+                          {usuario.estado === 'pendiente' ? 'Reenviar invitación' : 'Reenviar verificación'}
+                        </Boton>
+                      )}
                       <Boton variante="fantasma" tamano="pequeno" icono={Pencil} onClick={() => setEditando(usuario)}>Editar</Boton>
                       {/* RN03: nadie se desactiva a sí mismo. La API también lo impide; aquí solo se evita ofrecerlo. */}
                       {!esUnoMismo && (
@@ -97,17 +118,21 @@ export function Usuarios() {
           usuario={editando === 'nuevo' ? null : editando}
           esUnoMismo={editando !== 'nuevo' && editando.id === sesion?.usuario.id}
           alCerrar={() => setEditando(null)}
-          alGuardar={(texto) => { setEditando(null); setAviso({ tipo: 'exito', texto }); consulta.recargar(); }}
+          alGuardar={(resultado) => { setEditando(null); setAviso(resultado); consulta.recargar(); }}
         />
       )}
     </>
   );
 }
 
-function DialogoUsuario({ usuario, esUnoMismo, alCerrar, alGuardar }: { usuario: Usuario | null; esUnoMismo: boolean; alCerrar(): void; alGuardar(texto: string): void }) {
+function DialogoUsuario({ usuario, esUnoMismo, alCerrar, alGuardar }: {
+  usuario: Usuario | null; esUnoMismo: boolean; alCerrar(): void; alGuardar(aviso: AvisoDePagina): void;
+}) {
   const [valores, setValores] = useState({
     nombre: usuario?.nombre ?? '', email: usuario?.email ?? '', dni: usuario?.dni ?? '', rol: usuario?.rol ?? 'usuario' as RolDeEmpresa, clave: '',
   });
+  // Una cuenta pendiente define su contraseña al aceptar la invitación: ofrecer otra aquí solo confundiría.
+  const conClave = usuario !== null && usuario.estado !== 'pendiente';
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
   const cambiar = (campo: keyof typeof valores) => (evento: { target: { value: string } }) =>
@@ -124,10 +149,11 @@ function DialogoUsuario({ usuario, esUnoMismo, alCerrar, alGuardar }: { usuario:
           ...(!esUnoMismo && { rol: valores.rol }),
           ...(valores.clave && { clave: valores.clave }),
         });
-        alGuardar(valores.clave ? 'Cambios guardados. Con la contraseña nueva, sus sesiones abiertas se cerraron.' : 'Cambios guardados.');
+        alGuardar({ tipo: 'exito', texto: valores.clave ? 'Cambios guardados. Con la contraseña nueva, sus sesiones abiertas se cerraron.' : 'Cambios guardados.' });
       } else {
-        await usuarios.crear(valores);
-        alGuardar(`${valores.nombre} ya puede entrar con su correo y la contraseña que le diste.`);
+        const { clave: _sinClave, ...datos } = valores;
+        const creado = await usuarios.crear(datos);
+        alGuardar(avisoDeInvitacion(creado.nombre, creado.email, creado.invitacionEnviada));
       }
     } catch (causa) {
       setError(causa as ErrorApi);
@@ -150,7 +176,9 @@ function DialogoUsuario({ usuario, esUnoMismo, alCerrar, alGuardar }: { usuario:
         {error && !error.detalles.length && <Aviso tipo="error">{error.mensaje}</Aviso>}
         <Campo etiqueta="Nombre" value={valores.nombre} onChange={cambiar('nombre')} error={errores.nombre} />
         <Campo etiqueta="Correo" type="email" disabled={Boolean(usuario)} value={valores.email} onChange={cambiar('email')} error={errores.email}
-          ayuda={usuario ? 'El correo es su usuario de acceso y no se cambia.' : undefined} />
+          ayuda={usuario
+            ? 'El correo es su usuario de acceso y no se cambia.'
+            : 'Le llegará una invitación a este correo: al abrirla define su contraseña, que nadie más conocerá. Sin abrirla no puede entrar.'} />
         <Campo etiqueta="DNI" opcional inputMode="numeric" maxLength={8} value={valores.dni} onChange={cambiar('dni')} error={errores.dni}
           ayuda="Es un dato de su perfil; no sirve para entrar." />
         <Selector etiqueta="Rol" disabled={esUnoMismo} value={valores.rol} onChange={cambiar('rol')} error={errores.rol}
@@ -158,16 +186,18 @@ function DialogoUsuario({ usuario, esUnoMismo, alCerrar, alGuardar }: { usuario:
           <option value="usuario">Usuario</option>
           <option value="administrador">Administrador</option>
         </Selector>
-        <Campo
-          etiqueta={usuario ? 'Contraseña nueva' : 'Contraseña inicial'}
-          type="password"
-          autoComplete="new-password"
-          opcional={Boolean(usuario)}
-          ayuda={usuario ? 'Déjala vacía para no cambiarla. Si la cambias, se cerrarán sus sesiones.' : 'Al menos 8 caracteres. Comunícasela en persona; podrá cambiarla en «Mi cuenta».'}
-          value={valores.clave}
-          onChange={cambiar('clave')}
-          error={errores.clave}
-        />
+        {conClave && (
+          <Campo
+            etiqueta="Contraseña nueva"
+            type="password"
+            autoComplete="new-password"
+            opcional
+            ayuda="Déjala vacía para no cambiarla. Si la cambias, se cerrarán sus sesiones."
+            value={valores.clave}
+            onChange={cambiar('clave')}
+            error={errores.clave}
+          />
+        )}
       </form>
     </Modal>
   );

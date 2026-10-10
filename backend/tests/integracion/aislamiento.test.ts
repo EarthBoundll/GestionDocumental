@@ -34,7 +34,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
 
   // Empresa B, con algo de todo.
   const b = {} as {
-    empresaId: string; adminId: string; adminToken: string; usuarioId: string; usuarioToken: string;
+    empresaId: string; adminId: string; adminToken: string; usuarioId: string; usuarioToken: string; pendienteId: string;
     categoriaId: string; documentoId: string; documentoNombre: string; solicitudId: string; notificacionId: string; medicionId: string;
   };
   // Empresa A: un administrador y un usuario, que son quienes atacan.
@@ -59,6 +59,9 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     b.usuarioToken = await iniciarSesion(app, usuarioB.email);
     const segundoAdminB = await crearUsuarioEn(pool, b.empresaId, 'administrador');
     const segundoAdminToken = await iniciarSesion(app, segundoAdminB.email);
+    // Una cuenta que aún no aceptó su invitación (D41): reenviársela sería escribirle a alguien de B.
+    b.pendienteId = (await comoB(b.adminToken).post('/api/v1/usuarios')
+      .send({ nombre: 'Pendiente de B', email: `pendiente.b.${Date.now()}@ejemplo.pe`, rol: 'usuario' })).body.id;
 
     b.categoriaId = (await comoB(b.adminToken).post('/api/v1/categorias').send({ nombre: 'Confidencial de B' })).body.id;
     b.documentoNombre = 'Contrato secreto de la empresa B';
@@ -126,14 +129,16 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     ['desactivar un usuario', 'PATCH', `/api/v1/usuarios/${b.usuarioId}/estado`, { activo: false }],
     ['restablecer la contraseña de un administrador', 'PATCH', `/api/v1/usuarios/${b.adminId}`, { clave: 'clave-puesta-por-a' }],
     ['resolver una solicitud de aprobación', 'POST', `/api/v1/solicitudes/${b.solicitudId}/resolucion`, { decision: 'aprobada' }],
+    ['reenviar la invitación de una cuenta pendiente', 'POST', `/api/v1/usuarios/${b.pendienteId}/invitacion`, undefined],
   ];
 
   // Las rutas del Master reciben la empresa en la URL: para cualquiera de una empresa, la puerta se cierra antes.
-  const ataquesPorLaPlataforma = (): [string, 'GET' | 'PATCH' | 'DELETE', string, object | undefined][] => [
+  const ataquesPorLaPlataforma = (): [string, 'GET' | 'POST' | 'PATCH' | 'DELETE', string, object | undefined][] => [
     ['ver la ficha de B en la plataforma', 'GET', `/api/v1/plataforma/empresas/${b.empresaId}`, undefined],
     ['cambiar la identidad de B por la ruta del Master', 'PATCH', `/api/v1/plataforma/empresas/${b.empresaId}/identidad`, { colorPrimario: '#000000' }],
     ['quitar el logo de B por la ruta del Master', 'DELETE', `/api/v1/plataforma/empresas/${b.empresaId}/identidad/logo`, undefined],
     ['quitar el fondo de B por la ruta del Master', 'DELETE', `/api/v1/plataforma/empresas/${b.empresaId}/identidad/fondo`, undefined],
+    ['reenviar la invitación de un administrador de B por la ruta del Master', 'POST', `/api/v1/plataforma/administradores/${b.adminId}/invitacion`, undefined],
   ];
 
   describe.each(['administrador de A', 'usuario de A'] as const)('el %s', (quien) => {
@@ -175,6 +180,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
       'SELECT nombre_comercial, color_primario, color_fondo, logo_ruta, fondo_ruta FROM empresas WHERE id = $1', [b.empresaId],
     );
     const { rows: versionesDeB } = await pool.query('SELECT numero FROM documento_versiones WHERE documento_id = $1', [b.documentoId]);
+    const { rows: enlacesDelPendiente } = await pool.query('SELECT 1 FROM recuperaciones_clave WHERE usuario_id = $1', [b.pendienteId]);
 
     expect(documento).toEqual({ nombre: b.documentoNombre, eliminado_en: null });
     expect(categoria).toEqual({ nombre: 'Confidencial de B' });
@@ -186,6 +192,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     expect(solicitudesDeB).toHaveLength(1);
     expect(identidad).toEqual({ nombre_comercial: null, color_primario: null, color_fondo: null, logo_ruta: null, fondo_ruta: null });
     expect(versionesDeB).toEqual([{ numero: 1 }]);
+    expect(enlacesDelPendiente, 'A no logró mandarle otra invitación').toHaveLength(1);
     expect(await iniciarSesion(app, (await pool.query('SELECT email FROM usuarios WHERE id = $1', [b.adminId])).rows[0].email))
       .toMatch(/^ey/);
   });
@@ -254,7 +261,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
       const categoria = await request(app).post(`/api/v1/categorias?empresaId=${b.empresaId}&empresa_id=${b.empresaId}`)
         .set('Authorization', `Bearer ${a.adminToken}`).send({ nombre: `Plantada por A ${Date.now()}`, empresaId: b.empresaId, empresa_id: b.empresaId });
       const usuario = await request(app).post('/api/v1/usuarios').set('Authorization', `Bearer ${a.adminToken}`)
-        .send({ nombre: 'Infiltrado', email: `infiltrado.${Date.now()}@ejemplo.pe`, clave: CLAVE, rol: 'usuario', empresaId: b.empresaId });
+        .send({ nombre: 'Infiltrado', email: `infiltrado.${Date.now()}@ejemplo.pe`, rol: 'usuario', empresaId: b.empresaId });
       const documento = await request(app).post(`/api/v1/documentos?empresaId=${b.empresaId}`).set('Authorization', `Bearer ${a.adminToken}`)
         .field('nombre', 'Subido por A').field('categoriaId', categoria.body.id).field('fechaDocumento', '2026-09-15')
         .field('empresaId', b.empresaId).attach('archivo', PDF, 'a.pdf');

@@ -230,6 +230,9 @@ se suspende en vez de cobrar.
 | Un token con otra empresa, aun firmado con el secreto | La empresa del token se compara con la de la base: si no coinciden, 401 |
 | El Master leyendo el contenido de una empresa | Su rol de base (`app_plataforma`) no tiene permisos sobre documentos, solicitudes, notificaciones ni tiempos de respuesta; sus cifras salen de una función que solo devuelve conteos (decisión E); del historial solo lee sus propias acciones y lo que no es de ninguna empresa (D24); los respaldos no se descargan por la API (D25) |
 | Recuperación de contraseña como oráculo de cuentas o puerta trasera | Misma respuesta y mismo tiempo exista o no el correo; token de 256 bits, de un solo uso, 60 minutos, guardado como huella SHA-256 y enviado en el fragmento del enlace; límite de peticiones por IP |
+| Una cuenta con un correo ajeno, mal escrito o temporal | Nace sin contraseña y no entra hasta que su dueño abre la invitación que le llegó (D41); la sesión exige el correo verificado; un correo nuevo vuelve a estar sin verificar; una lista de dominios temporales conocidos |
+| Un administrador marcando un correo como verificado | La base no le deja escribir `email_verificado_en` (permisos por columna, migración 013); la API ignora lo que llegue en el cuerpo; solo un enlace gastado lo verifica |
+| La API usada para inundar un buzón con invitaciones | Un reenvío cada 2 minutos y 5 al día por buzón, contados en la base; los automáticos (al entrar o al recuperar) callan el freno; límite de peticiones por IP |
 | Inyección SQL | Solo consultas parametrizadas |
 | Archivo malicioso | Lista blanca de tipos, 10 MB, nombre generado por el servidor, bucket privado y servido desde el dominio de Supabase, no desde el de la aplicación. El logo de una empresa, además, solo PNG o JPG (un SVG puede llevar scripts) de hasta 256 KB, y su imagen de fondo solo WebP o JPG de hasta 512 KB, comprobados por su contenido, y la CSP solo admite imágenes de ese dominio (D28, D39) |
 | Un empleado cambiando la identidad de su empresa, o una empresa la de otra | La API exige ser administrador, y la base también: el rol de empresa solo puede actualizar las columnas de la identidad de su propia fila y solo si quien actúa es administrador (migraciones 008 y 012); el logo y el fondo deben estar en la carpeta de su empresa (D28, D39) |
@@ -632,6 +635,27 @@ escala slate, que ese modo invierte: lo que va sobre la foto lleva colores fijos
 cada enlace y cada navegación del código, y mientras dura la página no recibe clics), partículas en un canvas
 (consumen procesador sin parar en un celular) y contadores animados en el tablero (un indicador debe leerse exacto
 desde el primer instante).
+
+**D41 · Verificación del correo por invitación: la cuenta nace sin contraseña.** Quien crea una cuenta (el Master a un
+administrador, el administrador a su gente) ya no le pone contraseña: la cuenta nace pendiente y a la persona le llega
+una invitación de 72 horas; al abrirla elige su contraseña, que nadie más conoce, y con eso prueba que el buzón es
+suyo. Hasta entonces no puede entrar, para nadie: la sesión se comprueba en la base en cada petición y exige el
+correo verificado. Una cuenta que ya tenía contraseña (las anteriores a la migración 013, o un administrador al que el
+Master le cambió el correo) recibe un enlace para confirmarlo al intentar entrar con la contraseña correcta; con una
+equivocada, la respuesta es la de siempre. Recuperar la contraseña también verifica el correo, y a una cuenta
+pendiente le reenvía la invitación. Los tres enlaces comparten la tabla, la huella SHA-256, el fragmento `#` y el
+gasto atómico de la recuperación (D19), con su propósito y el buzón al que salieron: un enlace solo vale mientras ese
+siga siendo el correo de la cuenta. El reenvío se frena en la base, una vez cada 2 minutos y 5 al día por buzón, para
+que nadie use la API para inundar un correo. Nadie marca un correo como verificado: desde la migración 013 los roles
+de la aplicación solo escriben las columnas de `usuarios` que su trabajo necesita, `email_verificado_en` no está entre
+ellas, y un trigger la anula si el correo cambia; solo la capa de identidad, al gastar un enlace válido, la fija. El
+Master lo verifica el script de inicialización, porque lo crea quien controla la base y el entorno. Se rechazan unos
+50 dominios de correos temporales conocidos, como complemento: lo que prueba el buzón es la invitación.
+*Descartado:* mantener la contraseña inicial y verificar aparte (el administrador seguiría conociendo una contraseña
+ajena, y la persona recibiría dos cosas en vez de una), verificar con un código de seis dígitos (hay que escribirlo, y
+seis dígitos se adivinan si no se frena con cuidado), Supabase Auth (D19: duplicaría las cuentas), un interruptor de
+entorno para saltarse la verificación en desarrollo (las pruebas pasan por el mismo camino que una persona, leyendo el
+correo de la carpeta) y una API de validación de correos (manda los correos a un tercero y cuesta).
 
 ## 8. Riesgos
 

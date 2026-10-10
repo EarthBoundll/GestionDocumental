@@ -5,6 +5,16 @@ import { primeraFila } from '../../db/filas.js';
 import type { Consultor } from '../../db/pool.js';
 import type { FiltroUsuarios } from './usuarios.esquemas.js';
 
+/**
+ * Lo que se ve del correo de una cuenta (D41). «pendiente»: invitada, aún sin contraseña; «sin_verificar»:
+ * tiene contraseña pero no confirmó su correo (una cuenta anterior a la verificación o con un correo nuevo).
+ */
+export type EstadoDeCorreo = 'pendiente' | 'sin_verificar' | 'verificado';
+
+/** El estado se deduce de la base, nunca se guarda: no hay forma de escribirlo a mano. */
+export const COLUMNA_ESTADO = `CASE WHEN email_verificado_en IS NOT NULL THEN 'verificado'
+  WHEN clave_hash IS NULL THEN 'pendiente' ELSE 'sin_verificar' END AS estado`;
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -12,11 +22,12 @@ export interface Usuario {
   rol: Rol;
   dni: string | null;
   activo: boolean;
+  estado: EstadoDeCorreo;
   creadoEn: Date;
 }
 
 const COLUMNAS = { nombre: 'nombre', email: 'email', dni: 'dni', rol: 'rol', claveHash: 'clave_hash', activo: 'activo' };
-const DEVUELTAS = 'id, nombre, email, rol, dni, activo, creado_en AS "creadoEn"';
+const DEVUELTAS = `id, nombre, email, rol, dni, activo, ${COLUMNA_ESTADO}, creado_en AS "creadoEn"`;
 const SELECCION = `SELECT ${DEVUELTAS} FROM usuarios`;
 
 export async function listarUsuarios(db: Consultor, empresaId: string, filtro: FiltroUsuarios): Promise<{ filas: Usuario[]; total: number }> {
@@ -45,16 +56,23 @@ export async function buscarUsuario(db: Consultor, empresaId: string, id: string
   return rows[0] ?? null;
 }
 
+/** Una cuenta nueva nace sin contraseña y sin verificar: la activa su dueño con la invitación (D41). */
 export async function insertarUsuario(
   db: Consultor,
-  datos: { empresaId: string; nombre: string; email: string; dni?: string | null | undefined; claveHash: string; rol: Rol },
+  datos: { empresaId: string; nombre: string; email: string; dni?: string | null | undefined; rol: Rol },
 ): Promise<Usuario> {
   const { rows } = await db.query<Usuario>(
-    `INSERT INTO usuarios (empresa_id, nombre, email, dni, clave_hash, rol) VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO usuarios (empresa_id, nombre, email, dni, rol) VALUES ($1, $2, $3, $4, $5)
      RETURNING ${DEVUELTAS}`,
-    [datos.empresaId, datos.nombre, datos.email, datos.dni ?? null, datos.claveHash, datos.rol],
+    [datos.empresaId, datos.nombre, datos.email, datos.dni ?? null, datos.rol],
   );
   return primeraFila(rows);
+}
+
+/** Si el correo ya es de alguien de la empresa: con el acceso de la empresa, la RLS no deja ver las demás. */
+export async function correoEnLaEmpresa(db: Consultor, email: string): Promise<boolean> {
+  const { rowCount } = await db.query('SELECT 1 FROM usuarios WHERE email = $1', [email]);
+  return (rowCount ?? 0) > 0;
 }
 
 export async function actualizarUsuario(db: Consultor, empresaId: string, id: string, valores: Record<string, unknown>): Promise<void> {

@@ -25,5 +25,9 @@ export function crearControladorUsuarios(servicio: ServicioUsuarios) {
     res.json(await servicio.cambiarEstado(actorDe(req), id, activo));
   };
 
-  return { listar, crear, editar, cambiarEstado };
+  const reenviarInvitacion: RequestHandler = async (req, res) => {
+    res.json(await servicio.reenviarInvitacion(actorDe(req), idDeRuta(req)));
+  };
+
+  return { listar, crear, editar, cambiarEstado, reenviarInvitacion };
 }

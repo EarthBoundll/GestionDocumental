@@ -70,15 +70,17 @@ backend/
 │   │   ├── claves.ts             bcrypt y las reglas de contraseña, también las del Master
 │   │   ├── tokens.ts             firma y verificación del JWT
 │   │   ├── paginacion.ts
+│   │   ├── correos-desechables.ts  dominios de correos temporales conocidos (D41)
 │   │   └── dispositivo.ts        ¿es un móvil?, a partir del user-agent
 │   └── modulos/
 │       ├── auth/
 │       │   ├── auth.rutas.ts
 │       │   ├── auth.controlador.ts
 │       │   ├── auth.servicio.ts
-│       │   ├── auth.repositorio.ts   la capa de identidad: cuentas, sesiones y recuperaciones
+│       │   ├── auth.repositorio.ts   la capa de identidad: cuentas, sesiones y enlaces del correo
 │       │   ├── auth.esquemas.ts
-│       │   ├── auth.correos.ts       el texto del correo de recuperación
+│       │   ├── auth.correos.ts       el texto de los correos: recuperación, invitación, verificación y cambio de correo
+│       │   ├── enlaces.ts            envía invitaciones y verificaciones, con su freno por buzón (D41)
 │       │   └── master.ts             crea al Master y valida sus datos (lo usa el script)
 │       ├── plataforma/           lo que hace el Master: empresas, administradores y cifras
 │       ├── usuarios/             todos los módulos tienen la misma forma
@@ -145,7 +147,7 @@ frontend/
 │   │   └── Campana.tsx           las notificaciones de la barra superior (no para el Master)
 │   ├── componentes/              piezas reutilizables sin lógica de negocio: botón, campos, diálogo, avisos, página, ruta (Migas)
 │   ├── paginas/
-│   │   ├── auth/                 IniciarSesion, RecuperarClave, RestablecerClave
+│   │   ├── auth/                 IniciarSesion, RecuperarClave, y los enlaces del correo: RestablecerClave, ActivarCuenta y VerificarCorreo
 │   │   ├── plataforma/           Resumen, NuevaEmpresa, DetalleEmpresa (solo el Master)
 │   │   ├── documentos/           ListaDocumentos, SubirDocumento, DetalleDocumento con su VistaPrevia, VersionesDelDocumento y ActividadDelDocumento
 │   │   ├── solicitudes/

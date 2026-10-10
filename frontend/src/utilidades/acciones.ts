@@ -36,6 +36,9 @@ export const NOMBRES_DE_ACCIONES: Record<string, string> = {
   VERSION_RESTAURADA: 'Versión anterior restaurada',
   LISTADO_EXPORTADO: 'Listado documental exportado',
   EMPRESA_ELIMINADA: 'Datos de una empresa eliminados',
+  INVITACION_ENVIADA: 'Invitación enviada',
+  VERIFICACION_ENVIADA: 'Enlace para confirmar el correo enviado',
+  CORREO_VERIFICADO: 'Correo verificado',
 };
 
 /** Los campos que aparecen en «cambios», como los entiende quien lee el historial. */
@@ -113,7 +116,11 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
     partes.push(contar(total, 'fila borrada', 'filas borradas'));
   }
   if (typeof detalle.archivosBorrados === 'number') partes.push(contar(detalle.archivosBorrados, 'archivo borrado', 'archivos borrados'));
-  if (detalle.enviada === true) partes.push('enlace enviado');
+  if (detalle.enviada === true) partes.push(detalle.enlace === 'invitacion' ? 'invitación reenviada' : 'enlace enviado');
+  // D41: cómo quedó probado el correo.
+  if (detalle.mediante === 'invitacion') partes.push('al aceptar su invitación');
+  if (detalle.mediante === 'enlace') partes.push('con el enlace del correo');
+  if (detalle.correoVerificado === true) partes.push('correo verificado');
   if (typeof detalle.sesionesCerradas === 'number' && detalle.sesionesCerradas > 0) {
     partes.push(contar(detalle.sesionesCerradas, 'sesión cerrada', 'sesiones cerradas'));
   }

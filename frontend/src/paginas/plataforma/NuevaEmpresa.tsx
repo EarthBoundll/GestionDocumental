@@ -7,8 +7,9 @@ import { Aviso } from '../../componentes/Avisos';
 import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
 import { EncabezadoDePagina, Tarjeta } from '../../componentes/Pagina';
+import { avisoDeInvitacion } from '../../utilidades/invitaciones';
 
-const VACIO = { empresa: '', ruc: '', nombre: '', email: '', dni: '', clave: '', confirmacion: '' };
+const VACIO = { empresa: '', ruc: '', nombre: '', email: '', dni: '' };
 
 /** No hay registro público (decisión B): el Master da de alta cada empresa con su primer administrador. */
 export function NuevaEmpresa() {
@@ -21,19 +22,14 @@ export function NuevaEmpresa() {
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
-    // La confirmación solo protege de un error al teclear; no viaja a la API.
-    if (datos.clave !== datos.confirmacion) {
-      setError(new ErrorApi(400, 'VALIDACION', 'Revisa los datos', [{ campo: 'confirmacion', mensaje: 'Las contraseñas no coinciden' }]));
-      return;
-    }
     setEnviando(true);
     setError(null);
     try {
-      const { empresa } = await plataforma.crearEmpresa({
+      const { empresa, administrador } = await plataforma.crearEmpresa({
         empresa: { nombre: datos.empresa, ruc: datos.ruc },
-        administrador: { nombre: datos.nombre, email: datos.email, dni: datos.dni, clave: datos.clave },
+        administrador: { nombre: datos.nombre, email: datos.email, dni: datos.dni },
       });
-      navegar(`/plataforma/empresas/${empresa.id}`, { state: { creada: true } });
+      navegar(`/plataforma/empresas/${empresa.id}`, { state: { creada: avisoDeInvitacion(administrador.nombre, administrador.email, administrador.invitacionEnviada) } });
     } catch (causa) {
       setError(causa as ErrorApi);
       setEnviando(false);
@@ -59,12 +55,10 @@ export function NuevaEmpresa() {
             <legend className="pt-6 text-sm font-semibold text-slate-900">Su primer administrador</legend>
             <Campo etiqueta="Nombre" required autoComplete="off" value={datos.nombre} onChange={cambiar('nombre')} error={errores['administrador.nombre']} />
             <Campo etiqueta="Correo" type="email" required autoComplete="off" inputMode="email" value={datos.email} onChange={cambiar('email')}
-              error={errores['administrador.email']} ayuda="Con este correo entrará al sistema." />
+              error={errores['administrador.email']}
+              ayuda="Le llegará una invitación a este correo: al abrirla define su contraseña, que nadie más conocerá. Sin abrirla no puede entrar." />
             <Campo etiqueta="DNI" opcional inputMode="numeric" maxLength={8} value={datos.dni} onChange={cambiar('dni')}
               error={errores['administrador.dni']} ayuda="Es un dato de su perfil; no sirve para entrar." />
-            <Campo etiqueta="Contraseña inicial" type="password" required autoComplete="new-password" value={datos.clave} onChange={cambiar('clave')}
-              error={errores['administrador.clave']} ayuda="Al menos 8 caracteres. Comunícasela en persona; podrá cambiarla en «Mi cuenta»." />
-            <Campo etiqueta="Repite la contraseña" type="password" required autoComplete="new-password" value={datos.confirmacion} onChange={cambiar('confirmacion')} error={errores.confirmacion} />
           </fieldset>
           <Boton type="submit" icono={Building2} cargando={enviando}>Registrar empresa</Boton>
         </form>

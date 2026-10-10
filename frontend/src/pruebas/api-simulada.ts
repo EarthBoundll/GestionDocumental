@@ -23,7 +23,7 @@ type Definicion = Respuesta | ((peticion: PeticionRecibida) => Respuesta);
  */
 export function simularApi(rutas: Record<string, Definicion>) {
   const peticiones: PeticionRecibida[] = [];
-  const PUBLICAS = ['POST /auth/login', 'POST /auth/recuperacion', 'POST /auth/recuperacion/confirmar'];
+  const PUBLICAS = ['POST /auth/login', 'POST /auth/recuperacion', 'POST /auth/recuperacion/confirmar', 'POST /auth/activacion', 'POST /auth/verificacion'];
 
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit = {}) => {
     const direccion = new URL(url);

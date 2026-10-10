@@ -40,7 +40,8 @@ añadió la migración a multiempresa ([06-migracion-v2.md](06-migracion-v2.md))
 auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervisión, D22–D26); «B», lo que se añadió tras
 la segunda auditoría: hacer visible la trazabilidad (D27), adaptar la interfaz a cada empresa y a cada persona (D28),
 ver el archivo en la ficha (D29) y guardar sus versiones (D30); y la evidencia del capítulo 3: el listado
-documental, el historial imprimible y la prueba de carga (D31, D32).
+documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca la verificación obligatoria del correo
+(D41).
 
 | ID | Requisito | Quién | Fase |
 |---|---|---|---|
@@ -56,7 +57,7 @@ documental, el historial imprimible y la prueba de carga (D31, D32).
 | RF10 | Buscar documentos por nombre —sin distinguir mayúsculas ni tildes—, categoría y rango de fechas, con paginación | Todos | 3 |
 | RF11 | Ver un documento en el navegador o descargarlo | Todos | 3 |
 | RF12 | Registrar el tiempo de respuesta del listado de documentos, medido en el servidor y en el navegador | Sistema | 3 y 6 |
-| RF13 | Crear, listar y editar usuarios (nombre, rol, contraseña) | Administrador | 4 |
+| RF13 | Crear, listar y editar usuarios (nombre, rol, contraseña); al crearlos, sin contraseña: les llega una invitación (RN35) | Administrador | 4 y C |
 | RF14 | Desactivar y reactivar usuarios | Administrador | 4 |
 | RF15 | Solicitar la aprobación de un documento propio | Todos | 4 |
 | RF16 | Aprobar o rechazar una solicitud, con comentario | Administrador | 4 |
@@ -80,6 +81,8 @@ documental, el historial imprimible y la prueba de carga (D31, D32).
 | RF34 | Subir una versión nueva de un documento sin perder las anteriores, verlas y descargarlas, y restaurar una anterior como versión nueva | Administrador, Usuario (de los suyos) | B |
 | RF35 | Exportar el listado documental (el inventario) en CSV, con los filtros del listado: nombre, categoría, fecha, autor, tipo, peso, versión y estado de aprobación | Administrador | B |
 | RF36 | Imprimir o guardar como PDF el historial filtrado, entero y con espacio para firmar, como anexo de una sesión de evaluación | Administrador | B |
+| RF37 | Activar la cuenta con la invitación que llega por correo, eligiendo la propia contraseña, y confirmar el correo con un enlace | Visitante | C |
+| RF38 | Ver si cada cuenta activó su invitación o confirmó su correo, y reenviarle el enlace | Administrador, Master | C |
 
 ## 4. Requisitos no funcionales
 
@@ -180,8 +183,8 @@ documental, el historial imprimible y la prueba de carga (D31, D32).
 
 - **RN27** Cinco contraseñas incorrectas para un mismo correo en 15 minutos bloquean ese correo hasta
   que pase la ventana, también con la contraseña correcta. Se cuenta por correo, exista o no la cuenta,
-  para que el bloqueo no revele cuáles existen. Un acceso correcto o un restablecimiento por correo
-  ponen la cuenta a cero, y los intentos rechazados por el bloqueo no cuentan. Complementa a RN20: el
+  para que el bloqueo no revele cuáles existen. Un acceso correcto, un restablecimiento por correo o
+  aceptar la invitación (RN35) ponen la cuenta a cero, y los intentos rechazados por el bloqueo no cuentan. Complementa a RN20: el
   freno por IP no detiene a quien prueba contra una cuenta desde varias redes.
 - **RN28** Lo eliminado pasa 30 días en la papelera. Un administrador puede restaurarlo tal como estaba
   o eliminarlo para siempre antes; pasado el plazo, el sistema lo purga solo. Purgar borra el archivo
@@ -221,6 +224,22 @@ documental, el historial imprimible y la prueba de carga (D31, D32).
 - **RN32** Cada persona elige su tema: el del dispositivo (por defecto), claro u oscuro. Se guarda en su
   cuenta, así que la sigue a cualquier dispositivo, y no se registra en el historial: es una preferencia
   de presentación, no una acción sobre los datos.
+
+**Verificación del correo (C)**
+
+- **RN35** Una cuenta nueva nace sin contraseña y pendiente: no entra hasta que su dueño abre la invitación que le
+  llega al correo y elige su contraseña. La invitación vale 72 horas y una sola vez; si caduca, se pide otra con
+  «¿Olvidaste tu contraseña?» o la reenvía quien creó la cuenta. Nadie más conoce esa contraseña.
+- **RN36** Sin el correo verificado no hay sesión, para ningún rol. Una cuenta con contraseña pero sin verificar
+  (anterior a esta regla, o con el correo cambiado) recibe un enlace para confirmarlo al intentar entrar con la
+  contraseña correcta; con una equivocada, la respuesta es la de siempre. Restablecer la contraseña con el enlace del
+  correo también lo verifica. Cambiar el correo de una cuenta lo deja sin verificar, cierra sus sesiones y avisa al
+  correo anterior.
+- **RN37** Nadie marca un correo como verificado: ni el administrador ni el Master, que solo ven el estado (pendiente
+  de activar, correo sin verificar o verificado). Solo lo verifica un enlace gastado; al Master, el script que lo crea.
+- **RN38** A una misma cuenta y un mismo correo se le envía como mucho un enlace cada 2 minutos y 5 al día; enviar uno
+  anula los anteriores, y un enlace solo vale para el correo al que se envió. No se admiten correos de servicios
+  temporales conocidos.
 
 ## 6. Matriz de permisos
 
@@ -276,7 +295,10 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `SESION_CERRADA` | el usuario cierra sesión | sesión | — |
 | `CLAVE_CAMBIADA` | el usuario cambia su contraseña | usuario | sesiones cerradas |
 | `RECUPERACION_SOLICITADA` | alguien pide un enlace de recuperación, exista o no la cuenta | usuario, si existe | correo, si se envió y por qué no |
-| `CLAVE_RESTABLECIDA` | se define una contraseña nueva con un enlace | usuario | sesiones cerradas |
+| `CLAVE_RESTABLECIDA` | se define una contraseña nueva con un enlace | usuario | sesiones cerradas y si con eso quedó verificado el correo |
+| `INVITACION_ENVIADA` | se envía la invitación de una cuenta sin contraseña: al crearla, al reenviarla o al pedir recuperarla (RN35) | usuario | correo |
+| `VERIFICACION_ENVIADA` | se envía el enlace para confirmar el correo de una cuenta con contraseña (RN36) | usuario | correo |
+| `CORREO_VERIFICADO` | alguien gasta su invitación o su enlace de verificación | usuario | cómo: invitación o enlace |
 | `EMPRESA_CREADA` | el Master da de alta una empresa | empresa | nombre y RUC |
 | `EMPRESA_EDITADA` | el Master cambia su nombre o RUC, o su administrador o el Master su identidad visual | empresa | antes → después; del logo, si había y si hay, y el nombre del archivo subido |
 | `EMPRESA_DESACTIVADA` · `EMPRESA_REACTIVADA` | el Master cambia su estado | empresa | sesiones cerradas |
@@ -301,8 +323,9 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `VERSION_SUBIDA` | se sube una versión nueva de un documento | documento | número, archivo y comentario |
 | `VERSION_RESTAURADA` | se restaura una versión anterior como versión nueva | documento | número nuevo y de cuál viene |
 
-Son 34 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
-motivo `CUENTA_BLOQUEADA`. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
+Son 37 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
+motivo `CUENTA_BLOQUEADA`, y el de una cuenta sin el correo verificado (RN36), con motivo `CORREO_SIN_VERIFICAR`.
+Un reenvío frenado por RN38 no se registra: no salió ningún correo. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
 buscar; su tiempo de respuesta sí se mide), ver la ficha de un documento (no entrega el archivo),
 leer notificaciones (no cambia nada), consultar la actividad de un documento (es parte de su ficha), cambiar el tema
 (es una preferencia de presentación, RN32), las peticiones con datos inválidos (400) o sin sesión (401)
@@ -316,7 +339,7 @@ recurso de otra empresa (para quien pregunta, ese recurso no existe).
 | 1 | Tiempo de organización y categorización | `DOCUMENTO_SUBIDO` y `DOCUMENTO_EDITADO`, con su instante | Tiempo entre la primera y la última acción de la tarea, por usuario | Cuándo empezó la tarea: la persona lee la consigna antes de tocar nada. El cronómetro sigue siendo la fuente principal; el sistema lo corrobora |
 | 2 | Tiempo de búsqueda | Cada consulta del listado, con o sin filtros (usuario e instante en `tiempos_respuesta`; los filtros, en `BUSQUEDA_REALIZADA`), y la obtención del documento (`DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO`) | Tiempo entre la primera consulta del listado y la obtención del documento pedido. Cuenta también a quien lo encuentra recorriendo el listado sin filtrar | Lo mismo que en el 1 |
 | 3 | Tasa de recuperación | `DOCUMENTO_VISUALIZADO` y `DOCUMENTO_DESCARGADO` | Documentos pedidos que se obtuvieron ÷ documentos pedidos | Qué documentos se pidieron: lo fija el protocolo de prueba |
-| 4 | Acciones registradas en el historial | Las 34 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
+| 4 | Acciones registradas en el historial | Las 37 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
 | 5 | Accesibilidad remota | `SESION_INICIADA` y `SESION_FALLIDA`, con `es_movil` | Inicios de sesión exitosos desde móvil ÷ intentos desde móvil | Los intentos que nunca llegan al servidor (sin cobertura, servicio caído): los anota el evaluador |
 | 6 | Accesos correctos según rol | `ACCESO_DENEGADO` y las acciones permitidas, cada una con el rol de quien actuó; el informe de aislamiento entre empresas (`npm run informe:aislamiento`) | Decisiones que coinciden con la matriz de §6 ÷ casos evaluados | Qué debía ocurrir en cada caso: lo dice la matriz, no el sistema |
 | 7 | Tiempo de respuesta | Tabla `tiempos_respuesta`: duración en el servidor y la percibida en el navegador; la prueba de carga con 50.000 documentos (`npm run informe:carga`) | Mediana y percentil 95 del listado de documentos | — |

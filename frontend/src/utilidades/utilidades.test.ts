@@ -62,8 +62,16 @@ describe('roles', () => {
 });
 
 describe('historial', () => {
-  it('nombra las 34 acciones auditables de docs/01-analisis.md §7', () => {
-    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(34);
+  it('nombra las 37 acciones auditables de docs/01-analisis.md §7', () => {
+    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(37);
+  });
+
+  it('la verificación del correo dice cómo quedó probado, y un acceso sin verificar, por qué falló (D41)', () => {
+    expect(resumirDetalle({ mediante: 'invitacion' })).toEqual(['al aceptar su invitación']);
+    expect(resumirDetalle({ mediante: 'enlace' })).toEqual(['con el enlace del correo']);
+    expect(resumirDetalle({ email: 'ana@ejemplo.pe', enviada: true, enlace: 'invitacion' })).toEqual(['invitación reenviada']);
+    expect(resumirDetalle({ sesionesCerradas: 0, correoVerificado: true })).toEqual(['correo verificado']);
+    expect(resumirDetalle({ motivo: 'CORREO_SIN_VERIFICAR' })).toEqual(['correo sin verificar']);
   });
 
   it('cuenta las versiones (RF34): cuál se subió, con qué archivo, y de cuál viene una restaurada', () => {

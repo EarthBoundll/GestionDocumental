@@ -2,7 +2,7 @@ import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  CLAVE, crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa, tokenDelMaster, UA_IPHONE,
+  activarCuenta, CLAVE, crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa, tokenDelMaster, UA_IPHONE,
 } from '../apoyo/api.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 
@@ -36,7 +36,8 @@ describe('Plataforma: lo que hace el Administrador Master (CLAUDE.md v2)', () =>
     const n = ++secuencia;
     return {
       empresa: { nombre: `  Distribuidora ${n} SAC `, ruc: `20${String(Date.now()).slice(-8)}${n % 10}` },
-      administrador: { nombre: 'Ana Torres', email: `Ana.Torres.${n}.${Date.now()}@Ejemplo.PE`, dni: '45678912', clave: CLAVE },
+      // Sin contraseña: la define el administrador al aceptar su invitación (D41).
+      administrador: { nombre: 'Ana Torres', email: `Ana.Torres.${n}.${Date.now()}@Ejemplo.PE`, dni: '45678912' },
     };
   };
 
@@ -51,6 +52,7 @@ describe('Plataforma: lo que hace el Administrador Master (CLAUDE.md v2)', () =>
       expect(empresa).toMatchObject({ nombre: datos.empresa.nombre.trim(), ruc: datos.empresa.ruc, activa: true });
       expect(administrador).toMatchObject({
         empresaId: empresa.id, nombre: 'Ana Torres', email: datos.administrador.email.toLowerCase(), dni: '45678912', activo: true,
+        estado: 'pendiente', invitacionEnviada: true,
       });
       const { rows: categorias } = await pool.query('SELECT nombre FROM categorias WHERE empresa_id = $1 ORDER BY nombre', [empresa.id]);
       expect(categorias.map((fila) => fila.nombre)).toEqual(['Contratos', 'Cotizaciones', 'Facturas y boletas', 'Otros', 'Recursos humanos']);
@@ -59,8 +61,11 @@ describe('Plataforma: lo que hace el Administrador Master (CLAUDE.md v2)', () =>
       expect(await historialDe(pool, empresa.id)).toEqual([
         expect.objectContaining({ accion: 'EMPRESA_CREADA', usuario_id: id, rol_usuario: 'master', entidad_id: empresa.id, es_movil: true }),
         expect.objectContaining({ accion: 'USUARIO_CREADO', usuario_id: id, rol_usuario: 'master', entidad_id: administrador.id }),
+        expect.objectContaining({ accion: 'INVITACION_ENVIADA', usuario_id: id, rol_usuario: 'master', entidad_id: administrador.id }),
       ]);
-      // El administrador puede entrar de inmediato, y entra en su empresa.
+      // Hasta que acepte su invitación no tiene contraseña: no puede entrar con ninguna (D41).
+      expect((await request(app).post('/api/v1/auth/login').send({ email: administrador.email, clave: CLAVE })).status).toBe(401);
+      await activarCuenta(app, administrador.email);
       const token = await iniciarSesion(app, administrador.email);
       expect((await yo(token)).body).toMatchObject({ usuario: { rol: 'administrador' }, empresa: { id: empresa.id } });
     });
@@ -93,7 +98,7 @@ describe('Plataforma: lo que hace el Administrador Master (CLAUDE.md v2)', () =>
     it('valida la entrada y explica cada problema en español', async () => {
       const respuesta = await comoMaster().post('/empresas', {
         empresa: { nombre: 'X', ruc: '123' },
-        administrador: { nombre: 'Ana', email: 'no-es-un-correo', dni: '123', clave: 'corta' },
+        administrador: { nombre: 'Ana', email: 'no-es-un-correo', dni: '123' },
       });
 
       expect(respuesta.status).toBe(400);
@@ -102,17 +107,18 @@ describe('Plataforma: lo que hace el Administrador Master (CLAUDE.md v2)', () =>
         { campo: 'empresa.ruc', mensaje: 'El RUC tiene 11 dígitos' },
         { campo: 'administrador.email', mensaje: 'Escribe un correo válido' },
         { campo: 'administrador.dni', mensaje: 'El DNI tiene 8 dígitos' },
-        { campo: 'administrador.clave', mensaje: 'Usa al menos 8 caracteres' },
       ]));
     });
 
-    it('rechaza contraseñas de más de 72 bytes aunque tengan menos de 72 caracteres', async () => {
+    it('rechaza un correo de un servicio de correos temporales (D41)', async () => {
       const datos = nuevaEmpresa();
 
-      const respuesta = await comoMaster().post('/empresas', { ...datos, administrador: { ...datos.administrador, clave: 'ñ'.repeat(40) } });
+      const respuesta = await comoMaster().post('/empresas', { ...datos, administrador: { ...datos.administrador, email: 'ana@mailinator.com' } });
 
       expect(respuesta.status).toBe(400);
-      expect(respuesta.body.error.detalles[0].mensaje).toContain('72 bytes');
+      expect(respuesta.body.error.detalles).toEqual([
+        { campo: 'administrador.email', mensaje: 'Ese correo es de un servicio de correos temporales: usa uno personal o de trabajo' },
+      ]);
     });
 
     it('si falla el último paso, se deshace todo, también lo ya registrado en el historial: no hay acciones fantasma (D7)', async () => {
@@ -229,10 +235,11 @@ describe('Plataforma: lo que hace el Administrador Master (CLAUDE.md v2)', () =>
       const { empresa } = await registrarEmpresa(app);
       const email = `segundo.${Date.now()}@ejemplo.pe`;
 
-      const respuesta = await comoMaster().post(`/empresas/${empresa.id}/administradores`, { nombre: 'Rosa Díaz', email, clave: CLAVE });
+      const respuesta = await comoMaster().post(`/empresas/${empresa.id}/administradores`, { nombre: 'Rosa Díaz', email });
 
       expect(respuesta.status).toBe(201);
-      expect(respuesta.body).toMatchObject({ empresaId: empresa.id, email, dni: null });
+      expect(respuesta.body).toMatchObject({ empresaId: empresa.id, email, dni: null, estado: 'pendiente', invitacionEnviada: true });
+      await activarCuenta(app, email);
       expect((await yo(await iniciarSesion(app, email))).body.usuario.rol).toBe('administrador');
     });
 

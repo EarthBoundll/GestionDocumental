@@ -16,5 +16,8 @@ export function crearRutasAuth(
   rutas.put('/preferencias', autenticar, controlador.cambiarPreferencias);
   rutas.post('/recuperacion', limitadores.recuperacion, controlador.solicitarRecuperacion);
   rutas.post('/recuperacion/confirmar', limitadores.confirmacion, controlador.confirmarRecuperacion);
+  // D41: aceptar una invitación y confirmar un correo. Con el mismo freno que la recuperación.
+  rutas.post('/activacion', limitadores.confirmacion, controlador.activarCuenta);
+  rutas.post('/verificacion', limitadores.confirmacion, controlador.verificarCorreo);
   return rutas;
 }

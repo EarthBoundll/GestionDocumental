@@ -15,7 +15,8 @@ export function IniciarSesion() {
   const navegar = useNavigate();
   const ubicacion = useLocation();
   const [parametros] = useSearchParams();
-  const [email, setEmail] = useState('');
+  // Quien acaba de activar su cuenta llega con su correo ya escrito.
+  const [email, setEmail] = useState((ubicacion.state as { email?: string } | null)?.email ?? '');
   const [clave, setClave] = useState('');
   const [error, setError] = useState<ErrorApi | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -40,12 +41,13 @@ export function IniciarSesion() {
     <PantallaDeAcceso
       titulo="Iniciar sesión"
       subtitulo="Entra con el correo y la contraseña de tu cuenta."
-      pie="¿Aún no tienes cuenta? Las crea el administrador de tu empresa."
+      pie="¿Aún no tienes cuenta? Te la crea el administrador de tu empresa y te llega una invitación por correo."
     >
       <form onSubmit={(evento) => void enviar(evento)} className="space-y-4" noValidate>
         {parametros.get('motivo') === 'sesion' && !error && <Aviso>Tu sesión terminó. Vuelve a iniciar sesión para continuar.</Aviso>}
         {parametros.get('motivo') === 'salida' && !error && <Aviso tipo="exito">Cerraste tu sesión. Hasta pronto.</Aviso>}
-        {error && !error.detalles.length && <Aviso tipo="error">{error.mensaje}</Aviso>}
+        {/* D41: con la contraseña correcta pero el correo sin confirmar, el aviso dice qué hacer, no que falló. */}
+        {error && !error.detalles.length && <Aviso tipo={error.codigo === 'CORREO_SIN_VERIFICAR' ? 'advertencia' : 'error'}>{error.mensaje}</Aviso>}
         <Campo etiqueta="Correo" type="email" autoComplete="username" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} error={errores.email} />
         <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" required value={clave} onChange={(e) => setClave(e.target.value)} error={errores.clave} />
         <p className="-my-2 text-right text-sm">

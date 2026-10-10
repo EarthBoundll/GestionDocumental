@@ -1,6 +1,6 @@
 import { api, descargar } from './cliente';
 import type {
-  ActividadDeDocumento, Administrador, Asiento, Categoria, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, Marca,
+  ActividadDeDocumento, Administrador, Asiento, Categoria, ConInvitacion, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, Marca,
   MetricasDePlataforma, Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Tema, Usuario, Version,
 } from './tipos';
 
@@ -15,6 +15,10 @@ export const auth = {
   confirmarRecuperacion: (token: string, claveNueva: string) =>
     api<void>('/auth/recuperacion/confirmar', { metodo: 'POST', cuerpo: { token, claveNueva } }),
   cambiarPreferencias: (tema: Tema) => api<{ tema: Tema }>('/auth/preferencias', { metodo: 'PUT', cuerpo: { tema } }),
+  /** D41: acepta la invitación con la contraseña que la persona elige; con eso queda verificado su correo. */
+  activarCuenta: (token: string, claveNueva: string) =>
+    api<{ email: string }>('/auth/activacion', { metodo: 'POST', cuerpo: { token, claveNueva } }),
+  verificarCorreo: (token: string) => api<{ email: string }>('/auth/verificacion', { metodo: 'POST', cuerpo: { token } }),
 };
 
 export interface FiltrosDocumentos {
@@ -95,11 +99,12 @@ export const notificaciones = {
 export const usuarios = {
   listar: (filtros: { q?: string; rol?: RolDeEmpresa; activo?: boolean; pagina?: number; porPagina?: number }, senal?: AbortSignal) =>
     api<Pagina<Usuario>>('/usuarios', { consulta: { ...filtros }, senal }),
-  crear: (datos: { nombre: string; email: string; dni: string; clave: string; rol: RolDeEmpresa }) =>
-    api<Usuario>('/usuarios', { metodo: 'POST', cuerpo: datos }),
+  crear: (datos: { nombre: string; email: string; dni: string; rol: RolDeEmpresa }) =>
+    api<ConInvitacion<Usuario>>('/usuarios', { metodo: 'POST', cuerpo: datos }),
   editar: (id: string, cambios: Partial<{ nombre: string; dni: string; rol: RolDeEmpresa; clave: string }>) =>
     api<Usuario>(`/usuarios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   cambiarEstado: (id: string, activo: boolean) => api<Usuario>(`/usuarios/${id}/estado`, { metodo: 'PATCH', cuerpo: { activo } }),
+  reenviarInvitacion: (id: string) => api<{ enviado: true }>(`/usuarios/${id}/invitacion`, { metodo: 'POST' }),
 };
 
 export interface FiltrosHistorial {
@@ -161,11 +166,11 @@ export const identidad: OperacionesDeIdentidad & { obtener(senal?: AbortSignal):
   ...operacionesSobre('/empresa/identidad'),
 };
 
+/** Sin contraseña: la define su dueño al aceptar la invitación (D41). */
 interface DatosDeAdministrador {
   nombre: string;
   email: string;
   dni: string;
-  clave: string;
 }
 
 /** El área del Master (decisión B): crea empresas con su primer administrador y ve sus cifras. */
@@ -175,16 +180,17 @@ export const plataforma = {
   empresa: (id: string, senal?: AbortSignal) =>
     api<EmpresaConMetricas & { administradores: Administrador[]; marca: Marca }>(`/plataforma/empresas/${id}`, { senal }),
   crearEmpresa: (datos: { empresa: { nombre: string; ruc: string }; administrador: DatosDeAdministrador }) =>
-    api<{ empresa: Empresa; administrador: Administrador }>('/plataforma/empresas', { metodo: 'POST', cuerpo: datos }),
+    api<{ empresa: Empresa; administrador: ConInvitacion<Administrador> }>('/plataforma/empresas', { metodo: 'POST', cuerpo: datos }),
   editarEmpresa: (id: string, cambios: Partial<{ nombre: string; ruc: string }>) =>
     api<Empresa>(`/plataforma/empresas/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   cambiarEstadoEmpresa: (id: string, activa: boolean) =>
     api<Empresa>(`/plataforma/empresas/${id}/estado`, { metodo: 'PATCH', cuerpo: { activa } }),
   identidadDe: (id: string): OperacionesDeIdentidad => operacionesSobre(`/plataforma/empresas/${id}/identidad`),
   crearAdministrador: (empresaId: string, datos: DatosDeAdministrador) =>
-    api<Administrador>(`/plataforma/empresas/${empresaId}/administradores`, { metodo: 'POST', cuerpo: datos }),
-  editarAdministrador: (id: string, cambios: Partial<Omit<DatosDeAdministrador, 'email'> & { email: string }>) =>
+    api<ConInvitacion<Administrador>>(`/plataforma/empresas/${empresaId}/administradores`, { metodo: 'POST', cuerpo: datos }),
+  editarAdministrador: (id: string, cambios: Partial<DatosDeAdministrador & { clave: string }>) =>
     api<Administrador>(`/plataforma/administradores/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+  reenviarInvitacion: (id: string) => api<{ enviado: true }>(`/plataforma/administradores/${id}/invitacion`, { metodo: 'POST' }),
   cambiarEstadoAdministrador: (id: string, activo: boolean) =>
     api<Administrador>(`/plataforma/administradores/${id}/estado`, { metodo: 'PATCH', cuerpo: { activo } }),
   /** RF27: lo que hizo la plataforma y los accesos sin empresa; nunca la actividad dentro de una empresa. */

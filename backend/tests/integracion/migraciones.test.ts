@@ -81,7 +81,7 @@ describe('aplicarMigraciones', () => {
   });
 
   it('las migraciones del proyecto se aplican sobre una base vacía', async () => {
-    expect(await aplicarMigraciones(base.pool, DIRECTORIO_MIGRACIONES)).toEqual(['001_esquema_inicial.sql', '002_cerrar_api_automatica.sql', '003_endurecer_funciones.sql', '004_permisos_por_categoria.sql', '005_papelera.sql', '006_auditoria_y_bloqueo.sql', '007_respaldos.sql', '008_identidad_y_tema.sql', '009_versiones.sql', '010_rendimiento_y_listado.sql', '011_cierre_del_estudio.sql', '012_fondo_de_empresa.sql']);
+    expect(await aplicarMigraciones(base.pool, DIRECTORIO_MIGRACIONES)).toEqual(['001_esquema_inicial.sql', '002_cerrar_api_automatica.sql', '003_endurecer_funciones.sql', '004_permisos_por_categoria.sql', '005_papelera.sql', '006_auditoria_y_bloqueo.sql', '007_respaldos.sql', '008_identidad_y_tema.sql', '009_versiones.sql', '010_rendimiento_y_listado.sql', '011_cierre_del_estudio.sql', '012_fondo_de_empresa.sql', '013_verificacion_de_correo.sql']);
     expect(await aplicarMigraciones(base.pool, DIRECTORIO_MIGRACIONES)).toEqual([]);
   });
 });

@@ -4,9 +4,10 @@ import { ErrorAplicacion, noEncontrado } from '../../compartido/errores.js';
 import type { Actor } from '../../compartido/peticion.js';
 import { violaRestriccion } from '../../db/errores-postgres.js';
 import { revocarSesionesDe } from '../auth/auth.repositorio.js';
+import type { EnlacesDeCuenta } from '../auth/enlaces.js';
 import { CATEGORIAS_INICIALES } from '../categorias/categorias.iniciales.js';
 import { autorDelMasterSobre, registrarAccion } from '../historial/historial.registro.js';
-import { cambiosParaElHistorial, correoEnUso } from '../usuarios/usuarios.servicio.js';
+import { cambiosParaElHistorial, correoEnUso, invitacionEnviada, reenviarEnlace } from '../usuarios/usuarios.servicio.js';
 import type {
   CambiosAdministrador, CambiosEmpresa, NuevaEmpresa, NuevoAdministrador,
 } from './plataforma.esquemas.js';
@@ -32,7 +33,7 @@ function traducir(error: unknown): unknown {
  * edita, las desactiva y ve sus cifras. Solo llega aquí quien tiene GESTIONAR_PLATAFORMA, y su acceso
  * a los datos es el de plataforma: la base no le deja leer el contenido de ninguna empresa.
  */
-export function crearServicioPlataforma() {
+export function crearServicioPlataforma({ enlaces }: { enlaces: EnlacesDeCuenta }) {
   async function empresaExistente(actor: Actor, id: string): Promise<EmpresaConMetricas> {
     const empresa = await actor.datos.ejecutar((db) => buscarEmpresa(db, id));
     if (!empresa) throw noEncontrado('La empresa no existe');
@@ -43,6 +44,15 @@ export function crearServicioPlataforma() {
     const administrador = await actor.datos.ejecutar((db) => buscarAdministrador(db, id));
     if (!administrador) throw noEncontrado('El administrador no existe');
     return administrador;
+  }
+
+  /** La invitación al administrador recién creado, con el Master como autor en el historial de su empresa. */
+  async function invitar(actor: Actor, administrador: Administrador) {
+    const envio = await enlaces.enviar(administrador.id, {
+      autor: autorDelMasterSobre(actor.autenticacion.usuario, administrador.empresaId),
+      contexto: actor.contexto, siHayLimite: 'callar', esperarAlCorreo: true,
+    });
+    return { ...administrador, invitacionEnviada: invitacionEnviada(envio) };
   }
 
   return {
@@ -56,20 +66,21 @@ export function crearServicioPlataforma() {
       return { ...empresa, administradores };
     },
 
-    /** La empresa, su primer administrador y sus categorías iniciales (RN07), todo o nada. */
+    /**
+     * La empresa, su primer administrador y sus categorías iniciales (RN07), todo o nada. Después, la
+     * invitación del administrador: si no sale, la empresa queda creada y se reenvía desde su ficha.
+     */
     async crearEmpresa(actor: Actor, { empresa: datosEmpresa, administrador: datosAdministrador }: NuevaEmpresa) {
       const master = actor.autenticacion.usuario;
-      // Fuera de la transacción: es lo más lento y no toca la base.
-      const claveHash = await hashearClave(datosAdministrador.clave);
+      let creada: { empresa: Empresa; administrador: Administrador };
       try {
-        return await actor.datos.ejecutar(async (cliente) => {
+        creada = await actor.datos.ejecutar(async (cliente) => {
           const empresa = await insertarEmpresa(cliente, { nombre: datosEmpresa.nombre, ruc: datosEmpresa.ruc ?? null });
           const administrador = await insertarAdministrador(cliente, {
             empresaId: empresa.id,
             nombre: datosAdministrador.nombre,
             email: datosAdministrador.email,
             dni: datosAdministrador.dni ?? null,
-            claveHash,
           });
           await insertarCategoriasIniciales(cliente, empresa.id, CATEGORIAS_INICIALES);
           const autor = autorDelMasterSobre(master, empresa.id);
@@ -87,6 +98,7 @@ export function crearServicioPlataforma() {
       } catch (error) {
         throw traducir(error);
       }
+      return { empresa: creada.empresa, administrador: await invitar(actor, creada.administrador) };
     },
 
     async editarEmpresa(actor: Actor, id: string, propuesta: CambiosEmpresa): Promise<Empresa> {
@@ -123,13 +135,13 @@ export function crearServicioPlataforma() {
       });
     },
 
-    async crearAdministrador(actor: Actor, empresaId: string, datos: NuevoAdministrador): Promise<Administrador> {
+    async crearAdministrador(actor: Actor, empresaId: string, datos: NuevoAdministrador) {
       await empresaExistente(actor, empresaId);
-      const claveHash = await hashearClave(datos.clave);
+      let creado: Administrador;
       try {
-        return await actor.datos.ejecutar(async (cliente) => {
+        creado = await actor.datos.ejecutar(async (cliente) => {
           const administrador = await insertarAdministrador(cliente, {
-            empresaId, nombre: datos.nombre, email: datos.email, dni: datos.dni ?? null, claveHash,
+            empresaId, nombre: datos.nombre, email: datos.email, dni: datos.dni ?? null,
           });
           await registrarAccion(cliente, {
             accion: 'USUARIO_CREADO', autor: autorDelMasterSobre(actor.autenticacion.usuario, empresaId), contexto: actor.contexto,
@@ -141,6 +153,13 @@ export function crearServicioPlataforma() {
       } catch (error) {
         throw traducir(error);
       }
+      return invitar(actor, creado);
+    },
+
+    /** La invitación (o la verificación) otra vez, para un administrador que no la recibió o la dejó caducar. */
+    async reenviarInvitacion(actor: Actor, id: string) {
+      const administrador = await administradorExistente(actor, id);
+      return reenviarEnlace(enlaces, administrador, autorDelMasterSobre(actor.autenticacion.usuario, administrador.empresaId), actor.contexto);
     },
 
     async editarAdministrador(actor: Actor, id: string, { clave, ...propuesta }: CambiosAdministrador): Promise<Administrador> {
@@ -148,22 +167,36 @@ export function crearServicioPlataforma() {
       const cambios = calcularCambios(actual, propuesta);
       if (Object.keys(cambios).length === 0 && clave === undefined) return actual;
       const claveHash = clave === undefined ? undefined : await hashearClave(clave);
+      const autor = autorDelMasterSobre(actor.autenticacion.usuario, actual.empresaId);
+      let editado: Administrador;
       try {
-        return await actor.datos.ejecutar(async (cliente) => {
+        editado = await actor.datos.ejecutar(async (cliente) => {
           await actualizarAdministrador(cliente, id, { ...valoresNuevos(cambios), ...(claveHash && { claveHash }) });
-          // Una contraseña restablecida es porque la anterior ya no es de fiar: sus sesiones se cierran.
-          const sesionesCerradas = claveHash ? await revocarSesionesDe(cliente, id) : 0;
+          // Una contraseña restablecida, o un correo nuevo que aún no es suyo (la base le quita la verificación,
+          // 013), dejan de ser de fiar: sus sesiones se cierran.
+          const sesionesCerradas = claveHash || cambios.email ? await revocarSesionesDe(cliente, id) : 0;
           await registrarAccion(cliente, {
-            accion: 'USUARIO_EDITADO',
-            autor: autorDelMasterSobre(actor.autenticacion.usuario, actual.empresaId), contexto: actor.contexto,
+            accion: 'USUARIO_EDITADO', autor, contexto: actor.contexto,
             entidad: { tipo: 'usuario', id },
-            detalle: { cambios: cambiosParaElHistorial(cambios), ...(claveHash && { claveRestablecida: true, sesionesCerradas }) },
+            detalle: {
+              cambios: cambiosParaElHistorial(cambios),
+              ...((claveHash || cambios.email) && { sesionesCerradas }),
+              ...(claveHash && { claveRestablecida: true }),
+            },
           });
-          return { ...actual, ...valoresNuevos(cambios) } as Administrador;
+          const despues = await buscarAdministrador(cliente, id);
+          if (!despues) throw noEncontrado('El administrador no existe');
+          return despues;
         });
       } catch (error) {
         throw traducir(error);
       }
+      // D41: el correo nuevo se confirma con un enlace, y el anterior se entera del cambio.
+      if (cambios.email) {
+        await enlaces.enviar(id, { autor, contexto: actor.contexto, siHayLimite: 'callar', esperarAlCorreo: true });
+        await enlaces.avisarCambioDeCorreo({ anterior: actual.email, nombre: editado.nombre, nuevo: editado.email });
+      }
+      return editado;
     },
 
     async cambiarEstadoAdministrador(actor: Actor, id: string, activo: boolean): Promise<Administrador> {

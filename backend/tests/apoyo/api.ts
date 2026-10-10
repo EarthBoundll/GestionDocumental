@@ -49,6 +49,7 @@ export class CorreoDePruebas implements Correo {
 type App = ReturnType<typeof crearApp>;
 
 const pools = new WeakMap<App, pg.Pool>();
+const correos = new WeakMap<App, Correo>();
 const tokensDelMaster = new WeakMap<App, string>();
 
 /** Los respaldos de las pruebas, en una carpeta temporal propia de cada app. */
@@ -65,7 +66,27 @@ export function crearAppDePruebas(
 ) {
   const app = crearApp({ pool, entorno: entornoDePruebas(cambios), almacenamiento, correo, respaldos });
   pools.set(app, pool);
+  correos.set(app, correo);
   return app;
+}
+
+/** El token del último enlace que se le envió a un correo: lo que va tras el «#» en el mensaje. */
+export function tokenDelUltimoEnlace(correo: CorreoDePruebas, para: string): string {
+  const mensaje = correo.enviados.findLast((enviado) => enviado.para === para);
+  const token = mensaje?.texto.match(/#([\w-]{20,})/)?.[1];
+  if (!token) throw new Error(`No le llegó ningún enlace a ${para}`);
+  return token;
+}
+
+/**
+ * Acepta la invitación de una cuenta como lo haría su dueño (D41): lee el correo que le llegó, abre el enlace
+ * y define su contraseña. No hay atajo en el código: las pruebas pasan por el mismo camino que una persona.
+ */
+export async function activarCuenta(app: App, email: string, clave = CLAVE): Promise<void> {
+  const correo = correos.get(app);
+  if (!(correo instanceof CorreoDePruebas)) throw new Error('Para activar una cuenta, la app necesita un CorreoDePruebas');
+  const respuesta = await request(app).post('/api/v1/auth/activacion').send({ token: tokenDelUltimoEnlace(correo, email), claveNueva: clave });
+  if (respuesta.status !== 200) throw new Error(`No se pudo activar la cuenta: ${respuesta.status} ${JSON.stringify(respuesta.body)}`);
 }
 
 /** Valores de prueba del Master: solo existen en las bases temporales de las pruebas. */
@@ -92,7 +113,8 @@ let secuencia = 0;
 
 /**
  * Una empresa nueva, como en producción: la crea el Master por la API con su primer administrador
- * (decisión B), y después ese administrador inicia sesión. Devuelve su sesión: token, usuario y empresa.
+ * (decisión B), ese administrador acepta su invitación (D41) y después inicia sesión. Devuelve su sesión:
+ * token, usuario y empresa.
  */
 export async function registrarEmpresa(app: App, { userAgent = UA_ESCRITORIO } = {}) {
   const n = ++secuencia;
@@ -102,9 +124,10 @@ export async function registrarEmpresa(app: App, { userAgent = UA_ESCRITORIO } =
     .set('Authorization', `Bearer ${await tokenDelMaster(app)}`)
     .send({
       empresa: { nombre: `Empresa de prueba ${n}` },
-      administrador: { nombre: `Administradora ${n}`, email, clave: CLAVE },
+      administrador: { nombre: `Administradora ${n}`, email },
     });
   if (creada.status !== 201) throw new Error(`No se pudo crear la empresa: ${creada.status} ${JSON.stringify(creada.body)}`);
+  await activarCuenta(app, email);
   const respuesta = await request(app).post('/api/v1/auth/login').set('User-Agent', userAgent).send({ email, clave: CLAVE });
   if (respuesta.status !== 200) throw new Error(`El inicio de sesión falló: ${respuesta.status} ${JSON.stringify(respuesta.body)}`);
   return respuesta.body as {
@@ -115,12 +138,16 @@ export async function registrarEmpresa(app: App, { userAgent = UA_ESCRITORIO } =
   };
 }
 
-/** Crea directamente en la base un usuario de la empresa, con la contraseña CLAVE. */
+/**
+ * Crea directamente en la base un usuario de la empresa, con la contraseña CLAVE y el correo ya verificado:
+ * como si hubiera aceptado su invitación. Es un dato de partida de la base de pruebas, escrito por su dueño;
+ * la API no tiene forma de hacerlo. Las pruebas de la invitación usan el camino completo.
+ */
 export async function crearUsuarioEn(pool: pg.Pool, empresaId: string, rol: 'administrador' | 'usuario' = 'usuario') {
   const email = `persona${++secuencia}.${Date.now()}@ejemplo.pe`;
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO usuarios (empresa_id, nombre, email, clave_hash, rol)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    `INSERT INTO usuarios (empresa_id, nombre, email, clave_hash, rol, email_verificado_en)
+     VALUES ($1, $2, $3, $4, $5, now()) RETURNING id`,
     [empresaId, `Persona ${secuencia}`, email, await hashearClave(CLAVE), rol],
   );
   return { id: rows[0]!.id, email };

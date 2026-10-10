@@ -1,6 +1,7 @@
 import { clausulaSet } from '../../db/actualizacion.js';
 import { primeraFila } from '../../db/filas.js';
 import type { Consultor } from '../../db/pool.js';
+import { COLUMNA_ESTADO, type EstadoDeCorreo } from '../usuarios/usuarios.repositorio.js';
 
 /*
  * Lo que el Master ve, siempre con el acceso de plataforma (D17): empresas, sus administradores y
@@ -34,6 +35,7 @@ export interface Administrador {
   email: string;
   dni: string | null;
   activo: boolean;
+  estado: EstadoDeCorreo;
   creadoEn: Date;
 }
 
@@ -44,7 +46,7 @@ const METRICAS = `json_build_object(
     'documentos', coalesce(m.documentos, 0), 'almacenamientoBytes', coalesce(m.almacenamiento_bytes, 0),
     'ultimoAcceso', m.ultimo_acceso) AS metricas`;
 const DESDE_EMPRESAS = 'FROM empresas e LEFT JOIN metricas_de_empresas() m ON m.empresa_id = e.id';
-const COLUMNAS_ADMINISTRADOR = 'id, empresa_id AS "empresaId", nombre, email, dni, activo, creado_en AS "creadoEn"';
+const COLUMNAS_ADMINISTRADOR = `id, empresa_id AS "empresaId", nombre, email, dni, activo, ${COLUMNA_ESTADO}, creado_en AS "creadoEn"`;
 
 type FilaEmpresa = Omit<EmpresaConMetricas, 'metricas'> & { metricas: Omit<Metricas, 'ultimoAcceso'> & { ultimoAcceso: string | null } };
 
@@ -104,14 +106,15 @@ export async function buscarAdministrador(db: Consultor, id: string): Promise<Ad
   return rows[0] ?? null;
 }
 
+/** Como cualquier cuenta nueva, sin contraseña y sin verificar: la activa con su invitación (D41). */
 export async function insertarAdministrador(
   db: Consultor,
-  datos: { empresaId: string; nombre: string; email: string; dni: string | null; claveHash: string },
+  datos: { empresaId: string; nombre: string; email: string; dni: string | null },
 ): Promise<Administrador> {
   const { rows } = await db.query<Administrador>(
-    `INSERT INTO usuarios (empresa_id, nombre, email, dni, clave_hash, rol)
-     VALUES ($1, $2, $3, $4, $5, 'administrador') RETURNING ${COLUMNAS_ADMINISTRADOR}`,
-    [datos.empresaId, datos.nombre, datos.email, datos.dni, datos.claveHash],
+    `INSERT INTO usuarios (empresa_id, nombre, email, dni, rol)
+     VALUES ($1, $2, $3, $4, 'administrador') RETURNING ${COLUMNAS_ADMINISTRADOR}`,
+    [datos.empresaId, datos.nombre, datos.email, datos.dni],
   );
   return primeraFila(rows);
 }

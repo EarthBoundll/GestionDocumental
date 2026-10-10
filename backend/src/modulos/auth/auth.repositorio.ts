@@ -18,7 +18,10 @@ export interface Empresa {
 
 export interface CuentaParaIniciarSesion extends UsuarioAutenticado {
   activo: boolean;
-  claveHash: string;
+  /** Nula mientras la invitación no se acepta (D41): sin contraseña no se puede entrar. */
+  claveHash: string | null;
+  /** Si su dueño ya demostró que el buzón es suyo (D41). */
+  verificado: boolean;
   /** Null solo para el Master. */
   empresa: (Empresa & { activa: boolean }) | null;
 }
@@ -57,7 +60,7 @@ export async function buscarSesionVigente(db: Consultor, { usuarioId, sesionId }
      JOIN usuarios u ON u.id = s.usuario_id
      LEFT JOIN empresas e ON e.id = u.empresa_id
      WHERE s.id = $1 AND s.usuario_id = $2 AND s.revocada_en IS NULL AND s.expira_en > now()
-       AND u.activo AND (u.empresa_id IS NULL OR e.activa)`,
+       AND u.activo AND (u.empresa_id IS NULL OR e.activa) AND u.email_verificado_en IS NOT NULL`,
     [sesionId, usuarioId],
   );
   return rows[0] ? aUsuario(rows[0]) : null;
@@ -65,9 +68,10 @@ export async function buscarSesionVigente(db: Consultor, { usuarioId, sesionId }
 
 export async function buscarCuentaPorEmail(db: Consultor, email: string): Promise<CuentaParaIniciarSesion | null> {
   const { rows } = await db.query<FilaUsuario & {
-    activo: boolean; clave_hash: string; empresa_nombre: string | null; empresa_activa: boolean | null;
+    activo: boolean; clave_hash: string | null; verificado: boolean; empresa_nombre: string | null; empresa_activa: boolean | null;
   }>(
-    `SELECT ${COLUMNAS_USUARIO}, u.activo, u.clave_hash, e.nombre AS empresa_nombre, e.activa AS empresa_activa
+    `SELECT ${COLUMNAS_USUARIO}, u.activo, u.clave_hash, u.email_verificado_en IS NOT NULL AS verificado,
+            e.nombre AS empresa_nombre, e.activa AS empresa_activa
      FROM usuarios u LEFT JOIN empresas e ON e.id = u.empresa_id
      WHERE u.email = $1`,
     [email],
@@ -78,6 +82,7 @@ export async function buscarCuentaPorEmail(db: Consultor, email: string): Promis
     ...aUsuario(fila),
     activo: fila.activo,
     claveHash: fila.clave_hash,
+    verificado: fila.verificado,
     empresa: fila.empresa_id === null
       ? null
       : { id: fila.empresa_id, nombre: fila.empresa_nombre ?? '', activa: fila.empresa_activa === true },
@@ -126,14 +131,18 @@ export async function buscarMaster(db: Consultor): Promise<UsuarioAutenticado | 
   return rows[0] ? aUsuario(rows[0]) : null;
 }
 
-/** El Master, la única cuenta sin empresa. La base rechaza una segunda (usuarios_un_solo_master). */
+/**
+ * El Master, la única cuenta sin empresa. La base rechaza una segunda (usuarios_un_solo_master). Nace con el
+ * correo verificado: lo crea el script de inicialización, que ejecuta quien ya controla la base y el entorno
+ * (D41). No es una excepción del inicio de sesión, que exige la verificación a todos por igual.
+ */
 export async function insertarMaster(
   db: Consultor,
   datos: { nombre: string; email: string; dni: string | null; claveHash: string },
 ): Promise<UsuarioAutenticado> {
   const { rows } = await db.query<FilaUsuario>(
-    `INSERT INTO usuarios AS u (empresa_id, nombre, email, dni, clave_hash, rol)
-     VALUES (NULL, $1, $2, $3, $4, 'master') RETURNING ${COLUMNAS_USUARIO}`,
+    `INSERT INTO usuarios AS u (empresa_id, nombre, email, dni, clave_hash, rol, email_verificado_en)
+     VALUES (NULL, $1, $2, $3, $4, 'master', now()) RETURNING ${COLUMNAS_USUARIO}`,
     [datos.nombre, datos.email, datos.dni, datos.claveHash],
   );
   return aUsuario(primeraFila(rows));
@@ -173,36 +182,107 @@ export async function actualizarClaveHash(db: Consultor, usuarioId: string, clav
   await db.query('UPDATE usuarios SET clave_hash = $2 WHERE id = $1', [usuarioId, claveHash]);
 }
 
-/** Anula los enlaces de recuperación pendientes del usuario: solo vale el último que pidió. */
-export async function anularRecuperacionesDe(db: Consultor, usuarioId: string): Promise<void> {
+/**
+ * Para qué sirve un enlace que llega por correo (D41). Los tres comparten tabla, huella y forma de gastarse:
+ * la recuperación define una contraseña nueva; la invitación, la primera, y verifica el correo; la
+ * verificación solo confirma el correo de una cuenta que ya tiene contraseña.
+ */
+export type Proposito = 'recuperacion' | 'invitacion' | 'verificacion';
+
+/** Anula los enlaces pendientes del usuario, sean para lo que sean: solo vale el último que se envió. */
+export async function anularEnlacesDe(db: Consultor, usuarioId: string): Promise<void> {
   await db.query('UPDATE recuperaciones_clave SET usada_en = now() WHERE usuario_id = $1 AND usada_en IS NULL', [usuarioId]);
 }
 
 /** La vigencia se cuenta con el reloj de la base, el mismo que después comprueba si caducó. */
-export async function insertarRecuperacion(db: Consultor, usuarioId: string, tokenHash: string, minutos: number): Promise<string> {
+export async function insertarEnlace(
+  db: Consultor,
+  { usuarioId, tokenHash, minutos, proposito, enviadoA }: {
+    usuarioId: string; tokenHash: string; minutos: number; proposito: Proposito; enviadoA: string;
+  },
+): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO recuperaciones_clave (usuario_id, token_hash, expira_en)
-     VALUES ($1, $2, now() + make_interval(mins => $3)) RETURNING id`,
-    [usuarioId, tokenHash, minutos],
+    `INSERT INTO recuperaciones_clave (usuario_id, token_hash, expira_en, proposito, enviado_a)
+     VALUES ($1, $2, now() + make_interval(mins => $3), $4, $5) RETURNING id`,
+    [usuarioId, tokenHash, minutos, proposito, enviadoA],
   );
   return primeraFila(rows).id;
 }
 
 /**
- * Gasta un enlace de recuperación: lo marca como usado y devuelve su usuario, en una sola sentencia.
- * Si dos peticiones llegan a la vez con el mismo enlace, solo una lo consigue. Un enlace caducado, ya
- * usado o de una cuenta desactivada no sirve.
+ * Gasta un enlace: lo marca como usado y devuelve su usuario, en una sola sentencia. Si dos peticiones llegan
+ * a la vez con el mismo enlace, solo una lo consigue. Un enlace caducado, ya usado, de otro propósito, de
+ * una cuenta desactivada o enviado a un correo que ya no es el de la cuenta no sirve: verificaría un buzón
+ * que no lo recibió. El enlace solo actúa sobre su propia cuenta: no lleva ni rol ni empresa.
  */
-export async function consumirRecuperacion(db: Consultor, tokenHash: string): Promise<UsuarioAutenticado | null> {
-  const { rows } = await db.query<FilaUsuario>(
+export async function consumirEnlace(
+  db: Consultor,
+  tokenHash: string,
+  propositos: readonly Proposito[],
+): Promise<(UsuarioAutenticado & { tieneClave: boolean }) | null> {
+  const { rows } = await db.query<FilaUsuario & { tiene_clave: boolean }>(
     `UPDATE recuperaciones_clave r SET usada_en = now()
      FROM usuarios u LEFT JOIN empresas e ON e.id = u.empresa_id
-     WHERE r.token_hash = $1 AND r.usada_en IS NULL AND r.expira_en > now()
+     WHERE r.token_hash = $1 AND r.usada_en IS NULL AND r.expira_en > now() AND r.proposito = ANY($2)
        AND u.id = r.usuario_id AND u.activo AND (u.empresa_id IS NULL OR e.activa)
-     RETURNING ${COLUMNAS_USUARIO}`,
-    [tokenHash],
+       AND (r.enviado_a IS NULL OR r.enviado_a = u.email)
+     RETURNING ${COLUMNAS_USUARIO}, u.clave_hash IS NOT NULL AS tiene_clave`,
+    [tokenHash, propositos],
   );
-  return rows[0] ? aUsuario(rows[0]) : null;
+  return rows[0] ? { ...aUsuario(rows[0]), tieneClave: rows[0].tiene_clave } : null;
+}
+
+/** Marca el correo como verificado si aún no lo estaba, y dice si cambió. Solo lo llama quien gastó un enlace. */
+export async function marcarVerificado(db: Consultor, usuarioId: string): Promise<boolean> {
+  const { rowCount } = await db.query(
+    'UPDATE usuarios SET email_verificado_en = now() WHERE id = $1 AND email_verificado_en IS NULL',
+    [usuarioId],
+  );
+  return rowCount === 1;
+}
+
+/** Lo que hace falta para mandarle un enlace a alguien: su estado, y el nombre con que se ve su empresa. */
+export interface CuentaParaEnlace {
+  id: string;
+  nombre: string;
+  email: string;
+  empresaId: string | null;
+  rol: Rol;
+  activo: boolean;
+  empresaActiva: boolean;
+  tieneClave: boolean;
+  verificado: boolean;
+  empresa: string | null;
+}
+
+/** Bloquea la fila del usuario hasta el final de la transacción: dos reenvíos a la vez no se saltan el freno. */
+export async function bloquearCuentaParaEnlace(db: Consultor, usuarioId: string): Promise<CuentaParaEnlace | null> {
+  const { rows } = await db.query<CuentaParaEnlace>(
+    `SELECT u.id, u.nombre, u.email, u.empresa_id AS "empresaId", u.rol, u.activo,
+            coalesce(e.activa, true) AS "empresaActiva", u.clave_hash IS NOT NULL AS "tieneClave",
+            u.email_verificado_en IS NOT NULL AS verificado, coalesce(e.nombre_comercial, e.nombre) AS empresa
+     FROM usuarios u LEFT JOIN empresas e ON e.id = u.empresa_id
+     WHERE u.id = $1
+     FOR UPDATE OF u`,
+    [usuarioId],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Cuándo se le mandó a un buzón su último enlace de invitación o verificación de esta cuenta, y cuántos en
+ * las últimas 24 h. El freno protege un buzón: un correo nuevo empieza de cero.
+ */
+export async function enviosRecientes(
+  db: Consultor, usuarioId: string, email: string,
+): Promise<{ ultimo: Date | null; enUnDia: number }> {
+  const { rows } = await db.query<{ ultimo: Date | null; en_un_dia: number }>(
+    `SELECT max(creada_en) AS ultimo, count(*) FILTER (WHERE creada_en > now() - interval '24 hours')::int AS en_un_dia
+     FROM recuperaciones_clave
+     WHERE usuario_id = $1 AND enviado_a = $2 AND proposito IN ('invitacion', 'verificacion')`,
+    [usuarioId, email],
+  );
+  return { ultimo: rows[0]?.ultimo ?? null, enUnDia: rows[0]?.en_un_dia ?? 0 };
 }
 
 /**
@@ -219,7 +299,9 @@ export async function fallosRecientes(db: Consultor, email: string, usuarioId: s
        AND h.creado_en > now() - make_interval(mins => $3)
        AND h.creado_en > coalesce(
          (SELECT max(r.creado_en) FROM historial r
-          WHERE r.usuario_id = $2 AND r.accion IN ('SESION_INICIADA', 'CLAVE_RESTABLECIDA')),
+          WHERE r.usuario_id = $2 AND (r.accion IN ('SESION_INICIADA', 'CLAVE_RESTABLECIDA')
+            -- Aceptar la invitación también define la contraseña por correo (D41).
+            OR (r.accion = 'CORREO_VERIFICADO' AND r.detalle ->> 'mediante' = 'invitacion'))),
          '-infinity')`,
     [email, usuarioId, minutos],
   );
