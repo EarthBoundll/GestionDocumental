@@ -1,0 +1,23 @@
+{
+  "name": "experimento-busqueda-semantica",
+  "private": true,
+  "type": "module",
+  "description": "Prueba aislada de búsqueda semántica (D43). No forma parte del sistema desplegado: ni Render ni el CI la instalan.",
+  "scripts": {
+    "medir": "tsx medir.ts",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

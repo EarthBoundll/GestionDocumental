@@ -1,0 +1,3 @@
+node_modules/
+# El modelo se descarga al medir: unos 120 MB que no se versionan.
+.modelos/
