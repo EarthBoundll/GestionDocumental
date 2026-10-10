@@ -216,10 +216,10 @@ qué variable revisar. No crea datos ni inicia sesión.
 Después, a mano, la prueba de humo (unos diez minutos):
 
 - [x] El Master entra desde la PC y da de alta la empresa del caso de validación con su administrador.
-- [ ] Ese administrador entra **desde su celular**, sube un documento con la cámara o desde la galería,
+- [x] Ese administrador entra **desde su celular**, sube un documento con la cámara o desde la galería,
       lo busca, lo ve y lo descarga. *(9 de octubre: subido con «Tomar foto» y visto desde el celular. 10 de
-      octubre: descargado, visto y exportado el listado desde un iPhone, y el historial lo marca como celular;
-      falta buscarlo desde el celular.)*
+      octubre: buscado, visto, descargado y exportado el listado desde un iPhone; el historial lo marca todo
+      como celular.)*
 - [x] Desde la PC, pide recuperar su contraseña: el correo llega (revisa también *Spam*) y el enlace
       funciona una sola vez.
 - [x] Un usuario pide aprobar un documento y el administrador lo aprueba; la campana avisa a ambos.
@@ -235,12 +235,14 @@ Después, a mano, la prueba de humo (unos diez minutos):
       encuentra igual al entrar desde el otro dispositivo.
 - [ ] Desde el celular, busca «facturas proveedores» (o dos palabras de un documento real en otro orden), escribe
       un nombre con una letra cambiada y elige una sugerencia mientras escribes: los tres encuentran el documento y el
-      historial muestra las búsquedas (D42).
-- [ ] El administrador crea una cuenta con un correo al que tienes acceso: la lista dice «Pendiente de activar»,
+      historial muestra las búsquedas (D42). *(10 de octubre: una búsqueda escrita desde un iPhone encontró el
+      documento; faltan la letra cambiada y la sugerencia.)*
+- [x] El administrador crea una cuenta con un correo al que tienes acceso: la lista dice «Pendiente de activar»,
       la invitación llega (revisa también *Spam*), el enlace lleva a *Activa tu cuenta*, y con la contraseña
       elegida se entra desde el celular. Un segundo uso del mismo enlace dice que ya no sirve (D41). *(10 de
-      octubre: la cuenta se creó, la invitación llegó y se activó, y se entró con ella desde un iPhone; falta
-      comprobar que un segundo uso del enlace ya no sirve.)*
+      octubre: la invitación llegó, se activó y se entró con ella desde un iPhone. Abierta otra vez, no cambió
+      nada: el enlace sigue gastado desde su primer uso, y la contraseña se cambió después con «¿Olvidaste tu
+      contraseña?», como indica el mensaje.)*
 
 ### 8.1 La migración 013 en producción (D41)
 
