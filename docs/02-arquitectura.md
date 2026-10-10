@@ -685,6 +685,23 @@ trigramas (no entiende plurales ni el orden de las palabras), buscar mientras se
 `BUSQUEDA_REALIZADA`, D36), un vocabulario de palabras para corregir errores (calcularlo en cada consulta tardaba más
 que la propia búsqueda, y mantenerlo exigía otra tabla) y búsqueda semántica con IA (fuera del alcance de la tesis).
 
+**D43 · La búsqueda sigue sin IA y sin leer los archivos; decidirán las búsquedas fallidas de la evaluación.**
+Comparé la búsqueda actual (D42) con dos alternativas (`docs/12-busqueda-e-ia.md`): la semántica con embeddings y la
+del contenido de PDF y DOCX.
+- La actual resuelve los casos del pedido, tarda 98 ms con 50.000 documentos, cuesta 0 y no cambia a quién llegan los
+  datos.
+- La semántica manda el texto a un proveedor más o no cabe en los 512 MB de Render gratuito. Además, su índice ordena
+  entre todas las empresas antes de que filtre la RLS.
+- La del contenido metería los documentos en la base y en los respaldos, y sin OCR no alcanza a las fotos.
+
+Nadie sabe aún cuántas búsquedas reales fallan por esas razones. El sistema ya registra cada búsqueda con su texto y
+su número de resultados: tras la evaluación, una consulta probada cuenta las fallidas, se clasifican por causa y una
+regla, a aprobar con el asesor, decide. Si lo justifican, primero una prueba de concepto aislada del contenido sin OCR,
+que no manda nada a terceros.
+*Descartado:* integrar embeddings ahora (fuera del alcance, con costo y una transferencia de datos nueva sin datos que
+la pidan), el contenido con OCR (fuera del alcance, y con 0,1 CPU cada página escaneada tardaría, por estimación,
+decenas de segundos) y decidir sin medir.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |
