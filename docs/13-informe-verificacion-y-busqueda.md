@@ -254,8 +254,13 @@ Buscador (§8 del pedido):
 
 ### Lo que no está probado
 
-- **El recorrido por personas en producción.** Faltan dos puntos de la prueba de humo
-  ([07 · Despliegue §8](07-despliegue.md)): la invitación llegando a un buzón real y la búsqueda desde el celular.
+- **El recorrido por personas en producción, en parte.** El 10 de octubre se probó en producción:
+  - una invitación llegó a un buzón real y se activó;
+  - con esa cuenta se entró desde un iPhone, se descargó y se exportó;
+  - el historial marcó todo como hecho desde un celular.
+
+  Faltan dos puntos de la prueba de humo ([07 · Despliegue §8](07-despliegue.md)): buscar desde el celular y
+  comprobar que un enlace de invitación ya usado no sirve otra vez.
 - **El rendimiento en producción.** Se midió en local con 50.000 documentos. Render gratuito tiene 0,1 CPU, así que
   en producción todo será más lento, en especial la pasada por parecido. Lo medirá el indicador 7 en la evaluación.
 - **La entrega de las invitaciones.** No se midió cuántas llegan a la bandeja de entrada y cuántas a *Spam*.
@@ -297,7 +302,8 @@ La prueba de carga y los informes se ejecutan a mano.
 
 ## 10. Lo que sigue
 
-- Terminar la prueba de humo en producción: la invitación a un buzón real, y buscar y descargar desde el celular.
+- Terminar la prueba de humo en producción: buscar desde el celular y abrir otra vez un enlace de invitación ya
+  usado. La invitación y la descarga desde el celular se probaron el 10 de octubre.
 - Revisar con el asesor la regla de decisión sobre la IA ([12 §5](12-busqueda-e-ia.md)) y si la capacitación sugiere
   anotar el RUC o el cliente en la descripción.
 - Al cerrar la evaluación, ejecutar la consulta de búsquedas fallidas y clasificar sus causas.

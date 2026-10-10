@@ -82,8 +82,8 @@ solo aparecen al desplegar. Con la v2 se aprobaron las decisiones A–G de
    ([09 · Protocolo](09-protocolo-evaluacion.md) §10, D33).
 4. **Terminar la prueba de humo con personas** de [07 · Despliegue §8](07-despliegue.md). El 9 de octubre se
    hicieron el alta de la empresa, la subida con la cámara, la recuperación de la contraseña por correo y una
-   aprobación; faltan buscar y descargar desde el celular, las versiones, las exportaciones y la hoja para
-   imprimir. Va antes del congelamiento ([07 §9.1](07-despliegue.md)), que cierra la preparación: etiqueta,
+   aprobación. El 10 de octubre, una cuenta nueva activó su invitación y, desde un iPhone, descargó y exportó el
+   listado. Faltan buscar desde el celular, las versiones, abrir el listado en Excel y la hoja para imprimir. Va antes del congelamiento ([07 §9.1](07-despliegue.md)), que cierra la preparación: etiqueta,
    respaldo y su ensayo.
 5. **Después de la evaluación, decidir sobre la IA en la búsqueda** con el asesor: la consulta de búsquedas fallidas y la
    regla de [12 · Búsqueda e IA §5](12-busqueda-e-ia.md) (D43).
