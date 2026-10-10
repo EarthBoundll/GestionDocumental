@@ -47,7 +47,9 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 
 GitHub Actions ejecuta `npm test` del backend (con la batería de aislamiento) y del frontend, y las funcionales, en
 cada push a `main` y en cada pull request ([`.github/workflows/pruebas.yml`](.github/workflows/pruebas.yml)). La
-prueba de carga y los informes se ejecutan a mano.
+prueba de carga y los informes se ejecutan a mano. La prueba aislada de búsqueda semántica
+([`experimentos/busqueda-semantica/`](experimentos/busqueda-semantica/README.md), D43) no forma parte del sistema y
+tiene sus propias dependencias.
 
 ## Desplegar
 

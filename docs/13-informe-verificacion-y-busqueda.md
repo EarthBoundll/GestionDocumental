@@ -254,8 +254,14 @@ Buscador (§8 del pedido):
 
 ### Lo que no está probado
 
-- **El recorrido por personas en producción.** Faltan dos puntos de la prueba de humo
-  ([07 · Despliegue §8](07-despliegue.md)): la invitación llegando a un buzón real y la búsqueda desde el celular.
+- **El recorrido por personas en producción, en parte.** El 10 de octubre se probó en producción:
+  - una invitación llegó a un buzón real y se activó;
+  - abierta otra vez, no sirvió;
+  - con esa cuenta se entró desde un iPhone, se buscó, se descargó y se exportó;
+  - el historial marcó todo como hecho desde un celular.
+
+  Falta, de la prueba de humo ([07 · Despliegue §8](07-despliegue.md)), buscar desde el celular con una letra
+  cambiada y elegir una sugerencia.
 - **El rendimiento en producción.** Se midió en local con 50.000 documentos. Render gratuito tiene 0,1 CPU, así que
   en producción todo será más lento, en especial la pasada por parecido. Lo medirá el indicador 7 en la evaluación.
 - **La entrega de las invitaciones.** No se midió cuántas llegan a la bandeja de entrada y cuántas a *Spam*.
@@ -297,7 +303,9 @@ La prueba de carga y los informes se ejecutan a mano.
 
 ## 10. Lo que sigue
 
-- Terminar la prueba de humo en producción: la invitación a un buzón real, y buscar y descargar desde el celular.
+- Terminar la prueba de humo en producción: buscar desde el celular con una letra cambiada y elegir una
+  sugerencia. La invitación, el enlace ya usado y la búsqueda y la descarga desde el celular se probaron el
+  10 de octubre.
 - Revisar con el asesor la regla de decisión sobre la IA ([12 §5](12-busqueda-e-ia.md)) y si la capacitación sugiere
   anotar el RUC o el cliente en la descripción.
 - Al cerrar la evaluación, ejecutar la consulta de búsquedas fallidas y clasificar sus causas.
@@ -321,3 +329,11 @@ La prueba de carga y los informes se ejecutan a mano.
 concepto aislada de la búsqueda en el contenido de PDF y DOCX, sin OCR: no manda nada a terceros y ataca la falla
 más probable en una MYPE, buscar por el RUC o por el cliente. La búsqueda semántica, solo si después siguen fallando
 búsquedas por el sentido, y siempre filtrada por empresa y permisos antes de mostrar nada.
+
+**Después de este informe se hizo la prueba aislada** ([12 §6](12-busqueda-e-ia.md)), a pedido del autor:
+
+- **Lo que gana:** la semántica encontró 12 de 13 búsquedas hechas con otra palabra; la actual, ninguna.
+- **Lo que inventa:** siempre devuelve algo, también cuando no hay nada correcto.
+- **Lo que cuesta:** suma entre 340 y 370 MB a una API que tiene 512 MB.
+
+La recomendación se mantiene, ahora con datos.
