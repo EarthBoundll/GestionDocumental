@@ -367,7 +367,9 @@ se registra (D42). Se descartaron un motor externo, buscar mientras se escribe y
 **La búsqueda sigue sin IA y sin leer los archivos; decidirán las búsquedas fallidas.** Frente a la semántica con
 embeddings y la del contenido de PDF y DOCX, la actual cubre el pedido con costo 0 y sin mandar datos a nadie. Tras la
 evaluación, una consulta de búsquedas fallidas dirá si vale una prueba de concepto, primero del contenido sin OCR (D43,
-`docs/12-busqueda-e-ia.md`). Se descartaron integrar embeddings ahora, el OCR y decidir sin medir.
+`docs/12-busqueda-e-ia.md`). La prueba aislada ya mostró que la semántica encuentra 12 de 13 búsquedas con otra palabra,
+pero siempre devuelve algo, sin umbral que lo filtre, y suma 340-370 MB a una API con 512 MB (`docs/12` §6). Se
+descartaron integrar embeddings ahora, el OCR y decidir sin medir.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

@@ -321,3 +321,11 @@ La prueba de carga y los informes se ejecutan a mano.
 concepto aislada de la búsqueda en el contenido de PDF y DOCX, sin OCR: no manda nada a terceros y ataca la falla
 más probable en una MYPE, buscar por el RUC o por el cliente. La búsqueda semántica, solo si después siguen fallando
 búsquedas por el sentido, y siempre filtrada por empresa y permisos antes de mostrar nada.
+
+**Después de este informe se hizo la prueba aislada** ([12 §6](12-busqueda-e-ia.md)), a pedido del autor:
+
+- **Lo que gana:** la semántica encontró 12 de 13 búsquedas hechas con otra palabra; la actual, ninguna.
+- **Lo que inventa:** siempre devuelve algo, también cuando no hay nada correcto.
+- **Lo que cuesta:** suma entre 340 y 370 MB a una API que tiene 512 MB.
+
+La recomendación se mantiene, ahora con datos.

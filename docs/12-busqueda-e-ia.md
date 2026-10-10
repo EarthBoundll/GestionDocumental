@@ -2,13 +2,18 @@
 
 El pedido de octubre de 2026 (verificación del correo y buscador avanzado) dejó la IA como opcional:
 primero una búsqueda avanzada convencional, después una comparación objetiva para decidir si conviene la
-búsqueda semántica. Este documento es esa comparación. No trae código.
+búsqueda semántica. Este documento es esa comparación, y su §6 trae el resultado de la prueba aislada que la
+midió. El sistema no tiene IA.
 
 **Recomendación:**
 
 - Durante la tesis, la búsqueda se queda como está (A, D42): sin IA y sin leer el contenido de los archivos.
-- Si las búsquedas fallidas de la evaluación lo justifican (§5), el paso siguiente es una prueba de concepto
-  aislada de la búsqueda en el contenido de PDF y DOCX, sin OCR (C). La búsqueda semántica (B) iría después (D43).
+- La prueba aislada (§6) confirmó que la semántica encuentra lo que se busca con otra palabra, donde la actual
+  no encuentra nada. También mostró sus costos: siempre devuelve algo, aunque no haya nada correcto, y entra en
+  la memoria de Render gratuito con poco margen.
+- Después de la evaluación, las búsquedas fallidas (§5) dirán qué falla de verdad:
+  - si es el contenido, C sin OCR, que lo resolvió todo sin inventar nada;
+  - si son las otras palabras, primero una lista de sinónimos y, si no basta, la semántica (D43).
 
 ## 1. Qué resuelve hoy la búsqueda y qué no
 
@@ -313,3 +318,74 @@ la ficha de observación (`docs/09` §8):
 
 Con pocas personas en la muestra habrá pocas búsquedas. Por eso la decisión se describe con estos conteos, sin
 prueba estadística.
+
+## 6. Resultado de la prueba aislada (10 de octubre de 2026)
+
+La prueba de §4 se hizo fuera del sistema, en `experimentos/busqueda-semantica/`:
+
+- **La semántica (B):** `multilingual-e5-small` corriendo dentro del proceso.
+- **Contra qué se comparó:** la búsqueda de producción (A) y la búsqueda en el contenido (C), con su código,
+  sus migraciones y su RLS en un PostgreSQL desechable.
+- **Con qué datos:** 52 documentos ficticios y 43 búsquedas.
+
+El informe completo, búsqueda por búsqueda, está en
+[evidencias/busqueda-semantica.md](evidencias/busqueda-semantica.md). Este es el resumen: búsquedas con un
+documento correcto entre los cinco primeros resultados.
+
+| Grupo | A · actual | C · con el contenido | B · semántica | A→B · actual y, si no encuentra, semántica |
+|---|---:|---:|---:|---:|
+| Por el nombre | 8 de 8 | 8 de 8 | 8 de 8 | 8 de 8 |
+| Con otra palabra | 0 de 13 | 3 de 13 | **12 de 13** | **12 de 13** |
+| Por lo que dice el documento | 2 de 8 | **8 de 8** | 6 de 8 | 6 de 8 |
+| Con errores de escritura | 5 de 6 | 5 de 6 | 6 de 6 | 6 de 6 |
+| Fotos sin texto | 0 de 2 | 0 de 2 | 1 de 2 | 1 de 2 |
+| **Sin respuesta correcta: devuelven algo** | **0 de 6** | **0 de 6** | 6 de 6 | 6 de 6 |
+| Total con respuesta | 15 de 37 | 24 de 37 | 33 de 37 | 33 de 37 |
+
+Lo que dicen los números:
+
+1. **La semántica encuentra lo que se busca con otra palabra.** Con «presupuesto», «arrendamiento» o «sueldos»
+   encuentra 12 de 13 búsquedas; la actual, ninguna. Es la falla que la descripción solo cubre si alguien anotó
+   esa palabra.
+2. **El contenido sin IA (C) resuelve lo que dice el documento:** 8 de 8, sin inventar nada. La semántica
+   sobre el contenido (B+, en el informe) llega a 36 de 37 búsquedas con respuesta, pero empeora las búsquedas
+   por el nombre: en el primer lugar acierta 6 de 8.
+3. **La semántica siempre devuelve algo.** En las 6 búsquedas sin respuesta devolvió cinco documentos cada vez,
+   y ningún umbral separa lo correcto de lo inventado:
+   - cuando acierta en el primer lugar, la similitud de ese resultado empieza en 0,831;
+   - en lo inventado llega hasta 0,853.
+
+   Por eso solo podría mostrarse como «relacionados por el sentido», marcados así y solo cuando la actual no
+   encuentra nada (A→B), igual que la pasada por parecido de D42.
+4. **Cabe en Render gratuito, con poco margen:**
+   - **Memoria:** el modelo suma entre 340 y 370 MB, según la ejecución. La API usa hoy entre 60 y 90 MB, según
+     las métricas de Render del 10 de octubre en promedios por hora, de un límite de 512 MB. Quedarían unos
+     50 a 100 MB para el respaldo nocturno, las subidas de 10 MB y las exportaciones, y esos promedios
+     esconden los picos.
+   - **Tiempo por búsqueda:** cada búsqueda gastaría 17 ms de CPU, unos 0,2 s en Render. Es una estimación,
+     no una medición.
+   - **Arranque:** cargar el modelo al despertar llevó aquí de 4 a 7 s. Con 0,1 CPU, estimo decenas de
+     segundos más de arranque, sin haberlo medido.
+5. **La foto «encontrada» fue por su categoría.** La «boleta del flete» salió tercera porque está en
+   «Facturas y boletas», no porque la IA leyera la foto. Sin OCR, ningún buscador ve lo que dice una foto.
+
+**Límites de la prueba:**
+
+- Son 52 documentos y 43 búsquedas, escritas por quien conoce los documentos.
+- Las del grupo «con otra palabra» se escribieron a propósito con sinónimos. Miden cuánto ayuda la IA cuando
+  alguien usa otra palabra, no cuántas veces pasa eso en una MYPE. Eso lo dirán las búsquedas fallidas de la
+  evaluación (§5).
+- Se probó un solo modelo.
+- Los tiempos en Render son estimados.
+
+**Qué cambia en la recomendación:** nada antes de la evaluación. La semántica sigue fuera del alcance, y
+sumaría falsos positivos y memoria justo antes del congelamiento. Lo que sí cambia es que ahora se sabe qué
+haría falta según lo que muestren las búsquedas fallidas:
+
+- **Si fallan por el contenido:** C sin OCR. No usa IA, resolvió todo el grupo y no inventa nada.
+- **Si fallan por otras palabras:** primero, una lista de sinónimos por empresa («presupuesto» = cotización,
+  «arrendamiento» = alquiler), que no usa modelo ni memoria; esta prueba todavía no la midió.
+  - Si no basta, la semántica como A→B: con sus resultados marcados, con vectores que llevan `empresa_id` y RLS,
+    y midiendo antes la memoria en Render.
+  - Si la memoria no alcanza, hay dos salidas: un plan de pago o un servicio externo. El servicio externo exige
+    cambiar el consentimiento (§2.6).

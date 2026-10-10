@@ -21,11 +21,11 @@ const INFORME = fileURLToPath(new URL('../../docs/evidencias/busqueda-semantica.
 const CPU_DE_RENDER = 0.1;
 
 const SISTEMAS = {
-  A: 'Actual (A)',
-  C: 'Actual con el texto del archivo (C)',
-  B: 'Semántica (B)',
-  'B+': 'Semántica con el texto del archivo (B+)',
-  'A→B': 'Actual y, si no encuentra nada, semántica (A→B)',
+  A: 'La búsqueda actual (D42)',
+  C: 'La actual, con el texto del archivo',
+  B: 'Semántica, sobre el nombre, la categoría y la descripción',
+  'B+': 'Semántica, además sobre el texto del archivo',
+  'A→B': 'La actual y, solo si no encuentra nada, la semántica',
 } as const;
 type Sistema = keyof typeof SISTEMAS;
 
@@ -216,11 +216,13 @@ El tiempo en Render se estima dividiendo el tiempo de CPU entre los ${formato(CP
 | Carga del modelo | ${ms(recursos.cargaMs)} |
 | Memoria del proceso antes de cargarlo | ${formato(recursos.memoriaAntesMb)} MB |
 | Memoria del proceso con el modelo cargado | ${formato(recursos.memoriaDespuesMb)} MB |
+| **Memoria que suma el modelo** | **${formato(recursos.memoriaDespuesMb - recursos.memoriaAntesMb)} MB** |
 | CPU por documento al subirlo (mediana / p95) | ${ms(percentil(recursos.cpuPorDocumentoMs, 50))} / ${ms(percentil(recursos.cpuPorDocumentoMs, 95))} |
 | CPU por búsqueda (mediana / p95) | ${ms(percentil(recursos.cpuPorBusquedaMs, 50))} / ${ms(percentil(recursos.cpuPorBusquedaMs, 95))} |
 | Estimado en Render por búsqueda (mediana / p95) | ${ms(percentil(recursos.cpuPorBusquedaMs, 50) / CPU_DE_RENDER)} / ${ms(percentil(recursos.cpuPorBusquedaMs, 95) / CPU_DE_RENDER)} |
 
-Render gratuito tiene 512 MB de memoria para toda la API.
+Render gratuito tiene 512 MB de memoria para toda la API. Lo que la API usa hoy en producción se ve en las métricas de
+Render; la memoria que suma el modelo se sumaría a eso.
 
 ## Cada búsqueda
 

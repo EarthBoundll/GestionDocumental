@@ -27,7 +27,9 @@ Requisitos:
 - Node 24.
 - Un usuario que no sea `root`: PostgreSQL no arranca como administrador.
 - `npm ci` en `backend/`: la prueba usa su código y su PostgreSQL desechable.
-- Acceso a `huggingface.co` la primera vez, para descargar el modelo.
+- La primera vez, acceso a `huggingface.co` y a `us.aws.cdn.hf.co`, desde donde Hugging Face entrega los archivos
+  grandes, para descargar el modelo. Detrás de un proxy, el `fetch` de Node solo lo usa con
+  `NODE_USE_ENV_PROXY=1` (Node 22.21 o posterior).
 
 ```bash
 cd experimentos/busqueda-semantica

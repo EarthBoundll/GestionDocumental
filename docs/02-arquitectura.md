@@ -698,9 +698,23 @@ Nadie sabe aún cuántas búsquedas reales fallan por esas razones. El sistema y
 su número de resultados: tras la evaluación, una consulta probada cuenta las fallidas, se clasifican por causa y una
 regla, a aprobar con el asesor, decide. Si lo justifican, primero una prueba de concepto aislada del contenido sin OCR,
 que no manda nada a terceros.
-*Descartado:* integrar embeddings ahora (fuera del alcance, con costo y una transferencia de datos nueva sin datos que
-la pidan), el contenido con OCR (fuera del alcance, y con 0,1 CPU cada página escaneada tardaría, por estimación,
-decenas de segundos) y decidir sin medir.
+La prueba aislada del 10 de octubre (`experimentos/busqueda-semantica/`, `docs/12` §6) lo midió con
+`multilingual-e5-small` dentro del proceso, sobre 52 documentos ficticios y 43 búsquedas:
+- **Lo que gana la semántica:** encuentra 12 de 13 búsquedas hechas con otra palabra; la actual, ninguna.
+- **El contenido sin IA (C):** resuelve 8 de 8 búsquedas por lo que dice el documento, sin inventar nada.
+- **Lo que inventa la semántica:** siempre devuelve algo, también en las 6 búsquedas sin respuesta, y ningún
+  umbral de similitud separa lo correcto de lo inventado.
+- **Lo que cuesta:** el modelo suma entre 340 y 370 MB a una API que hoy usa entre 60 y 90 MB, de un límite
+  de 512 MB.
+
+Nada de esto cambia la decisión antes de la evaluación; sí deja escrito qué haría falta después:
+- C si fallan por el contenido;
+- una lista de sinónimos si fallan por otras palabras;
+- la semántica como último paso, marcada y solo cuando la actual no encuentra nada.
+
+*Descartado:* integrar embeddings ahora (fuera del alcance; siempre devuelve algo y entra en Render con poco margen),
+el contenido con OCR (fuera del alcance, y con 0,1 CPU cada página escaneada tardaría, por estimación, decenas de
+segundos) y decidir sin medir.
 
 ## 8. Riesgos
 
