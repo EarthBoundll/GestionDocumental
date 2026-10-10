@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CLAVE, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, salir, ultimoCorreoPara } from './apoyo';
+import { CLAVE, enlaceDelCorreo, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, salir, tokenDe, ultimoCorreoPara, unico } from './apoyo';
 import { URL_API, URL_WEB } from './entorno';
 
 test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
@@ -145,9 +145,48 @@ test.describe('Acceso: iniciar y cerrar sesión, contraseñas', () => {
     await page.getByLabel('Contraseña nueva', { exact: true }).fill('otra-vez-clave-4');
     await page.getByLabel('Repite la contraseña nueva').fill('otra-vez-clave-4');
     await page.getByRole('button', { name: 'Guardar contraseña' }).click();
-    await expect(page.getByRole('alert')).toHaveText('El enlace no es válido o ya caducó. Pide uno nuevo');
+    await expect(page.getByRole('alert')).toHaveText('El enlace no es válido, ya se usó o caducó. Pide uno nuevo con «¿Olvidaste tu contraseña?»');
 
     await entrar(page, { email: usuaria.email, clave: 'recuperada-clave-3' });
+  });
+
+  test('RF37 · Una cuenta invitada no entra hasta abrir su invitación; la abre en el celular, elige su contraseña y entra @movil', async ({ page, request }) => {
+    const empresa = await nuevaEmpresa(request);
+    const correo = `invitada.${unico()}@e2e.pe`;
+    const token = await tokenDe(request, empresa.administrador.email, empresa.administrador.clave);
+    const creada = await request.post(`${URL_API}/usuarios`, {
+      headers: { Authorization: `Bearer ${token}` }, data: { nombre: 'Invitada de prueba', email: correo, rol: 'usuario' },
+    });
+    expect(creada.status()).toBe(201);
+
+    // Sin abrir la invitación no entra con ninguna contraseña, y la respuesta es la de siempre: no revela nada.
+    await page.goto('/login');
+    await page.getByLabel('Correo').fill(correo);
+    await page.getByLabel('Contraseña', { exact: true }).fill(CLAVE);
+    await page.getByRole('button', { name: 'Entrar' }).click();
+    await expect(page.getByRole('alert')).toHaveText('Correo o contraseña incorrectos');
+
+    const enlace = enlaceDelCorreo(correo, '/activar-cuenta');
+    await page.goto(enlace);
+    await expect(page).toHaveURL(/\/activar-cuenta$/); // el token sale de la barra de direcciones
+    await page.getByLabel('Contraseña nueva', { exact: true }).fill('elegida-por-ella-1');
+    await page.getByLabel('Repite la contraseña nueva').fill('elegida-por-ella-1');
+    await page.getByRole('button', { name: 'Activar mi cuenta' }).click();
+    await expect(page.getByText('Tu cuenta está activa y tu correo quedó confirmado.')).toBeVisible();
+    await page.getByRole('link', { name: 'Iniciar sesión', exact: true }).click();
+    await expect(page.getByLabel('Correo')).toHaveValue(correo);
+    await page.getByLabel('Contraseña', { exact: true }).fill('elegida-por-ella-1');
+    await page.getByRole('button', { name: 'Entrar' }).click();
+    await expect(page).toHaveURL(/\/documentos$/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    // La invitación sirve una sola vez.
+    await salir(page);
+    await page.goto(enlace);
+    await page.getByLabel('Contraseña nueva', { exact: true }).fill('otra-clave-ajena-2');
+    await page.getByLabel('Repite la contraseña nueva').fill('otra-clave-ajena-2');
+    await page.getByRole('button', { name: 'Activar mi cuenta' }).click();
+    await expect(page.getByRole('alert')).toContainText('El enlace no es válido, ya se usó o caducó');
   });
 
   test('RF02 · Tras entrar, el menú lleva a cada pantalla sin que nada se salga del ancho de la pantalla @movil', async ({ page, request }) => {

@@ -57,10 +57,11 @@ erDiagram
         varchar nombre
         varchar email UK "en minúsculas"
         char dni "opcional, 8 dígitos"
-        char clave_hash "bcrypt"
+        char clave_hash "bcrypt; nulo hasta aceptar la invitación"
         varchar rol "master, administrador o usuario"
         boolean activo
         varchar tema "sistema, claro u oscuro"
+        timestamptz email_verificado_en "nulo hasta probar el buzón"
         timestamptz creado_en
         timestamptz actualizado_en
     }
@@ -75,8 +76,10 @@ erDiagram
         uuid id PK
         uuid usuario_id FK
         char token_hash UK "SHA-256, nunca el token"
+        varchar proposito "recuperacion, invitacion o verificacion"
+        varchar enviado_a "el buzón que lo recibió"
         timestamptz creada_en
-        timestamptz expira_en "creada_en + 60 min"
+        timestamptz expira_en "60 min o 72 h"
         timestamptz usada_en "un solo uso"
     }
     categorias {
@@ -191,10 +194,11 @@ erDiagram
 | nombre | varchar(120) | no | | Nombre visible |
 | email | varchar(254) | no | único; en minúsculas | Correo de acceso, único en todo el sistema (RN02) |
 | dni | char(8) | sí | 8 dígitos | Dato del perfil; nunca una credencial |
-| clave_hash | char(60) | no | | Hash bcrypt; la contraseña nunca se guarda |
+| clave_hash | char(60) | sí | | Hash bcrypt; la contraseña nunca se guarda. Nulo mientras la cuenta no acepta su invitación (RN35) |
 | rol | varchar(13) | no | `master`, `administrador` o `usuario`; un solo `master` | |
 | activo | boolean | no | por defecto, verdadero | |
 | tema | varchar(7) | no | `sistema`, `claro` u `oscuro`; por defecto, `sistema` | El de su interfaz, en cualquier dispositivo (RN32) |
+| email_verificado_en | timestamptz | sí | exige `clave_hash`; vuelve a nulo si cambia el correo | Cuándo probó su buzón con un enlace; sin él no hay sesión (RN36). Nadie de la aplicación la puede escribir (RN37) |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
@@ -218,9 +222,11 @@ Además, único (`id`, `empresa_id`), que necesitan las claves foráneas compues
 | id | uuid | no | PK | |
 | usuario_id | uuid | no | FK → usuarios | |
 | token_hash | char(64) | no | único | Huella SHA-256 del token: con ella no se puede entrar (M12) |
+| proposito | varchar(12) | no | `recuperacion` (por defecto), `invitacion` o `verificacion` | Para qué sirve: un enlace de un propósito no vale para otro (D41) |
+| enviado_a | varchar(254) | sí | | El correo al que salió: solo vale mientras siga siendo el de la cuenta, y el freno de reenvíos se cuenta por él (RN38). Nulo en los anteriores a la migración 013 |
 | creada_en | timestamptz | no | ahora | |
-| expira_en | timestamptz | no | posterior a `creada_en` | `creada_en` + 60 minutos, con el reloj de la base |
-| usada_en | timestamptz | sí | | Se llena al usarlo o al pedir otro: un enlace sirve una sola vez (RN26) |
+| expira_en | timestamptz | no | posterior a `creada_en` | 60 minutos una recuperación, 72 horas una invitación o una verificación, con el reloj de la base |
+| usada_en | timestamptz | sí | | Se llena al usarlo o al enviar otro: un enlace sirve una sola vez (RN26, RN38) |
 
 ### categorias
 
@@ -383,6 +389,9 @@ No dependen de que el código se acuerde de comprobarlas.
 | Cada número de versión, una vez por documento | Único (`documento_id`, `numero`); el número lo decide la API con el documento bloqueado |
 | Una versión oculta como su documento (RN29) | Política restrictiva: la versión solo se ve si su documento se ve (§3.1) |
 | Nada se borra en cascada | Todas las claves foráneas restringen el borrado: empresas, usuarios y documentos no se borran |
+| Nadie de la aplicación marca un correo como verificado (RN37) | Permisos por columna: `app_empresa` y `app_plataforma` no pueden escribir `email_verificado_en` (error 42501); solo la capa de identidad, con el dueño de las tablas, al gastar un enlace (§3.1) |
+| Un correo nuevo no está verificado (RN36) | Trigger `reiniciar_verificacion` antes de actualizar `email` |
+| No hay correo verificado sin contraseña | `email_verificado_en` exige `clave_hash` |
 
 ### 3.1 Aislamiento con RLS (D17)
 
@@ -424,6 +433,12 @@ columnas del fondo, `color_fondo` y `fondo_ruta`, bajo la misma política.
 restrictiva que exige que su documento exista para quien pregunta. Esa subconsulta pasa a su vez por la
 RLS de `documentos`, así que una versión se ve exactamente cuando su documento se ve: las categorías
 restringidas la ocultan sin reglas propias. El rol de empresa solo puede leer e insertar.
+
+**Columnas de `usuarios` (013, D41).** Hasta la 013, los dos roles podían insertar y actualizar cualquier columna de
+`usuarios`. Ahora solo las que su trabajo necesita: al crear, empresa, nombre, correo, DNI, contraseña y rol; al editar,
+`app_empresa` el nombre, el DNI, el rol, el estado y la contraseña (el correo es de la persona) y `app_plataforma`
+además el correo de sus administradores. `email_verificado_en`, `tema` y las marcas de tiempo quedan fuera: un
+administrador que intente verificar un correo por debajo de la API recibe el error 42501.
 
 **Auditoría del Master (006, D24).** `app_plataforma` puede leer del historial los asientos sin empresa
 y los que tienen el rol `master`; nada más.

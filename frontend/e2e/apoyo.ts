@@ -46,22 +46,34 @@ export interface EmpresaDePrueba {
   administrador: Cuenta;
 }
 
-/** El Master da de alta una empresa con su primer administrador (RF01). */
+/**
+ * Acepta la invitación que le llegó a ese correo (D41), como lo haría su dueño: sin ella la cuenta no entra.
+ * No hay atajo: el token sale del correo que la API dejó en la carpeta, igual que en una bandeja de entrada.
+ */
+export async function activarPorCorreo(request: APIRequestContext, email: string, clave = CLAVE): Promise<void> {
+  const token = new URL(enlaceDelCorreo(email, '/activar-cuenta')).hash.slice(1);
+  await comoJson<{ email: string }>(await request.post(`${URL_API}/auth/activacion`, { data: { token, claveNueva: clave } }));
+}
+
+/** El Master da de alta una empresa con su primer administrador (RF01), que acepta su invitación. */
 export async function nuevaEmpresa(request: APIRequestContext, nombre = `Empresa ${unico()}`): Promise<EmpresaDePrueba> {
   const master = await tokenDe(request, MASTER.email, MASTER.clave);
   const sufijo = unico();
-  const administrador = { nombre: `Admin ${sufijo}`, email: `admin.${sufijo}@e2e.pe`, clave: CLAVE };
+  const administrador = { nombre: `Admin ${sufijo}`, email: `admin.${sufijo}@e2e.pe` };
   const { empresa, administrador: creado } = await comoJson<{ empresa: { id: string }; administrador: { id: string } }>(
     await request.post(`${URL_API}/plataforma/empresas`, { ...conToken(master), data: { empresa: { nombre }, administrador } }),
   );
-  return { id: empresa.id, nombre, administrador: { ...administrador, id: creado.id } };
+  await activarPorCorreo(request, administrador.email);
+  return { id: empresa.id, nombre, administrador: { ...administrador, clave: CLAVE, id: creado.id } };
 }
 
+/** Una cuenta de la empresa, creada por su administrador y ya activada por su dueño. */
 export async function nuevaCuenta(request: APIRequestContext, empresa: EmpresaDePrueba, rol: 'usuario' | 'administrador', nombre?: string): Promise<Cuenta> {
   const token = await tokenDe(request, empresa.administrador.email, empresa.administrador.clave);
   const sufijo = unico();
-  const datos = { nombre: nombre ?? `${rol === 'usuario' ? 'Usuaria' : 'Admin'} ${sufijo}`, email: `${rol}.${sufijo}@e2e.pe`, clave: CLAVE, rol };
+  const datos = { nombre: nombre ?? `${rol === 'usuario' ? 'Usuaria' : 'Admin'} ${sufijo}`, email: `${rol}.${sufijo}@e2e.pe`, rol };
   const { id } = await comoJson<{ id: string }>(await request.post(`${URL_API}/usuarios`, { ...conToken(token), data: datos }));
+  await activarPorCorreo(request, datos.email);
   return { id, nombre: datos.nombre, email: datos.email, clave: CLAVE };
 }
 
@@ -127,7 +139,7 @@ export async function irDesdeElMenu(page: Page, enlace: string) {
   }
 }
 
-/** El último correo de recuperación enviado a esa dirección (en estas pruebas, los correos van a una carpeta). */
+/** El último correo enviado a esa dirección (en estas pruebas, los correos van a una carpeta). */
 export function ultimoCorreoPara(email: string): string {
   const correos = readdirSync(CARPETA_CORREOS)
     .map((nombre) => join(CARPETA_CORREOS, nombre))
@@ -136,4 +148,11 @@ export function ultimoCorreoPara(email: string): string {
     .filter((texto) => texto.startsWith(`Para: ${email}`));
   expect(correos.length, `no llegó ningún correo para ${email}`).toBeGreaterThan(0);
   return correos[0]!;
+}
+
+/** El enlace de ese tipo («/activar-cuenta», «/restablecer-clave»…) en el último correo que le llegó. */
+export function enlaceDelCorreo(email: string, ruta: string): string {
+  const enlace = new RegExp(`https?://\\S+${ruta}#[\\w-]+`).exec(ultimoCorreoPara(email))?.[0];
+  expect(enlace, `el último correo para ${email} no trae un enlace a ${ruta}`).toBeTruthy();
+  return enlace!;
 }

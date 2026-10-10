@@ -53,9 +53,13 @@ Ningún servicio pide tarjeta (RNF07). Calcula una hora la primera vez.
 Para desarrollar contra Supabase hace falta un segundo proyecto, «desarrollo», con los mismos pasos.
 Sin él, `npm run local` levanta todo en tu máquina.
 
-## 2. Brevo: el correo de recuperación de contraseña
+## 2. Brevo: los correos de la plataforma
 
-1. Crea la cuenta gratuita (300 correos al día).
+Recuperación de contraseña, invitaciones de cuentas nuevas y enlaces para confirmar el correo (D41). Si Brevo no
+envía, nadie nuevo puede activar su cuenta: la cuenta queda creada y la invitación se reenvía desde la lista.
+
+1. Crea la cuenta gratuita (300 correos al día: sobra para una evaluación, con el freno de 5 reenvíos al día por
+   correo; si un día se agotara, los envíos fallan y se reintentan al siguiente).
 2. *Senders*: añade tu correo como remitente y verifícalo con el enlace que te llega. Ese correo es
    `CORREO_REMITENTE`.
 3. *SMTP & API → API Keys*: genera una clave. Es `BREVO_CLAVE_API`.
@@ -192,7 +196,7 @@ correcto» y las filas de cada tabla, o con el motivo por el que no se restaurar
 Un respaldo solo se restaura con las mismas migraciones con que se hizo. Por eso, después de desplegar
 una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones; la 010,
 la visibilidad por consulta y el listado documental; la 011, la constancia del cierre del estudio; la 012, el
-fondo de cada empresa), pide un
+fondo de cada empresa; la 013, la verificación del correo), pide un
 respaldo en el momento desde *Respaldos*: el de la noche anterior solo se restauraría con el código
 anterior.
 
@@ -228,6 +232,27 @@ Después, a mano, la prueba de humo (unos diez minutos):
 - [ ] El administrador cambia el nombre comercial, el color y el logo desde *Identidad*; la usuaria, en su
       celular, los ve al volver a abrir el sistema. Cada uno elige el modo oscuro en *Mi cuenta* y lo
       encuentra igual al entrar desde el otro dispositivo.
+- [ ] El administrador crea una cuenta con un correo al que tienes acceso: la lista dice «Pendiente de activar»,
+      la invitación llega (revisa también *Spam*), el enlace lleva a *Activa tu cuenta*, y con la contraseña
+      elegida se entra desde el celular. Un segundo uso del mismo enlace dice que ya no sirve (D41).
+
+### 8.1 La migración 013 en producción (D41)
+
+La 013 deja verificados al Master y a quien ya restableció su contraseña por correo (`CLAVE_RESTABLECIDA` en el
+historial): ya probaron su buzón. Las demás cuentas, al entrar con su contraseña, reciben un enlace para confirmar
+el correo y no entran hasta abrirlo. Antes de desplegarla, revisa quiénes quedarán así:
+
+```sql
+select u.email, u.rol, coalesce(e.nombre, '(plataforma)') as empresa
+from usuarios u left join empresas e on e.id = u.empresa_id
+where u.rol <> 'master'
+  and not exists (select 1 from historial h where h.usuario_id = u.id and h.accion = 'CLAVE_RESTABLECIDA');
+```
+
+Si alguno no tiene acceso a su correo, corrígelo antes desde la plataforma: después, cambiarle el correo le manda
+el enlace al nuevo. Tras el despliegue, comprueba en Supabase que la migración quedó en `esquema_migraciones` y
+pide un respaldo desde *Respaldos* (§7.1). No hay variable que desactive la verificación: si hiciera falta
+volver atrás, se despliega el código anterior, que no lee `email_verificado_en`, y la columna puede quedarse.
 
 ## 9. Durante la evaluación
 

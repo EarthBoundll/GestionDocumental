@@ -8,6 +8,11 @@ export type CodigoError =
   | 'USUARIO_INACTIVO'
   | 'EMPRESA_INACTIVA'
   | 'ENLACE_INVALIDO'
+  // D41: la verificación del correo y sus enlaces.
+  | 'CORREO_SIN_VERIFICAR'
+  | 'YA_VERIFICADO'
+  | 'ENVIO_LIMITADO'
+  | 'CORREO_NO_ENVIADO'
   | 'RUC_EN_USO'
   | 'NO_ENCONTRADO'
   | 'EMAIL_EN_USO'

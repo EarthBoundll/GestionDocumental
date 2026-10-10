@@ -47,7 +47,7 @@ cuenta en el sistema se desactiva y sus datos no se usan en el análisis.
 | Dato | Para qué |
 |---|---|
 | Su nombre | Solo en esta hoja y en la tabla de códigos que guarda el investigador. En el sistema y en la tesis usted aparece con un código (P01, P02…) |
-| Un correo que usted elija, que puede crear solo para el estudio | Iniciar sesión en el sistema y recuperar la contraseña |
+| Un correo que usted elija, que puede crear solo para el estudio, siempre que pueda abrirlo | Recibir la invitación con la que usted activa su cuenta y elige su contraseña, iniciar sesión y recuperar la contraseña |
 | Lo que hace en el sistema, con fecha, hora, navegador y si usó un celular | Medir los indicadores del estudio |
 | Los tiempos y resultados que anota el evaluador | Medir los indicadores del estudio |
 
@@ -56,7 +56,7 @@ No se le pide su DNI. Los documentos que se usan son copias sin datos personales
 ### Dónde se guardan y quién los ve
 
 El sistema guarda los datos en servidores de Supabase y Render ubicados en Virginia, **Estados Unidos**,
-y el correo para recuperar la contraseña se envía por Brevo. Es una **transferencia internacional de
+y los correos de invitación y de recuperación de la contraseña se envían por Brevo. Es una **transferencia internacional de
 datos personales**. Los datos se usan solo para este estudio. Los ven el investigador y, dentro del
 sistema, el administrador de su empresa, que puede consultar el historial de acciones como en cualquier
 uso normal del sistema.

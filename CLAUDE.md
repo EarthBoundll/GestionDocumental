@@ -187,6 +187,7 @@ permisos dentro de una empresa.
 - Fondo por empresa: un color que tiñe las pantallas en los dos modos y una imagen detrás en la computadora;
   solo lo cambian el Administrador de Empresa y el Master (hecho)
 - Movimiento moderno y un acceso con más vida, solo con CSS y que respeta «reducir movimiento» (hecho)
+- Verificación obligatoria del correo: la cuenta nace sin contraseña y se activa con la invitación que le llega (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -351,6 +352,11 @@ validar el contraste del fondo, el texto encima de la foto con un velo y mostrar
 para la contraseña; dentro, pantallas que entran, listas escalonadas, esqueletos con brillo y diálogos que emergen. Solo
 `transform` y `opacity`, 4,1 KB comprimidos y nada con «reducir movimiento» (D40). Se descartaron Framer Motion y GSAP,
 la API View Transitions (había que marcar cada navegación) y partículas en un canvas.
+
+**Verificación del correo por invitación: la cuenta nace sin contraseña.** La persona la elige al abrir la invitación
+(72 h, un solo uso), y con eso prueba su buzón; sin el correo verificado no hay sesión, y nadie puede marcarlo a mano: la
+base no deja escribir esa columna a la aplicación. El reenvío se frena por buzón y el Master lo verifica el *seed* (D41).
+Se descartaron la contraseña inicial puesta por otro, un código de seis dígitos y un interruptor para saltarla en desarrollo.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

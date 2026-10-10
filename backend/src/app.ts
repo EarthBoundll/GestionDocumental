@@ -21,6 +21,7 @@ import { crearControladorDocumentos } from './modulos/documentos/documentos.cont
 import { crearRutasDocumentos } from './modulos/documentos/documentos.rutas.js';
 import { crearServicioDocumentos } from './modulos/documentos/documentos.servicio.js';
 import { crearRutasAuditoria, crearRutasHistorial, crearServicioHistorial } from './modulos/historial/historial.consulta.js';
+import { crearEnlacesDeCuenta } from './modulos/auth/enlaces.js';
 import { crearRutasIdentidad } from './modulos/identidad/identidad.rutas.js';
 import { crearServicioIdentidad } from './modulos/identidad/identidad.servicio.js';
 import { crearRutasNotificaciones } from './modulos/notificaciones/notificaciones.rutas.js';
@@ -74,6 +75,8 @@ export function crearApp({ pool, entorno, almacenamiento, correo, respaldos }: D
   const tiempos = crearServicioTiempos();
   // Los enlaces del logo y del fondo duran lo que una sesión: el marco lo muestra mientras la persona esté dentro.
   const servicioIdentidad = crearServicioIdentidad({ almacenamiento, vigenciaSegundos: entorno.JWT_DURACION_HORAS * 3600 });
+  // Las invitaciones y verificaciones del correo (D41): las usan el inicio de sesión, el Master y cada empresa.
+  const enlaces = crearEnlacesDeCuenta({ pool, correo, urlFrontend: entorno.URL_FRONTEND });
   const servicioAuth = crearServicioAuth({
     pool,
     firmador,
@@ -81,13 +84,14 @@ export function crearApp({ pool, entorno, almacenamiento, correo, respaldos }: D
     correo,
     urlFrontend: entorno.URL_FRONTEND,
     identidad: servicioIdentidad,
+    enlaces,
   });
   const servicioDocumentos = crearServicioDocumentos({ almacenamiento });
   const servicioHistorial = crearServicioHistorial();
 
   app.use('/api/v1/salud', crearRutasSalud(pool, { diagnosticoRed: entorno.DIAGNOSTICO_RED }));
   app.use('/api/v1/auth', crearRutasAuth(crearControladorAuth(servicioAuth), autenticar, crearLimitadores()));
-  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma(), plataforma, {
+  app.use('/api/v1/plataforma', crearRutasPlataforma(crearServicioPlataforma({ enlaces }), plataforma, {
     historial: crearRutasAuditoria(servicioHistorial),
     // Los respaldos leen como dueños de las tablas (D25): es la única ruta del Master que recibe el pool.
     respaldos: crearRutasRespaldos(pool, respaldos),
@@ -95,7 +99,7 @@ export function crearApp({ pool, entorno, almacenamiento, correo, respaldos }: D
   }));
   app.use('/api/v1/empresa/identidad', crearRutasIdentidad(servicioIdentidad, empresa, exigir));
   app.use('/api/v1/categorias', crearRutasCategorias(crearControladorCategorias(crearServicioCategorias()), empresa, exigir));
-  app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios()), empresa, exigir));
+  app.use('/api/v1/usuarios', crearRutasUsuarios(crearControladorUsuarios(crearServicioUsuarios({ enlaces })), empresa, exigir));
   // Antes que /documentos: una de sus rutas es /documentos/:id/solicitudes, y así no se autentica dos veces.
   app.use('/api/v1', crearRutasSolicitudes(crearServicioSolicitudes(), empresa, exigir));
   app.use('/api/v1/documentos', crearRutasDocumentos(crearControladorDocumentos(servicioDocumentos, tiempos), empresa, exigir));

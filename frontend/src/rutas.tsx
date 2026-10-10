@@ -7,9 +7,11 @@ import { Identidad } from './paginas/admin/Identidad';
 import { Papelera } from './paginas/admin/Papelera';
 import { Tablero } from './paginas/admin/Tablero';
 import { Usuarios } from './paginas/admin/Usuarios';
+import { ActivarCuenta } from './paginas/auth/ActivarCuenta';
 import { IniciarSesion } from './paginas/auth/IniciarSesion';
 import { RecuperarClave } from './paginas/auth/RecuperarClave';
 import { RestablecerClave } from './paginas/auth/RestablecerClave';
+import { VerificarCorreo } from './paginas/auth/VerificarCorreo';
 import { MiCuenta } from './paginas/cuenta/MiCuenta';
 import { DetalleDocumento } from './paginas/documentos/DetalleDocumento';
 import { ListaDocumentos } from './paginas/documentos/ListaDocumentos';
@@ -43,8 +45,10 @@ export const rutas: RouteObject[] = [
           { path: '/recuperar-clave', element: <RecuperarClave /> },
         ],
       },
-      // El enlace del correo se abre con o sin sesión: definir la contraseña cierra todas las sesiones.
+      // Los enlaces del correo se abren con o sin sesión: definir la contraseña cierra todas las sesiones.
       { path: '/restablecer-clave', element: <RestablecerClave /> },
+      { path: '/activar-cuenta', element: <ActivarCuenta /> },
+      { path: '/verificar-correo', element: <VerificarCorreo /> },
       // Lo legal se lee con o sin sesión (D38).
       { path: '/terminos', element: <Terminos /> },
       { path: '/privacidad', element: <Privacidad /> },

@@ -12,13 +12,18 @@ export const esquemaCambioClave = z.object({ claveActual: claveEscrita, claveNue
 
 export const esquemaSolicitudRecuperacion = z.object({ email });
 
-export const esquemaConfirmacionRecuperacion = z.object({
-  token: z.string().trim().min(20, 'El enlace está incompleto').max(200),
-  claveNueva: esquemaClaveNueva,
-});
+const token = z.string().trim().min(20, 'El enlace está incompleto').max(200);
+
+export const esquemaConfirmacionRecuperacion = z.object({ token, claveNueva: esquemaClaveNueva });
+
+/** Aceptar una invitación (D41): la primera contraseña. */
+export const esquemaActivacion = z.object({ token, claveNueva: esquemaClaveNueva });
+
+export const esquemaVerificacion = z.object({ token });
 
 export type DatosInicioSesion = z.infer<typeof esquemaInicioSesion>;
 export type DatosCambioClave = z.infer<typeof esquemaCambioClave>;
 export type DatosConfirmacionRecuperacion = z.infer<typeof esquemaConfirmacionRecuperacion>;
+export type DatosActivacion = z.infer<typeof esquemaActivacion>;
 
 export const esquemaPreferencias = z.object({ tema: z.enum(TEMAS, 'Elige sistema, claro u oscuro') });

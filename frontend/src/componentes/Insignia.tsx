@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { EstadoSolicitud } from '../api/tipos';
+import type { EstadoDeCorreo, EstadoSolicitud } from '../api/tipos';
 
 type Tono = 'neutro' | 'marca' | 'exito' | 'peligro' | 'advertencia';
 
@@ -24,4 +24,16 @@ const ESTADOS: Record<EstadoSolicitud, { texto: string; tono: Tono }> = {
 export function InsigniaDeEstado({ estado }: { estado: EstadoSolicitud }) {
   const { texto, tono } = ESTADOS[estado];
   return <Insignia tono={tono}>{texto}</Insignia>;
+}
+
+const CORREO: Record<Exclude<EstadoDeCorreo, 'verificado'>, { texto: string; explicacion: string }> = {
+  pendiente: { texto: 'Pendiente de activar', explicacion: 'Aún no abrió su invitación: no puede entrar hasta definir su contraseña.' },
+  sin_verificar: { texto: 'Correo sin verificar', explicacion: 'Tiene contraseña, pero debe confirmar su correo con el enlace que le llegó.' },
+};
+
+/** D41: solo se ve mientras la cuenta no puede entrar por su correo; una verificada no lleva insignia. */
+export function InsigniaDeCorreo({ estado }: { estado: EstadoDeCorreo }) {
+  if (estado === 'verificado') return null;
+  const { texto, explicacion } = CORREO[estado];
+  return <span title={explicacion}><Insignia tono="advertencia">{texto}</Insignia></span>;
 }

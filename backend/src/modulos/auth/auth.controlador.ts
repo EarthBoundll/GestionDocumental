@@ -1,7 +1,8 @@
 import type { RequestHandler } from 'express';
 import { actorDe } from '../../compartido/peticion.js';
 import {
-  esquemaCambioClave, esquemaConfirmacionRecuperacion, esquemaInicioSesion, esquemaPreferencias, esquemaSolicitudRecuperacion,
+  esquemaActivacion, esquemaCambioClave, esquemaConfirmacionRecuperacion, esquemaInicioSesion, esquemaPreferencias,
+  esquemaSolicitudRecuperacion, esquemaVerificacion,
 } from './auth.esquemas.js';
 import { MINUTOS_DE_RECUPERACION, type ServicioAuth } from './auth.servicio.js';
 
@@ -37,7 +38,7 @@ export function crearControladorAuth(servicio: ServicioAuth) {
     const { email } = esquemaSolicitudRecuperacion.parse(req.body);
     await servicio.solicitarRecuperacion(email, req.contexto);
     res.status(202).json({
-      mensaje: `Si el correo corresponde a una cuenta, en unos minutos llegará un enlace para definir una contraseña nueva. Vale ${MINUTOS_DE_RECUPERACION} minutos y una sola vez.`,
+      mensaje: `Si el correo corresponde a una cuenta, en unos minutos llegará un enlace para definir una contraseña nueva. Vale ${MINUTOS_DE_RECUPERACION} minutos y una sola vez. Si aún no activaste tu cuenta, te llegará de nuevo tu invitación.`,
     });
   };
 
@@ -47,5 +48,17 @@ export function crearControladorAuth(servicio: ServicioAuth) {
     res.status(204).end();
   };
 
-  return { iniciarSesion, cerrarSesion, perfil, cambiarClave, cambiarPreferencias, solicitarRecuperacion, confirmarRecuperacion };
+  const activarCuenta: RequestHandler = async (req, res) => {
+    res.json(await servicio.activarCuenta(esquemaActivacion.parse(req.body), req.contexto));
+  };
+
+  const verificarCorreo: RequestHandler = async (req, res) => {
+    const { token } = esquemaVerificacion.parse(req.body);
+    res.json(await servicio.verificarCorreo(token, req.contexto));
+  };
+
+  return {
+    iniciarSesion, cerrarSesion, perfil, cambiarClave, cambiarPreferencias, solicitarRecuperacion, confirmarRecuperacion,
+    activarCuenta, verificarCorreo,
+  };
 }

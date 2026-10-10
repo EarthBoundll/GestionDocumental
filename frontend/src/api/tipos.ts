@@ -138,6 +138,12 @@ export interface Notificacion {
   documentoId: string;
 }
 
+/**
+ * D41: «pendiente» aún no aceptó su invitación (no tiene contraseña); «sin_verificar» tiene contraseña pero
+ * no confirmó su correo. Ninguna de las dos entra. Lo calcula la API; nadie lo puede marcar a mano.
+ */
+export type EstadoDeCorreo = 'pendiente' | 'sin_verificar' | 'verificado';
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -145,6 +151,7 @@ export interface Usuario {
   rol: RolDeEmpresa;
   dni: string | null;
   activo: boolean;
+  estado: EstadoDeCorreo;
   creadoEn: string;
 }
 
@@ -202,8 +209,12 @@ export interface Administrador {
   email: string;
   dni: string | null;
   activo: boolean;
+  estado: EstadoDeCorreo;
   creadoEn: string;
 }
+
+/** Al crear una cuenta, si su invitación salió: si no, se reenvía desde la lista (D41). */
+export type ConInvitacion<T> = T & { invitacionEnviada: boolean };
 
 export interface MetricasDePlataforma extends Metricas {
   empresas: number;

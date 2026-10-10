@@ -44,7 +44,8 @@ test.describe('Evidencia para el capítulo 3', () => {
   test('RF36 · El historial filtrado se imprime entero, sin menús y en claro aunque la persona use el modo oscuro', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     const ana = await nuevaCuenta(request, empresa, 'usuario', 'Ana Torres');
-    // Cada subida inicia sesión y sube: 24 acciones, más de una página del historial (20).
+    // Su cuenta confirmó el correo al aceptar la invitación (D41), y cada subida inicia sesión y sube: 25 acciones,
+    // más de una página del historial (20).
     for (let n = 1; n <= 12; n++) await subirDocumento(request, ana, { nombre: `Guía de remisión ${n}` });
 
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -55,7 +56,7 @@ test.describe('Evidencia para el capítulo 3', () => {
     await page.getByRole('link', { name: 'Imprimir' }).click();
 
     const tabla = page.getByRole('table');
-    await expect(tabla.getByRole('row')).toHaveCount(25);
+    await expect(tabla.getByRole('row')).toHaveCount(26);
     await expect(tabla.getByRole('cell', { name: '«Guía de remisión 1» · en Otros', exact: true })).toBeVisible();
     await expect(tabla.getByRole('cell', { name: '«Guía de remisión 12» · en Otros', exact: true })).toBeVisible();
     await expect(page.getByText('Ana Torres', { exact: true }).and(page.locator('dd'))).toBeVisible();
@@ -77,6 +78,6 @@ test.describe('Evidencia para el capítulo 3', () => {
     await page.getByRole('link', { name: 'Volver al historial' }).click();
     await expect(page).toHaveURL(/\/admin\/historial\?usuarioId=/);
     await page.getByLabel('Persona').selectOption({ label: 'Todas' });
-    await expect(page.getByRole('listitem').filter({ hasText: 'Historial exportado' }).first()).toContainText('24 filas para imprimir');
+    await expect(page.getByRole('listitem').filter({ hasText: 'Historial exportado' }).first()).toContainText('25 filas para imprimir');
   });
 });

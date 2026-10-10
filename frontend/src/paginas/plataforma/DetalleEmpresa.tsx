@@ -1,4 +1,4 @@
-import { ArrowLeft, Pencil, Power, UserPlus } from 'lucide-react';
+import { ArrowLeft, Pencil, Power, Send, UserPlus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { ErrorApi } from '../../api/cliente';
@@ -7,24 +7,23 @@ import type { Administrador, EmpresaConMetricas } from '../../api/tipos';
 import { Aviso, Cargando } from '../../componentes/Avisos';
 import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
-import { Insignia } from '../../componentes/Insignia';
+import { Insignia, InsigniaDeCorreo } from '../../componentes/Insignia';
 import { Modal } from '../../componentes/Modal';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
 import { formatearFechaHora, formatearPeso } from '../../utilidades/formato';
+import { avisoDeInvitacion, type AvisoDePagina } from '../../utilidades/invitaciones';
 import { EditorDeIdentidad } from '../identidad/EditorDeIdentidad';
-
-type AvisoDePagina = { tipo: 'exito' | 'error'; texto: string } | null;
 
 export function DetalleEmpresa() {
   const { id = '' } = useParams();
   const ubicacion = useLocation();
   const consulta = useConsulta((senal) => plataforma.empresa(id, senal), [id]);
-  const [aviso, setAviso] = useState<AvisoDePagina>(
-    (ubicacion.state as { creada?: boolean } | null)?.creada
-      ? { tipo: 'exito', texto: 'Empresa registrada. Su administrador ya puede entrar con su correo y la contraseña inicial.' }
-      : null,
-  );
+  const [aviso, setAviso] = useState<AvisoDePagina | null>(() => {
+    const creada = (ubicacion.state as { creada?: AvisoDePagina } | null)?.creada;
+    return creada ? { ...creada, texto: `Empresa registrada. ${creada.texto}` } : null;
+  });
+  const [reenviando, setReenviando] = useState<string | null>(null);
   const [editandoEmpresa, setEditandoEmpresa] = useState(false);
   const [confirmandoEstado, setConfirmandoEstado] = useState(false);
   const [administrador, setAdministrador] = useState<Administrador | 'nuevo' | null>(null);
@@ -32,10 +31,23 @@ export function DetalleEmpresa() {
   if (consulta.error) return <ErrorDeCarga error={consulta.error} alReintentar={consulta.recargar} />;
   if (!consulta.datos) return <Cargando />;
   const empresa = consulta.datos;
-  const hecho = (texto: string) => {
-    setAviso({ tipo: 'exito', texto });
+  const hecho = (resultado: string | AvisoDePagina) => {
+    setAviso(typeof resultado === 'string' ? { tipo: 'exito', texto: resultado } : resultado);
     consulta.recargar();
   };
+
+  async function reenviar(elegido: Administrador) {
+    setAviso(null);
+    setReenviando(elegido.id);
+    try {
+      await plataforma.reenviarInvitacion(elegido.id);
+      setAviso({ tipo: 'exito', texto: `Le reenviamos el enlace a ${elegido.email}. El anterior ya no sirve.` });
+    } catch (error) {
+      setAviso({ tipo: 'error', texto: (error as ErrorApi).mensaje });
+    } finally {
+      setReenviando(null);
+    }
+  }
 
   async function cambiarEstadoAdministrador(elegido: Administrador) {
     setAviso(null);
@@ -90,7 +102,13 @@ export function DetalleEmpresa() {
                 <p className="truncate text-sm text-slate-500">{elegido.email}{elegido.dni && ` · DNI ${elegido.dni}`}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <InsigniaDeCorreo estado={elegido.estado} />
                 {!elegido.activo && <Insignia tono="peligro">Desactivado</Insignia>}
+                {elegido.activo && empresa.activa && elegido.estado !== 'verificado' && (
+                  <Boton variante="fantasma" tamano="pequeno" icono={Send} cargando={reenviando === elegido.id} onClick={() => void reenviar(elegido)}>
+                    {elegido.estado === 'pendiente' ? 'Reenviar invitación' : 'Reenviar verificación'}
+                  </Boton>
+                )}
                 <Boton variante="fantasma" tamano="pequeno" icono={Pencil} onClick={() => setAdministrador(elegido)}>Editar</Boton>
                 <Boton variante="secundario" tamano="pequeno" onClick={() => void cambiarEstadoAdministrador(elegido)}>
                   {elegido.activo ? 'Desactivar' : 'Reactivar'}
@@ -200,8 +218,10 @@ function DialogoEstado({ empresa, alCerrar, alGuardar }: { empresa: EmpresaConMe
 }
 
 function DialogoAdministrador({ empresaId, administrador, alCerrar, alGuardar }: {
-  empresaId: string; administrador: Administrador | null; alCerrar(): void; alGuardar(texto: string): void;
+  empresaId: string; administrador: Administrador | null; alCerrar(): void; alGuardar(aviso: string | AvisoDePagina): void;
 }) {
+  // Una cuenta pendiente define su contraseña al aceptar la invitación: ofrecer otra aquí solo confundiría.
+  const conClave = administrador !== null && administrador.estado !== 'pendiente';
   const [valores, setValores] = useState({
     nombre: administrador?.nombre ?? '', email: administrador?.email ?? '', dni: administrador?.dni ?? '', clave: '',
   });
@@ -216,11 +236,14 @@ function DialogoAdministrador({ empresaId, administrador, alCerrar, alGuardar }:
     try {
       if (administrador) {
         const { clave, ...datos } = valores;
-        await plataforma.editarAdministrador(administrador.id, { ...datos, ...(clave && { clave }) });
-        alGuardar(clave ? 'Cambios guardados. Con la contraseña nueva, sus sesiones abiertas se cerraron.' : 'Cambios guardados.');
+        const editado = await plataforma.editarAdministrador(administrador.id, { ...datos, ...(clave && { clave }) });
+        alGuardar(editado.email !== administrador.email
+          ? `Cambios guardados. Sus sesiones se cerraron y le enviamos a ${editado.email} un enlace para confirmarlo: hasta entonces no podrá entrar. También avisamos al correo anterior.`
+          : clave ? 'Cambios guardados. Con la contraseña nueva, sus sesiones abiertas se cerraron.' : 'Cambios guardados.');
       } else {
-        await plataforma.crearAdministrador(empresaId, valores);
-        alGuardar(`${valores.nombre} ya puede entrar con su correo y la contraseña que le diste.`);
+        const { clave: _sinClave, ...datos } = valores;
+        const creado = await plataforma.crearAdministrador(empresaId, datos);
+        alGuardar(avisoDeInvitacion(creado.nombre, creado.email, creado.invitacionEnviada));
       }
     } catch (causa) {
       setError(causa as ErrorApi);
@@ -238,18 +261,22 @@ function DialogoAdministrador({ empresaId, administrador, alCerrar, alGuardar }:
         {error && !error.detalles.length && <Aviso tipo="error">{error.mensaje}</Aviso>}
         <Campo etiqueta="Nombre" value={valores.nombre} onChange={cambiar('nombre')} error={errores.nombre} />
         <Campo etiqueta="Correo" type="email" inputMode="email" value={valores.email} onChange={cambiar('email')} error={errores.email}
-          ayuda="Con este correo entra al sistema." />
+          ayuda={administrador
+            ? 'Con este correo entra al sistema. Si lo cambias, tendrá que confirmar el nuevo antes de volver a entrar.'
+            : 'Le llegará una invitación a este correo: al abrirla define su contraseña. Sin abrirla no puede entrar.'} />
         <Campo etiqueta="DNI" opcional inputMode="numeric" maxLength={8} value={valores.dni} onChange={cambiar('dni')} error={errores.dni} />
-        <Campo
-          etiqueta={administrador ? 'Contraseña nueva' : 'Contraseña inicial'}
-          type="password"
-          autoComplete="new-password"
-          opcional={Boolean(administrador)}
-          ayuda={administrador ? 'Déjala vacía para no cambiarla. Si la cambias, se cerrarán sus sesiones.' : 'Al menos 8 caracteres.'}
-          value={valores.clave}
-          onChange={cambiar('clave')}
-          error={errores.clave}
-        />
+        {conClave && (
+          <Campo
+            etiqueta="Contraseña nueva"
+            type="password"
+            autoComplete="new-password"
+            opcional
+            ayuda="Déjala vacía para no cambiarla. Si la cambias, se cerrarán sus sesiones."
+            value={valores.clave}
+            onChange={cambiar('clave')}
+            error={errores.clave}
+          />
+        )}
       </form>
     </Modal>
   );

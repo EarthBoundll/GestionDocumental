@@ -1,39 +1,44 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { CLAVE, entrar, nuevaCuenta, nuevaEmpresa, salir, subirDocumento, unico } from './apoyo';
+import { enlaceDelCorreo, entrar, nuevaCuenta, nuevaEmpresa, salir, subirDocumento, unico } from './apoyo';
 
 test.describe('Administración de la empresa', () => {
-  test('RF13 · El administrador crea usuarios, les cambia el nombre y el rol, y restablece su contraseña', async ({ page, request }) => {
+  test('RF13, RF37, RF38 · El administrador invita a una persona y ve que está pendiente; reenviar enseguida se frena; ella activa su cuenta con su correo; él le cambia el nombre y el rol, y restablece su contraseña', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     const sufijo = unico();
+    const correo = `ana.${sufijo}@e2e.pe`;
     await entrar(page, empresa.administrador);
     await page.goto('/admin/usuarios');
 
+    // D41: la cuenta nace sin contraseña; la elige su dueña al abrir la invitación.
     const dialogo = page.getByRole('dialog');
     await page.getByRole('button', { name: 'Nuevo usuario' }).click();
+    await expect(dialogo.getByLabel(/Contraseña/)).toHaveCount(0);
     await dialogo.getByLabel('Nombre').fill('Ana Torres');
-    await dialogo.getByLabel('Correo').fill(`ana.${sufijo}@e2e.pe`);
+    await dialogo.getByLabel('Correo').fill(correo);
     await dialogo.getByLabel(/^DNI/).fill('70123456');
-    await dialogo.getByLabel('Contraseña inicial').fill(CLAVE);
     await page.getByRole('button', { name: 'Crear usuario' }).click();
-    await expect(page.getByText('Ana Torres ya puede entrar con su correo y la contraseña que le diste.')).toBeVisible();
+    await expect(page.getByText(`Le enviamos a ${correo} una invitación.`)).toBeVisible();
+    const fila = page.getByRole('listitem').filter({ hasText: correo });
+    await expect(fila.getByText('Pendiente de activar')).toBeVisible();
 
-    // El correo es único en todo el sistema (RN02).
+    // El correo es único en todo el sistema (RN02); en la misma empresa, se dice que ya está.
     await page.getByRole('button', { name: 'Nuevo usuario' }).click();
     await dialogo.getByLabel('Nombre').fill('Otra Ana');
-    await dialogo.getByLabel('Correo').fill(`ana.${sufijo}@e2e.pe`);
-    await dialogo.getByLabel('Contraseña inicial').fill(CLAVE);
+    await dialogo.getByLabel('Correo').fill(correo);
     await page.getByRole('button', { name: 'Crear usuario' }).click();
-    await expect(page.getByRole('dialog').getByRole('alert')).toHaveText('Ya hay una cuenta con ese correo');
+    await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Esa persona ya tiene una cuenta en tu empresa');
     await page.getByRole('button', { name: 'Cancelar' }).click();
 
-    const fila = page.getByRole('listitem').filter({ hasText: `ana.${sufijo}@e2e.pe` });
+    // Reenviar enseguida no inunda su buzón: hay que esperar (D41).
+    await fila.getByRole('button', { name: 'Reenviar invitación' }).click();
+    await expect(page.getByRole('alert')).toContainText('Espera 2 minuto(s)');
+
     await fila.getByRole('button', { name: 'Editar' }).click();
+    await expect(dialogo.getByLabel(/Contraseña/)).toHaveCount(0);
     await dialogo.getByLabel('Nombre').fill('Ana Torres Ríos');
     await dialogo.getByLabel('Rol').selectOption('administrador');
-    await dialogo.getByLabel(/^Contraseña nueva/).fill('restablecida-clave-5');
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page.getByText('Con la contraseña nueva, sus sesiones abiertas se cerraron.')).toBeVisible();
     await expect(fila).toContainText('Ana Torres Ríos');
     await expect(fila).toContainText('Administrador');
 
@@ -41,10 +46,32 @@ test.describe('Administración de la empresa', () => {
     await page.getByRole('listitem').filter({ hasText: '(tú)' }).getByRole('button', { name: 'Editar' }).click();
     await expect(dialogo.getByLabel('Rol')).toBeDisabled();
     await page.getByRole('button', { name: 'Cancelar' }).click();
-
     await salir(page);
-    await entrar(page, { email: `ana.${sufijo}@e2e.pe`, clave: 'restablecida-clave-5' });
+
+    // Ana abre su invitación, define su contraseña y entra con el correo ya escrito.
+    await page.goto(enlaceDelCorreo(correo, '/activar-cuenta'));
+    await expect(page).toHaveURL(/\/activar-cuenta$/); // el token sale de la barra de direcciones
+    await page.getByLabel('Contraseña nueva', { exact: true }).fill('elegida-por-ana-1');
+    await page.getByLabel('Repite la contraseña nueva').fill('elegida-por-ana-1');
+    await page.getByRole('button', { name: 'Activar mi cuenta' }).click();
+    await expect(page.getByText('Tu cuenta está activa y tu correo quedó confirmado.')).toBeVisible();
+    await page.getByRole('link', { name: 'Iniciar sesión', exact: true }).click();
+    await expect(page.getByLabel('Correo')).toHaveValue(correo);
+    await page.getByLabel('Contraseña', { exact: true }).fill('elegida-por-ana-1');
+    await page.getByRole('button', { name: 'Entrar' }).click();
     await expect(page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Historial' })).toBeVisible();
+    await salir(page);
+
+    // Ya activa, su administrador puede restablecerle la contraseña.
+    await entrar(page, empresa.administrador);
+    await page.goto('/admin/usuarios');
+    await expect(fila.getByText('Pendiente de activar')).toHaveCount(0);
+    await fila.getByRole('button', { name: 'Editar' }).click();
+    await dialogo.getByLabel(/^Contraseña nueva/).fill('restablecida-clave-5');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(page.getByText('Con la contraseña nueva, sus sesiones abiertas se cerraron.')).toBeVisible();
+    await salir(page);
+    await entrar(page, { email: correo, clave: 'restablecida-clave-5' });
   });
 
   test('RF14 · Desactivar a un usuario le impide entrar y conserva sus documentos; reactivarlo se lo devuelve', async ({ page, request, browser }) => {

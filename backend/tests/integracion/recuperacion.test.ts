@@ -27,13 +27,22 @@ describe('Recuperación de contraseña por correo (CLAUDE.md v2)', () => {
   const pedir = (email: string) => request(app).post('/api/v1/auth/recuperacion').set('User-Agent', UA_IPHONE).send({ email });
   const confirmar = (token: string, claveNueva: string) =>
     request(app).post('/api/v1/auth/recuperacion/confirmar').send({ token, claveNueva });
+  /**
+   * Una empresa cuyo administrador ya aceptó su invitación (D41). Ese correo de invitación no es de lo que
+   * tratan estas pruebas: se descarta, y solo quedan los de recuperación.
+   */
+  const empresaActiva = async () => {
+    const sesion = await registrarEmpresa(app);
+    correo.enviados.splice(0);
+    return sesion;
+  };
   const tokenDelCorreo = (indice = -1) => {
     const enlace = correo.enviados.at(indice)!.texto.match(/https:\/\/\S+/)![0];
     return { enlace, token: new URL(enlace).hash.slice(1) };
   };
 
   it('responde exactamente lo mismo exista o no el correo, y solo envía el enlace si existe', async () => {
-    const { usuario } = await registrarEmpresa(app);
+    const { usuario } = await empresaActiva();
 
     const existe = await pedir(usuario.email);
     const noExiste = await pedir(`nadie.${Date.now()}@ejemplo.pe`);
@@ -46,19 +55,19 @@ describe('Recuperación de contraseña por correo (CLAUDE.md v2)', () => {
   });
 
   it('el enlace apunta al frontend, lleva el token en el fragmento y la base solo guarda su huella', async () => {
-    const { usuario } = await registrarEmpresa(app);
+    const { usuario } = await empresaActiva();
 
     await pedir(usuario.email);
 
     const { enlace, token } = tokenDelCorreo();
     expect(enlace).toMatch(/^https:\/\/gestion\.ejemplo\.pe\/restablecer-clave#[\w-]{43}$/);
-    const { rows } = await pool.query('SELECT token_hash, expira_en - creada_en AS vigencia FROM recuperaciones_clave WHERE usuario_id = $1', [usuario.id]);
+    const { rows } = await pool.query("SELECT token_hash, expira_en - creada_en AS vigencia FROM recuperaciones_clave WHERE usuario_id = $1 AND proposito = 'recuperacion'", [usuario.id]);
     expect(rows).toEqual([{ token_hash: createHash('sha256').update(token).digest('hex'), vigencia: { hours: 1 } }]);
     expect(JSON.stringify(rows)).not.toContain(token);
   });
 
   it('define la contraseña nueva, cierra todas las sesiones y registra la solicitud y el cambio', async () => {
-    const { usuario, empresa, token: sesion } = await registrarEmpresa(app);
+    const { usuario, empresa, token: sesion } = await empresaActiva();
     await pedir(usuario.email);
     const nueva = 'recuperada-por-correo';
 
@@ -90,7 +99,7 @@ describe('Recuperación de contraseña por correo (CLAUDE.md v2)', () => {
   });
 
   it('el enlace sirve una sola vez', async () => {
-    const { usuario } = await registrarEmpresa(app);
+    const { usuario } = await empresaActiva();
     await pedir(usuario.email);
     const { token } = tokenDelCorreo();
 
@@ -102,7 +111,7 @@ describe('Recuperación de contraseña por correo (CLAUDE.md v2)', () => {
   });
 
   it('pedir otro enlace anula el anterior: solo vale el último', async () => {
-    const { usuario } = await registrarEmpresa(app);
+    const { usuario } = await empresaActiva();
     await pedir(usuario.email);
     await pedir(usuario.email);
 
@@ -111,10 +120,10 @@ describe('Recuperación de contraseña por correo (CLAUDE.md v2)', () => {
   });
 
   it('un enlace caducado no sirve: vale 60 minutos', async () => {
-    const { usuario } = await registrarEmpresa(app);
+    const { usuario } = await empresaActiva();
     await pedir(usuario.email);
     await pool.query(
-      "UPDATE recuperaciones_clave SET creada_en = creada_en - interval '61 minutes', expira_en = expira_en - interval '61 minutes' WHERE usuario_id = $1",
+      "UPDATE recuperaciones_clave SET creada_en = creada_en - interval '61 minutes', expira_en = expira_en - interval '61 minutes' WHERE usuario_id = $1 AND usada_en IS NULL",
       [usuario.id],
     );
 
@@ -125,7 +134,7 @@ describe('Recuperación de contraseña por correo (CLAUDE.md v2)', () => {
   });
 
   it('una cuenta desactivada no recibe enlace, aunque la respuesta sea la misma', async () => {
-    const { empresa } = await registrarEmpresa(app);
+    const { empresa } = await empresaActiva();
     const empleado = await crearUsuarioEn(pool, empresa.id);
     await pool.query('UPDATE usuarios SET activo = false WHERE id = $1', [empleado.id]);
 
@@ -168,7 +177,8 @@ describe('Recuperación de contraseña por correo (CLAUDE.md v2)', () => {
   it('si el correo no se puede enviar, la respuesta no cambia y el fallo queda en el registro del servidor', async () => {
     const roto = { enviar: () => Promise.reject(new Error('Brevo no responde')) };
     const conCorreoRoto = crearAppDePruebas(pool, {}, almacenamientoDePruebas(), roto);
-    const { usuario } = await registrarEmpresa(conCorreoRoto);
+    // La empresa nace con el correo funcionando (su administrador tiene que aceptar la invitación); después se rompe.
+    const { usuario } = await empresaActiva();
     const errores: unknown[] = [];
     const original = console.error;
     console.error = (...argumentos: unknown[]) => { errores.push(argumentos); };

@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { CLAVE, crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa } from '../apoyo/api.js';
+import { activarCuenta, CLAVE, crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa } from '../apoyo/api.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 
 describe('Gestión de usuarios (RF13, RF14)', () => {
@@ -26,23 +26,32 @@ describe('Gestión de usuarios (RF13, RF14)', () => {
   });
   const yo = (token: string) => request(app).get('/api/v1/auth/yo').set('Authorization', `Bearer ${token}`);
 
-  it('el administrador crea un usuario que puede entrar de inmediato, y queda registrado sin la contraseña', async () => {
+  it('el administrador crea un usuario pendiente, sin contraseña; entra cuando acepta la invitación que le llega (D41)', async () => {
     const { token, empresa } = await registrarEmpresa(app);
     const email = `nuevo.${Date.now()}@ejemplo.pe`;
 
-    const respuesta = await conToken(token).crear({ nombre: 'Luis Quispe', email: email.toUpperCase(), dni: '45678912', clave: CLAVE, rol: 'usuario' });
+    const respuesta = await conToken(token).crear({ nombre: 'Luis Quispe', email: email.toUpperCase(), dni: '45678912', rol: 'usuario' });
 
     expect(respuesta.status).toBe(201);
-    expect(respuesta.body).toEqual({ id: expect.any(String), nombre: 'Luis Quispe', email, rol: 'usuario', dni: '45678912', activo: true, creadoEn: expect.any(String) });
+    expect(respuesta.body).toEqual({
+      id: expect.any(String), nombre: 'Luis Quispe', email, rol: 'usuario', dni: '45678912', activo: true,
+      estado: 'pendiente', invitacionEnviada: true, creadoEn: expect.any(String),
+    });
+    // Antes de aceptar la invitación no tiene contraseña: ninguna sirve, ni la que usaba el administrador.
+    expect((await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE })).status).toBe(401);
+    await activarCuenta(app, email);
     expect(await iniciarSesion(app, email)).toMatch(/^ey/);
-    const creado = (await historialDe(pool, empresa.id)).find((fila) => fila.accion === 'USUARIO_CREADO' && fila.entidad_id === respuesta.body.id);
-    expect(creado).toMatchObject({ entidad_id: respuesta.body.id, detalle: { nombre: 'Luis Quispe', email, rol: 'usuario' } });
-    expect(JSON.stringify(creado)).not.toContain(CLAVE);
+    const asientos = await historialDe(pool, empresa.id);
+    expect(asientos.find((fila) => fila.accion === 'USUARIO_CREADO' && fila.entidad_id === respuesta.body.id))
+      .toMatchObject({ detalle: { nombre: 'Luis Quispe', email, rol: 'usuario' } });
+    expect(asientos.filter((fila) => fila.entidad_id === respuesta.body.id).map((fila) => fila.accion))
+      .toEqual(['USUARIO_CREADO', 'INVITACION_ENVIADA', 'CORREO_VERIFICADO']);
+    expect(JSON.stringify(asientos)).not.toContain(CLAVE);
   });
 
   it('lista solo los de su empresa, con búsqueda por nombre o correo y filtros', async () => {
     const { token, empresa } = await registrarEmpresa(app);
-    await conToken(token).crear({ nombre: 'Rocío Ñahui', email: `rocio.${Date.now()}@ejemplo.pe`, clave: CLAVE, rol: 'usuario' });
+    await conToken(token).crear({ nombre: 'Rocío Ñahui', email: `rocio.${Date.now()}@ejemplo.pe`, rol: 'usuario' });
     const inactivo = await crearUsuarioEn(pool, empresa.id);
     await conToken(token).estado(inactivo.id, false);
     await registrarEmpresa(app);
@@ -118,7 +127,7 @@ describe('Gestión de usuarios (RF13, RF14)', () => {
     const sesionEmpleado = await iniciarSesion(app, empleado.email);
     const ajena = await registrarEmpresa(app);
 
-    expect((await conToken(token).crear({ nombre: 'Copia', email: admin.email, clave: CLAVE, rol: 'usuario' })).body.error.codigo).toBe('EMAIL_EN_USO');
+    expect((await conToken(token).crear({ nombre: 'Copia', email: admin.email, rol: 'usuario' })).body.error.codigo).toBe('EMAIL_EN_USO');
     expect((await conToken(sesionEmpleado).listar()).status).toBe(403);
     expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({ accion: 'ACCESO_DENEGADO', detalle: { permiso: 'GESTIONAR_USUARIOS' } });
     expect((await conToken(ajena.token).editar(empleado.id, { nombre: 'Intruso' })).status).toBe(404);
