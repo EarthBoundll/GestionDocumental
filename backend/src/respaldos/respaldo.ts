@@ -42,6 +42,20 @@ interface ContenidoDeRespaldo {
   tablas: Record<string, unknown[]>;
 }
 
+/**
+ * Las columnas que se guardan y se restauran: todas menos las generadas, que la base calcula sola y no
+ * admite que se escriban (las de búsqueda de la 014, D42). Entre comillas, como identificadores.
+ */
+async function columnasDe(db: pg.Pool | pg.PoolClient, tabla: string): Promise<string> {
+  const { rows } = await db.query<{ columna: string }>(
+    `SELECT quote_ident(attname) AS columna FROM pg_attribute
+     WHERE attrelid = $1::regclass AND attnum > 0 AND NOT attisdropped AND attgenerated = ''
+     ORDER BY attnum`,
+    [tabla],
+  );
+  return rows.map((fila) => fila.columna).join(', ');
+}
+
 async function migracionesDe(db: pg.Pool | pg.PoolClient): Promise<string[]> {
   const { rows } = await db.query<{ archivo: string }>('SELECT archivo FROM esquema_migraciones ORDER BY archivo');
   return rows.map((fila) => fila.archivo);
@@ -56,7 +70,7 @@ export async function generarRespaldo(pool: pg.Pool): Promise<{ contenido: Buffe
       // row_to_json escribe cada valor como lo escribe PostgreSQL (fechas con su zona, jsonb tal cual),
       // y json_populate_recordset lo lee igual al restaurar: no pasa por los tipos de JavaScript.
       const { rows } = await cliente.query<{ filas: unknown[] }>(
-        `SELECT coalesce(json_agg(t ORDER BY ${orden}), '[]'::json) AS filas FROM ${nombre} t`);
+        `SELECT coalesce(json_agg(t ORDER BY ${orden}), '[]'::json) AS filas FROM (SELECT ${await columnasDe(cliente, nombre)} FROM ${nombre}) t`);
       tablas[nombre] = rows[0]!.filas;
     }
     return { version: VERSION, generadoEn: new Date().toISOString(), migraciones: await migracionesDe(cliente), tablas };
@@ -86,8 +100,10 @@ export async function restaurarRespaldo(pool: pg.Pool, comprimido: Buffer): Prom
     for (const { nombre } of TABLAS) {
       const lista = datos.tablas[nombre] ?? [];
       // OVERRIDING SYSTEM VALUE: el historial conserva sus números, que son su orden.
+      const columnas = await columnasDe(cliente, nombre);
       const { rowCount } = await cliente.query(
-        `INSERT INTO ${nombre} OVERRIDING SYSTEM VALUE SELECT * FROM json_populate_recordset(null::${nombre}, $1::json)`,
+        `INSERT INTO ${nombre} (${columnas}) OVERRIDING SYSTEM VALUE
+         SELECT ${columnas} FROM json_populate_recordset(null::${nombre}, $1::json)`,
         [JSON.stringify(lista)],
       );
       filas[nombre] = rowCount ?? 0;

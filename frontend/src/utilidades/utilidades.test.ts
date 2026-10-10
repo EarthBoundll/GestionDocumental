@@ -66,6 +66,15 @@ describe('historial', () => {
     expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(37);
   });
 
+  it('una búsqueda dice qué filtros usó, si se eligió de las sugerencias y si solo halló parecidos (D42)', () => {
+    expect(resumirDetalle({ filtros: { q: 'contrato', tipo: 'pdf', estado: 'aprobada', subidoPor: 'u1', desde: '2026-07-01', hasta: '2026-09-30', fechaDe: 'subida' }, resultados: 2 }))
+      .toEqual(['buscó «contrato»', 'tipo PDF', 'aprobado', 'por quién lo subió', 'del 01/07/2026 al 30/09/2026 (subida)', '2 resultados']);
+    expect(resumirDetalle({ filtros: { q: 'contr' }, resultados: 1, origen: 'sugerencia', documento: 'Contrato' }))
+      .toEqual(['«Contrato»', 'buscó «contr»', '1 resultado', 'elegido de las sugerencias']);
+    expect(resumirDetalle({ filtros: { q: 'factrua' }, resultados: 3, aproximada: true }))
+      .toEqual(['buscó «factrua»', '3 resultados', 'solo parecidos']);
+  });
+
   it('la verificación del correo dice cómo quedó probado, y un acceso sin verificar, por qué falló (D41)', () => {
     expect(resumirDetalle({ mediante: 'invitacion' })).toEqual(['al aceptar su invitación']);
     expect(resumirDetalle({ mediante: 'enlace' })).toEqual(['con el enlace del correo']);

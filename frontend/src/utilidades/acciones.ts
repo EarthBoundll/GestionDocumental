@@ -1,3 +1,4 @@
+import { ESTADOS_DE_APROBACION, TIPOS_DE_ARCHIVO } from './busqueda';
 import { contar, formatearFecha, formatearPeso } from './formato';
 
 /** Cómo se lee cada acción del historial (docs/01-analisis.md §7). */
@@ -81,14 +82,21 @@ export function resumirDetalle(detalle: Record<string, unknown>): string[] {
     partes.push(typeof detalle.desde === 'number' ? `versión ${detalle.desde} restaurada como ${detalle.version}` : `versión ${detalle.version}`);
   }
   if (detalle.filtros && typeof detalle.filtros === 'object') {
-    const { q, categoriaId, desde, hasta } = detalle.filtros as Record<string, string | undefined>;
+    const { q, categoriaId, desde, hasta, tipo, estado, subidoPor, fechaDe } = detalle.filtros as Record<string, string | undefined>;
     if (q) partes.push(`buscó «${q}»`);
     if (categoriaId) partes.push('por categoría');
-    if (desde && hasta) partes.push(`del ${formatearFecha(desde)} al ${formatearFecha(hasta)}`);
-    else if (desde) partes.push(`desde el ${formatearFecha(desde)}`);
-    else if (hasta) partes.push(`hasta el ${formatearFecha(hasta)}`);
+    // D42: los filtros que se sumaron a la búsqueda.
+    if (tipo) partes.push(`tipo ${TIPOS_DE_ARCHIVO.find((opcion) => opcion.valor === tipo)?.texto ?? tipo}`);
+    if (estado) partes.push((ESTADOS_DE_APROBACION.find((opcion) => opcion.valor === estado)?.texto ?? estado).toLowerCase());
+    if (subidoPor) partes.push('por quién lo subió');
+    const subida = fechaDe === 'subida' ? ' (subida)' : '';
+    if (desde && hasta) partes.push(`del ${formatearFecha(desde)} al ${formatearFecha(hasta)}${subida}`);
+    else if (desde) partes.push(`desde el ${formatearFecha(desde)}${subida}`);
+    else if (hasta) partes.push(`hasta el ${formatearFecha(hasta)}${subida}`);
   }
   if (typeof detalle.resultados === 'number') partes.push(contar(detalle.resultados, 'resultado'));
+  if (detalle.origen === 'sugerencia') partes.push('elegido de las sugerencias');
+  if (detalle.aproximada === true) partes.push('solo parecidos');
   if (typeof detalle.archivo === 'string' && typeof detalle.bytes === 'number') partes.push(formatearPeso(detalle.bytes));
   if (typeof detalle.filas === 'number') {
     partes.push(detalle.formato === 'impresion'

@@ -12,7 +12,7 @@ test.describe('Aislamiento entre empresas (indicador 6)', () => {
 
     await entrar(page, contable.administrador);
     await expect(page.getByText('Aún no hay documentos')).toBeVisible();
-    await page.getByLabel('Buscar por nombre').fill('planilla');
+    await page.getByLabel('Buscar documentos').fill('planilla');
     await page.getByRole('button', { name: 'Buscar' }).click();
     await expect(page.getByText('Ningún documento coincide')).toBeVisible();
 

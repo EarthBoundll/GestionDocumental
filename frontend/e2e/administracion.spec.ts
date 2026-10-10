@@ -109,7 +109,7 @@ test.describe('Administración de la empresa', () => {
     const ana = await nuevaCuenta(request, empresa, 'usuario', 'Ana Torres');
     await subirDocumento(request, ana, { nombre: 'Contrato de alquiler' });
     await entrar(page, ana);
-    await page.getByLabel('Buscar por nombre').fill('alquiler');
+    await page.getByLabel('Buscar documentos').fill('alquiler');
     await page.getByRole('button', { name: 'Buscar' }).click();
     const [descarga] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Descargar Contrato de alquiler' }).click()]);
     await descarga.path();

@@ -122,6 +122,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     ['pedir la aprobación de un documento', 'POST', `/api/v1/documentos/${b.documentoId}/solicitudes`, {}],
     ['marcar como leída una notificación', 'PATCH', `/api/v1/notificaciones/${b.notificacionId}/leida`, undefined],
     ['completar una medición de tiempo de respuesta', 'PATCH', `/api/v1/tiempos-respuesta/${b.medicionId}`, { duracionClienteMs: 1 }],
+    ['registrar como sugerencia elegida un documento de B', 'POST', '/api/v1/documentos/busquedas', { q: 'contrato', documentoId: b.documentoId }],
   ];
   const ataquesDeAdministracion = (): [string, 'GET' | 'POST' | 'PATCH' | 'DELETE', string, object | undefined][] => [
     ['editar una categoría', 'PATCH', `/api/v1/categorias/${b.categoriaId}`, { nombre: 'Lo cambió A' }],
@@ -202,6 +203,9 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
       ['listar documentos', '/api/v1/documentos', (c) => ids(c.datos)],
       ['buscar documentos por el nombre exacto de uno de B', `/api/v1/documentos?q=${encodeURIComponent('Contrato secreto de la empresa B')}`, (c) => ids(c.datos)],
       ['buscar documentos por una categoría de B', `/api/v1/documentos?categoriaId=${b.categoriaId}`, (c) => ids(c.datos)],
+      ['buscar con errores de escritura un documento de B', `/api/v1/documentos?q=${encodeURIComponent('Contarto secretto')}`, (c) => ids(c.datos)],
+      ['pedir sugerencias con el nombre de un documento de B', `/api/v1/documentos/sugerencias?q=${encodeURIComponent('Contrato secreto')}`, (c) => ids(c.datos)],
+      ['pedir sugerencias con el nombre de una categoría de B', `/api/v1/documentos/sugerencias?q=${encodeURIComponent('Confidencial')}`, (c) => ids(c.datos)],
       ['listar categorías, también las inactivas', '/api/v1/categorias?incluirInactivas=true', (c) => ids(c.datos)],
       ['listar usuarios', '/api/v1/usuarios?porPagina=100', (c) => ids(c.datos)],
       ['listar solicitudes', '/api/v1/solicitudes', (c) => ids(c.datos)],

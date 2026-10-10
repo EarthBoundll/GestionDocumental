@@ -110,11 +110,11 @@ test.describe('Documentos y categorías', () => {
     await entrar(page, empresa.administrador);
     const resultados = page.locator('main ul > li a');
 
-    await page.getByLabel('Buscar por nombre').fill('COTIZACION');
+    await page.getByLabel('Buscar documentos').fill('COTIZACION');
     await page.getByRole('button', { name: 'Buscar' }).click();
     await expect(resultados).toHaveText(['Cotización de telas']);
 
-    await page.getByLabel('Buscar por nombre').fill('');
+    await page.getByLabel('Buscar documentos').fill('');
     await page.getByRole('button', { name: 'Buscar' }).click();
     await page.getByLabel('Categoría').selectOption({ label: 'Facturas y boletas' });
     await expect(resultados).toHaveText(['Boleta de luz', 'Factura F001-245']);
@@ -125,11 +125,53 @@ test.describe('Documentos y categorías', () => {
     await page.getByLabel('Desde').fill('2026-09-01');
     await expect(resultados).toHaveText(['Boleta de luz']);
 
-    await page.getByLabel('Buscar por nombre').fill('contrato');
+    await page.getByLabel('Buscar documentos').fill('contrato');
     await page.getByRole('button', { name: 'Buscar' }).click();
     await expect(page.getByText('Ningún documento coincide')).toBeVisible();
-    await page.getByRole('button', { name: 'Quitar los filtros' }).click();
+    await page.getByRole('button', { name: 'Limpiar filtros' }).first().click();
     await expect(resultados).toHaveCount(3);
+  });
+
+  test('RF10 · Busca palabras en cualquier orden y con errores, sugiere mientras se escribe y muestra los filtros activos @movil', async ({ page, request }) => {
+    const empresa = await nuevaEmpresa(request);
+    await subirDocumento(request, empresa.administrador, { nombre: 'Factura de proveedor - octubre', categoria: 'Facturas y boletas', fecha: '2026-10-02' });
+    await subirDocumento(request, empresa.administrador, { nombre: 'Contrato de alquiler del local', categoria: 'Contratos', fecha: '2026-08-20' });
+    await subirDocumento(request, empresa.administrador, { nombre: 'Acta de reunión', fecha: '2026-06-01', descripcion: 'Se acordó renovar el contrato del local' });
+    await entrar(page, empresa.administrador);
+    const resultados = page.locator('main ul > li a');
+    const buscador = page.getByRole('combobox', { name: 'Buscar documentos' });
+
+    // El ejemplo del pedido: plural, sin «de» y en otro orden.
+    await buscador.fill('proveedores facturas');
+    await buscador.press('Enter');
+    await expect(resultados).toHaveText(['Factura de proveedor - octubre']);
+    // Una palabra en la descripción también cuenta, y cada resultado dice dónde coincidió.
+    await buscador.fill('renovar');
+    await buscador.press('Enter');
+    await expect(resultados).toHaveText(['Acta de reunión']);
+    await expect(page.getByText('En la descripción o el archivo')).toBeVisible();
+    // Con un error de escritura, avisa que son parecidos.
+    await buscador.fill('factrua');
+    await buscador.press('Enter');
+    await expect(page.getByText('No hay documentos con «factrua» tal cual')).toBeVisible();
+    await expect(resultados).toHaveText(['Factura de proveedor - octubre']);
+
+    // Los filtros en uso se ven y se quitan; «Limpiar filtros» vuelve a la lista completa.
+    await page.goto('/documentos?q=contrato&tipo=pdf');
+    const activos = page.getByLabel('Filtros activos');
+    await expect(activos).toContainText('«contrato»');
+    await expect(activos).toContainText('PDF');
+    await activos.getByRole('button', { name: 'Limpiar filtros' }).click();
+    await expect(resultados).toHaveCount(3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    // Mientras se escribe, sugiere; elegir una abre su ficha y la búsqueda queda en el historial.
+    await buscador.pressSequentially('contra', { delay: 40 });
+    const sugerencia = page.getByRole('option', { name: /Contrato de alquiler del local/ });
+    await expect(sugerencia).toBeVisible();
+    await sugerencia.click();
+    await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole('heading', { name: 'Contrato de alquiler del local' })).toBeVisible();
   });
 
   test('RF10 · En el celular el nombre se lee entero, y al buscar se cierra el teclado con el resultado a la vista @movil', async ({ page, request }) => {
@@ -139,7 +181,7 @@ test.describe('Documentos y categorías', () => {
     for (let i = 1; i <= 8; i++) await subirDocumento(request, empresa.administrador, { nombre: `Acta de reunión AC-00030${i}` });
     await entrar(page, empresa.administrador);
     const enlace = page.getByRole('link', { name: buscado });
-    const buscador = page.getByLabel('Buscar por nombre');
+    const buscador = page.getByLabel('Buscar documentos');
 
     // Lo que distingue a un documento (número, cliente) va al final del nombre: no puede quedar recortado.
     await expect(enlace).toBeAttached();
@@ -206,7 +248,7 @@ test.describe('Documentos y categorías', () => {
     await entrar(page, empresa.administrador);
 
     const listado = page.waitForResponse((r) => r.url().startsWith(`${URL_API}/documentos?`) && r.url().includes('q=agosto'));
-    await page.getByLabel('Buscar por nombre').fill('agosto');
+    await page.getByLabel('Buscar documentos').fill('agosto');
     await page.getByRole('button', { name: 'Buscar' }).click();
     const { tiempoRespuestaId } = (await (await listado).json()) as { tiempoRespuestaId: string };
 

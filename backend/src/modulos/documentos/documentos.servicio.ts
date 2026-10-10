@@ -10,11 +10,12 @@ import { tienePermiso } from '../../compartido/permisos.js';
 import { identificarTipo, nombreDeTipo } from '../../compartido/tipos-de-archivo.js';
 import { actividadDeDocumento, type ActividadDeDocumento } from '../historial/historial.consulta.js';
 import { autorDe, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
-import type { CambiosDocumento, FiltrosBusqueda, FiltrosDelListado, NuevoDocumento } from './documentos.esquemas.js';
+import { admiteParecidos, terminosDeBusqueda } from './busqueda.js';
+import type { CambiosDocumento, FiltrosBusqueda, FiltrosDelListado, NuevoDocumento, SugerenciaElegida } from './documentos.esquemas.js';
 import {
   actualizarDocumento, bloquearEnPapelera, buscarDocumento, buscarDocumentos, categoriaDeLaEmpresa, insertarDocumento,
-  listadoDocumental, listarPapelera, marcarEliminado, marcarPurgado, restaurarDocumento,
-  type Documento, type DocumentoEnPapelera, type DocumentoInterno, type DocumentoResumen,
+  listadoDocumental, listarPapelera, marcarEliminado, marcarPurgado, restaurarDocumento, sugerirDocumentos,
+  type Documento, type DocumentoEnPapelera, type DocumentoInterno, type DocumentoResumen, type Sugerencia,
 } from './documentos.repositorio.js';
 import {
   bloquearParaVersion, buscarVersion, hacerVigente, insertarVersion, listarVersiones, rutasDeVersiones,
@@ -29,6 +30,9 @@ const VIGENCIA_ENLACE_SEGUNDOS = 300;
  * memoria de Render (512 MB) y, si se pasa, se pide filtrar en vez de entregar un inventario cortado.
  */
 export const MAXIMO_EN_EL_LISTADO = 50_000;
+
+/** Cuántas sugerencias se ofrecen mientras se escribe: las que caben en un celular sin tapar el teclado. */
+export const MAXIMO_DE_SUGERENCIAS = 5;
 
 /** RF26: lo eliminado se puede restaurar durante 30 días; después se purga solo (src/tareas/purgar-papelera.ts). */
 export const DIAS_EN_PAPELERA = 30;
@@ -58,6 +62,15 @@ export function permisosSobre(usuario: UsuarioAutenticado, documento: Documento)
     resolverSolicitud: pendiente && tienePermiso(usuario.rol, 'RESOLVER_SOLICITUDES') && solicitud.solicitante.id !== usuario.id,
     versionar: puedeGestionar && !pendiente,
   };
+}
+
+/**
+ * Los filtros de una búsqueda o de un listado, como quedan en el historial: los que se usaron, y de qué
+ * fecha hablan «desde» y «hasta» solo si no es la del documento, la de siempre.
+ */
+function filtrosParaElHistorial(filtros: FiltrosDelListado) {
+  const { q, categoriaId, desde, hasta, tipo, estado, subidoPor, fechaDe } = filtros;
+  return { q, categoriaId, desde, hasta, tipo, estado, subidoPor, ...((desde || hasta) && fechaDe === 'subida' && { fechaDe }) };
 }
 
 /** Una versión vista desde fuera: sin la ruta del archivo, y diciendo si es la vigente. */
@@ -144,20 +157,30 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
   }
 
   return {
-    /** Listado y búsqueda (RF10). Con algún filtro es una búsqueda, y se registra con su número de resultados. */
-    async listar(actor: Actor, filtros: FiltrosBusqueda): Promise<Pagina<DocumentoResumen> & { conFiltros: boolean }> {
+    /**
+     * Listado y búsqueda (RF10, D42). Con algún filtro es una búsqueda, y se registra con su número de
+     * resultados. Si el texto no encontró nada, una segunda pasada busca palabras parecidas (errores de
+     * escritura): sus resultados se marcan como aproximados y nunca se mezclan con los exactos.
+     */
+    async listar(actor: Actor, filtros: FiltrosBusqueda): Promise<Pagina<DocumentoResumen> & { conFiltros: boolean; aproximada: boolean }> {
       const { usuario } = actor.autenticacion;
-      const conFiltros = Boolean(filtros.q || filtros.categoriaId || filtros.desde || filtros.hasta);
-      const { filas, total } = await actor.datos.ejecutar(async (cliente) => {
-        const resultado = await buscarDocumentos(cliente, empresaDe(actor), filtros);
+      const conFiltros = Boolean(filtros.q || filtros.categoriaId || filtros.desde || filtros.hasta
+        || filtros.tipo || filtros.estado || filtros.subidoPor);
+      const orden = filtros.orden ?? (filtros.q ? 'relevancia' : 'recientes');
+      const { filas, total, aproximada } = await actor.datos.ejecutar(async (cliente) => {
+        const exacta = await buscarDocumentos(cliente, empresaDe(actor), filtros, { orden });
+        const probarParecidos = exacta.total === 0 && filtros.q !== undefined && admiteParecidos(terminosDeBusqueda(filtros.q));
+        const parecida = probarParecidos ? await buscarDocumentos(cliente, empresaDe(actor), filtros, { orden, parecidos: true }) : null;
+        const resultado = { ...(parecida ?? exacta), aproximada: Boolean(parecida && parecida.total > 0) };
         if (!conFiltros) return resultado;
         await registrarAccion(cliente, {
           accion: 'BUSQUEDA_REALIZADA',
           autor: autorDe(usuario),
           contexto: actor.contexto,
           detalle: {
-            filtros: { q: filtros.q, categoriaId: filtros.categoriaId, desde: filtros.desde, hasta: filtros.hasta },
+            filtros: filtrosParaElHistorial(filtros),
             resultados: resultado.total,
+            ...(resultado.aproximada && { aproximada: true }),
           },
         });
         return resultado;
@@ -166,7 +189,30 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
         datos: filas,
         paginacion: { pagina: filtros.pagina, porPagina: filtros.porPagina, total },
         conFiltros,
+        aproximada,
       };
+    },
+
+    /**
+     * Sugerencias mientras se escribe (D42). Con la misma consulta y la misma RLS que la búsqueda, así que
+     * no adelantan nada que la persona no pueda ver. No se registran: son letras a medio escribir (D36).
+     */
+    async sugerencias(actor: Actor, q: string): Promise<Sugerencia[]> {
+      return actor.datos.ejecutar((db) => sugerirDocumentos(db, empresaDe(actor), q, MAXIMO_DE_SUGERENCIAS));
+    },
+
+    /**
+     * Quien elige una sugerencia hizo una búsqueda que encontró lo que buscaba: se registra como tal, con
+     * el documento elegido (indicadores 2 y 3). Solo si ese documento es uno que puede ver.
+     */
+    async registrarSugerenciaElegida(actor: Actor, { q, documentoId }: SugerenciaElegida): Promise<void> {
+      const documento = await documentoVigente(actor, documentoId);
+      await actor.datos.ejecutar((cliente) => registrarAccion(cliente, {
+        accion: 'BUSQUEDA_REALIZADA',
+        autor: autorDe(actor.autenticacion.usuario),
+        contexto: actor.contexto,
+        detalle: { filtros: { q }, resultados: 1, origen: 'sugerencia', documento: documento.nombre, documentoId },
+      }));
     },
 
     async subir(actor: Actor, datos: NuevoDocumento, archivo: ArchivoRecibido): Promise<Documento> {
@@ -351,7 +397,7 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
           accion: 'LISTADO_EXPORTADO',
           autor: autorDe(usuario),
           contexto: actor.contexto,
-          detalle: { filtros, filas: filas.length },
+          detalle: { filtros: filtrosParaElHistorial(filtros), filas: filas.length },
         });
         return filas;
       });

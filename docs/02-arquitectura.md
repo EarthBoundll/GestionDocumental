@@ -230,6 +230,7 @@ se suspende en vez de cobrar.
 | Un token con otra empresa, aun firmado con el secreto | La empresa del token se compara con la de la base: si no coinciden, 401 |
 | El Master leyendo el contenido de una empresa | Su rol de base (`app_plataforma`) no tiene permisos sobre documentos, solicitudes, notificaciones ni tiempos de respuesta; sus cifras salen de una función que solo devuelve conteos (decisión E); del historial solo lee sus propias acciones y lo que no es de ninguna empresa (D24); los respaldos no se descargan por la API (D25) |
 | Recuperación de contraseña como oráculo de cuentas o puerta trasera | Misma respuesta y mismo tiempo exista o no el correo; token de 256 bits, de un solo uso, 60 minutos, guardado como huella SHA-256 y enviado en el fragmento del enlace; límite de peticiones por IP |
+| Descubrir con el buscador lo que no se puede ver | La búsqueda, las sugerencias y la pasada por parecido usan la misma consulta, con la empresa de la sesión y la RLS de empresa y de categorías; elegir una sugerencia de otra empresa o restringida responde 404; las palabras llegan sin signos y siempre como parámetros (D42) |
 | Una cuenta con un correo ajeno, mal escrito o temporal | Nace sin contraseña y no entra hasta que su dueño abre la invitación que le llegó (D41); la sesión exige el correo verificado; un correo nuevo vuelve a estar sin verificar; una lista de dominios temporales conocidos |
 | Un administrador marcando un correo como verificado | La base no le deja escribir `email_verificado_en` (permisos por columna, migración 013); la API ignora lo que llegue en el cuerpo; solo un enlace gastado lo verifica |
 | La API usada para inundar un buzón con invitaciones | Un reenvío cada 2 minutos y 5 al día por buzón, contados en la base; los automáticos (al entrar o al recuperar) callan el freno; límite de peticiones por IP |
@@ -524,7 +525,8 @@ política de la 004 llamaba a `puede_ver_categoria()` por cada fila, dos veces p
 (`categorias_visibles()`, que PostgreSQL evalúa como InitPlan) y cada fila solo se compara con esa lista: el
 listado bajó a 14 ms y la búsqueda a 0,3 s, con la misma decisión. Una prueba exige que el plan no vuelva a
 llamar a la función por fila. Queda una limitación medida: con la RLS, la búsqueda por nombre no usa el índice de
-trigramas, porque `LIKE` no es *leakproof*; recorre lo visible con un índice por categoría, lejos del umbral.
+trigramas, porque `LIKE` no es *leakproof*; recorre lo visible con un índice por categoría, lejos del umbral (D42
+quitó ese índice y guardó el texto ya normalizado).
 *Descartado:* desactivar la RLS en el listado y filtrar en el código (el `WHERE` olvidado que D17 evita),
 marcar funciones como *leakproof* (exige superusuario, que Supabase no da) y una función que busque con el
 índice por fuera de la RLS, que suma complejidad para un caso que no tiene ninguna MYPE.
@@ -656,6 +658,32 @@ ajena, y la persona recibiría dos cosas en vez de una), verificar con un códig
 seis dígitos se adivinan si no se frena con cuidado), Supabase Auth (D19: duplicaría las cuentas), un interruptor de
 entorno para saltarse la verificación en desarrollo (las pruebas pasan por el mismo camino que una persona, leyendo el
 correo de la carpeta) y una API de validación de correos (manda los correos a un tercero y cuesta).
+
+**D42 · Búsqueda por palabras con PostgreSQL, sin motor externo, y sugerencias que no ensucian el historial.** La
+migración 014 guarda tres columnas generadas en cada documento: el nombre normalizado (minúsculas, sin tildes y con los
+signos convertidos en espacios), ese mismo texto con el archivo y la descripción, y un `tsvector` en español con el
+nombre y el archivo en peso A y la descripción en B. La búsqueda parte lo escrito en palabras de letras y dígitos (no
+llega ningún signo a la consulta, así que no hay comodines ni operadores que escapar) y exige que cada una aparezca en
+algún sitio: como parte de una palabra («contra» en «contrato», «0245» en «F001-0245»), por su raíz («facturas
+proveedores» encuentra «Factura de proveedor») o en el nombre de la categoría. Ordena de forma explicable, y cada
+resultado dice dónde coincidió: nombre exacto, nombre que empieza así, todas las palabras en el nombre, en el nombre o
+el archivo por su raíz, en la descripción y por la categoría; desempata `ts_rank` y después lo reciente. Solo si eso no
+encuentra nada, una segunda pasada busca errores de escritura por similitud de trigramas con el nombre (0,5,
+medido con «factrua», «provedor», «contrto»), y esos resultados se marcan como parecidos y no se mezclan con los
+exactos. Los números nunca se aproximan: la prueba de carga encontró que buscar «031415» devolvía 86 documentos con
+números vecinos. Filtros nuevos: tipo, estado de aprobación (el de la última solicitud), quién lo subió (el usuario solo
+«los que subí yo») y fecha del documento o de subida, con atajos; se ven como etiquetas que se quitan una a una. D36
+sigue: la búsqueda corre al confirmarla; mientras se escribe, tras 300 ms y desde dos letras, se ofrecen cinco
+sugerencias con la misma consulta y la misma RLS, que no se registran; elegir una sí queda como búsqueda, con el
+documento elegido. Con 50.000 documentos la búsqueda exacta bajó de 282 a 98 ms y la pasada por parecido tarda unos
+500 ms; con la RLS no se usa ningún índice (ni `LIKE` ni `@@` son *leakproof*), así que se quitó el de trigramas, que
+solo costaba en cada escritura (`docs/evidencias/prueba-de-carga.md`). La restauración de respaldos ya no escribe las
+columnas generadas.
+*Descartado:* un motor externo (Elasticsearch, Meilisearch, Algolia: otra cuenta y otro servicio para lo que PostgreSQL ya
+hace con 50.000 documentos), solo `tsvector` (descarta «contra» como palabra vacía y no encuentra fragmentos), solo
+trigramas (no entiende plurales ni el orden de las palabras), buscar mientras se escribe (cada tecla sería una
+`BUSQUEDA_REALIZADA`, D36), un vocabulario de palabras para corregir errores (calcularlo en cada consulta tardaba más
+que la propia búsqueda, y mantenerlo exigía otra tabla) y búsqueda semántica con IA (fuera del alcance de la tesis).
 
 ## 8. Riesgos
 

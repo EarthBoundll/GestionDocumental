@@ -20,6 +20,15 @@ const TIPOS = {
 
 export const EXTENSIONES_ADMITIDAS = Object.keys(TIPOS);
 
+/** Cómo filtra por tipo quien busca (D42): por lo que el archivo es para una persona, no por su extensión. */
+export const GRUPOS_DE_TIPO = {
+  pdf: [TIPOS.pdf.mime],
+  imagen: [TIPOS.jpg.mime, TIPOS.png.mime],
+  word: [TIPOS.doc.mime, TIPOS.docx.mime],
+  excel: [TIPOS.xls.mime, TIPOS.xlsx.mime],
+} as const satisfies Record<string, readonly string[]>;
+export type GrupoDeTipo = keyof typeof GRUPOS_DE_TIPO;
+
 /** El nombre corto de un tipo admitido («PDF», «DOCX»), para lo que lee una persona: el listado documental. */
 export function nombreDeTipo(mime: string): string {
   const extension = Object.entries(TIPOS).find(([, tipo]) => tipo.mime === mime)?.[0];

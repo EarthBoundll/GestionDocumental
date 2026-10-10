@@ -15,6 +15,9 @@ export function crearRutasDocumentos(
   rutas.get('/', controlador.listar);
   // Antes que /:id, que si no tomaría «exportar» o «papelera» por un identificador.
   rutas.get('/exportar', exigir('EXPORTAR_LISTADO'), controlador.exportarListado);
+  // D42: sugerencias mientras se escribe (no se registran) y la sugerencia elegida (sí se registra).
+  rutas.get('/sugerencias', controlador.sugerencias);
+  rutas.post('/busquedas', controlador.registrarSugerencia);
   rutas.get('/papelera', exigir('GESTIONAR_PAPELERA'), controlador.papelera);
   rutas.post('/papelera/:id/restauracion', exigir('GESTIONAR_PAPELERA'), controlador.restaurar);
   rutas.delete('/papelera/:id', exigir('GESTIONAR_PAPELERA'), controlador.purgar);

@@ -195,30 +195,24 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
     });
   });
 
-  it('la búsqueda por nombre ignora mayúsculas y tildes, y usa el índice de trigramas (M8)', async () => {
+  it('las columnas de búsqueda se calculan solas: sin tildes, en minúsculas y palabra por palabra (M8, D42)', async () => {
     const a = await crearEscenario(db);
-    await crearDocumento(db, {
-      empresaId: a.empresaId, categoriaId: a.categoriaId, subidoPor: a.usuarioId, nombre: 'Cotización de útiles',
+    const id = await crearDocumento(db, {
+      empresaId: a.empresaId, categoriaId: a.categoriaId, subidoPor: a.usuarioId, nombre: 'Cotización de Útiles',
     });
-    const buscar = `SELECT nombre FROM documentos
-      WHERE empresa_id = $1 AND eliminado_en IS NULL
-        AND normalizar(nombre) LIKE '%' || normalizar($2) || '%'`;
+    await db.query("UPDATE documentos SET descripcion = 'Pedido N°15', archivo_nombre_original = 'Cotización_2026-03.PDF' WHERE id = $1", [id]);
 
-    const { rows } = await db.query(buscar, [a.empresaId, 'COTIZACION de UTILES']);
-    expect(rows).toEqual([{ nombre: 'Cotización de útiles' }]);
+    const { rows: [fila] } = await db.query(
+      'SELECT busqueda_nombre, busqueda_texto, busqueda::text AS busqueda FROM documentos WHERE id = $1', [id]);
 
-    // Un índice que el planificador nunca elige no sirve de nada. Con un volumen realista y sin
-    // forzarlo, debe escogerlo por sí mismo: eso prueba que la expresión indexada y la buscada coinciden.
-    await db.query(
-      `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento,
-         archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
-       SELECT $1, $2, $3, 'Factura número ' || n, '2026-01-01', 'f.pdf', 'masivo/' || n, 'application/pdf', 1000
-       FROM generate_series(1, 3000) AS n`,
-      [a.empresaId, a.categoriaId, a.usuarioId],
-    );
-    await db.query('ANALYZE documentos');
-    const plan = await db.query(`EXPLAIN ${buscar}`, [a.empresaId, 'cotizacion']);
-    expect(plan.rows.map((fila) => fila['QUERY PLAN']).join('\n')).toContain('documentos_nombre_trigramas');
+    expect(fila.busqueda_nombre).toBe('cotizacion de utiles');
+    expect(fila.busqueda_texto).toBe('cotizacion de utiles cotizacion 2026 03 pdf pedido n 15');
+    // Por su raíz en español: el nombre y el archivo con peso A, la descripción con B.
+    expect(fila.busqueda).toContain("'cotizacion':1A,4A");
+    expect(fila.busqueda).toContain("'ped':8B");
+    // Nadie las escribe: ni la aplicación ni un error de código.
+    await expect(db.query("UPDATE documentos SET busqueda_texto = 'otra cosa' WHERE id = $1", [id]))
+      .rejects.toMatchObject({ code: '428C9' });
   });
 
   it('actualizado_en se renueva en cada UPDATE sin que la aplicación lo pida', async () => {

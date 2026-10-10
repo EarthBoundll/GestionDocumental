@@ -147,8 +147,10 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
-| GET | `/documentos` | Empresa | `?q`, `categoriaId`, `desde`, `hasta`, `orden` (`recientes`, `fecha` o `nombre`) y paginación | 200 paginado, más `tiempoRespuestaId` | `BUSQUEDA_REALIZADA`, si hay algún filtro |
-| GET | `/documentos/exportar` | Admin | `?q`, `categoriaId`, `desde`, `hasta` (los del listado, sin página ni orden) | 200 `text/csv` con BOM (RF35): id, nombre, categoría, fecha, descripción, quién lo subió y cuándo (Lima), tipo, peso, versión vigente, estado de su última solicitud y la versión que revisó; por categoría y fecha. 400 si pasa de 50.000: se pide filtrar | `LISTADO_EXPORTADO` |
+| GET | `/documentos` | Empresa | `?q`, `categoriaId`, `tipo` (`pdf`, `imagen`, `word` o `excel`), `estado` (`sin_solicitud`, `pendiente`, `aprobada` o `rechazada`, el de la última solicitud), `subidoPor`, `desde`, `hasta`, `fechaDe` (`documento`, por defecto, o `subida`), `orden` (`relevancia`, `recientes`, `fecha` o `nombre`; sin él, relevancia si hay texto) y paginación | 200 paginado, más `aproximada` (true si no hubo exactos y estos se parecen) y `tiempoRespuestaId`; con texto, cada documento dice su `coincidencia` (RN39, D42) | `BUSQUEDA_REALIZADA`, si hay algún filtro |
+| GET | `/documentos/sugerencias` | Empresa | `?q`, desde 2 caracteres | 200 `{ datos }`: hasta 5 `{ id, nombre, categoria, coincidencia }`, con la misma consulta y RLS que la búsqueda (RN40) | — (no se registra, D36) |
+| POST | `/documentos/busquedas` | Empresa | `q`, `documentoId` | 204: quien eligió una sugerencia. 404 si el documento no es visible para quien la elige | `BUSQUEDA_REALIZADA` con `origen: sugerencia` y el documento |
+| GET | `/documentos/exportar` | Admin | Los filtros del listado, sin página ni orden | 200 `text/csv` con BOM (RF35): id, nombre, categoría, fecha, descripción, quién lo subió y cuándo (Lima), tipo, peso, versión vigente, estado de su última solicitud y la versión que revisó; por categoría y fecha. 400 si pasa de 50.000: se pide filtrar | `LISTADO_EXPORTADO` |
 | POST | `/documentos` | Empresa | Multipart: `archivo`, `nombre`, `categoriaId`, `fechaDocumento`, `descripcion?` | 201 con el documento | `DOCUMENTO_SUBIDO` |
 | GET | `/documentos/:id` | Empresa | — | 200 con el documento, su `ultimaSolicitud` y sus `permisos` | — |
 | PATCH | `/documentos/:id` | Propietario o admin | `nombre?`, `categoriaId?`, `fechaDocumento?`, `descripcion?` | 200 con el documento | `DOCUMENTO_EDITADO` |
@@ -217,12 +219,12 @@ eligió, y `logoUrl` y `fondoUrl` son enlaces firmados que duran lo que la sesi�
 |---|---|---|---|---|---|
 | PATCH | `/tiempos-respuesta/:id` | Empresa; solo el suyo, y una vez | `duracionClienteMs` | 204 | — |
 
-En total, 67 endpoints: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
+En total: los 28 de la v1 menos el registro público, más dos de recuperación y nueve de la
 plataforma, los siete que añadió la auditoría (papelera, tablero, auditoría y respaldos del Master) y, de la
 segunda, la actividad de un documento, las preferencias de cada persona, once de identidad (seis de la
 empresa y cinco del Master, cuatro de ellos del fondo), tres de versiones y dos de evidencia (el listado documental y el historial para
-imprimir); y los cuatro de la verificación del correo (activar, verificar y reenviar, desde la empresa y desde la
-plataforma).
+imprimir); los cuatro de la verificación del correo (activar, verificar y reenviar, desde la empresa y desde la
+plataforma) y los dos del buscador (sugerencias y sugerencia elegida). Son 69.
 
 ## 4. Respuestas de ejemplo
 
@@ -314,6 +316,10 @@ solicitud pendiente (RN11):
   `/verificar-correo#<token>`. La página lee el fragmento, lo quita de la barra de direcciones y lo envía en el
   cuerpo de su endpoint. La verificación se confirma con un botón y no al abrir la página: hay filtros de correo
   que abren los enlaces para revisarlos.
+- **Sugerencias del buscador (D42).** Se piden tras 300 ms sin teclear y desde 2 letras, y cada tecla cancela la
+  petición anterior. El campo es un *combobox*: ↓ y ↑ recorren las sugerencias, Enter abre la marcada (o busca si no hay
+  ninguna) y Esc las cierra. Elegir una llama a `POST /documentos/busquedas` antes de abrir la ficha; la búsqueda completa
+  sigue corriendo solo al confirmarla (D36).
 - **403 `CORREO_SIN_VERIFICAR` al entrar** se muestra como un paso pendiente (aviso, no error): el mensaje dice
   si se acaba de enviar el enlace.
 - **El Master** no tiene empresa: su menú es la plataforma y su marco no consulta notificaciones, que
@@ -351,7 +357,7 @@ lo usa alguien.
 | Plataforma: cifras y empresas | `/plataforma` | Master | `GET /plataforma/metricas`, `GET /plataforma/empresas`, `GET /plataforma/respaldos` (el último respaldo y lo que ocupan, frente al GB gratuito) |
 | Nueva empresa | `/plataforma/empresas/nueva` | Master | `POST /plataforma/empresas` |
 | Ficha de una empresa | `/plataforma/empresas/:id` | Master | `GET /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id`, `PATCH /plataforma/empresas/:id/estado`, `POST /plataforma/empresas/:id/administradores`, `PATCH /plataforma/administradores/:id`, `PATCH /plataforma/administradores/:id/estado`, `POST /plataforma/administradores/:id/invitacion`, `PATCH /plataforma/empresas/:id/identidad`, `PUT` y `DELETE /plataforma/empresas/:id/identidad/logo` y `/fondo` |
-| Documentos: listado y búsqueda | `/documentos` | Administrador y Usuario; exportar el listado, solo el administrador | `GET /documentos`, `GET /categorias`, `PATCH /tiempos-respuesta/:id`, `GET /documentos/exportar` |
+| Documentos: listado y búsqueda | `/documentos` | Administrador y Usuario; exportar el listado y elegir a la persona que subió, solo el administrador | `GET /documentos`, `GET /documentos/sugerencias`, `POST /documentos/busquedas`, `GET /categorias`, `PATCH /tiempos-respuesta/:id`, `GET /documentos/exportar`, `GET /usuarios` (para «Subido por») |
 | Subir documento | `/documentos/nuevo` | Administrador y Usuario | `GET /categorias`, `POST /documentos` |
 | Detalle de documento | `/documentos/:id` | Administrador y Usuario; las acciones, según `permisos` | `GET /documentos/:id`, `GET /documentos/:id/actividad`, `GET /documentos/:id/versiones`, `POST /documentos/:id/versiones`, `POST /documentos/:id/versiones/:numero/restauracion`, `GET /documentos/:id/archivo`, `PATCH /documentos/:id`, `DELETE /documentos/:id`, `POST /documentos/:id/solicitudes`, `POST /solicitudes/:id/resolucion`, `GET /categorias` |
 | Solicitudes | `/solicitudes` | Administrador y Usuario; el administrador ve la bandeja de toda su empresa | `GET /solicitudes` |

@@ -188,6 +188,7 @@ permisos dentro de una empresa.
   solo lo cambian el Administrador de Empresa y el Master (hecho)
 - Movimiento moderno y un acceso con más vida, solo con CSS y que respeta «reducir movimiento» (hecho)
 - Verificación obligatoria del correo: la cuenta nace sin contraseña y se activa con la invitación que le llega (hecho)
+- Buscador avanzado: palabras en cualquier orden, raíz, errores de escritura, filtros combinables y sugerencias (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -357,6 +358,11 @@ la API View Transitions (había que marcar cada navegación) y partículas en un
 (72 h, un solo uso), y con eso prueba su buzón; sin el correo verificado no hay sesión, y nadie puede marcarlo a mano: la
 base no deja escribir esa columna a la aplicación. El reenvío se frena por buzón y el Master lo verifica el *seed* (D41).
 Se descartaron la contraseña inicial puesta por otro, un código de seis dígitos y un interruptor para saltarla en desarrollo.
+
+**Búsqueda por palabras con PostgreSQL y sugerencias que no se registran.** Columnas generadas (texto normalizado y un
+`tsvector` en español): cada palabra se busca como fragmento, por su raíz o en la categoría, con relevancia explicable y una
+pasada por parecido solo si no hay exactos (nunca con números). Las sugerencias usan la misma consulta y RLS; elegir una sí
+se registra (D42). Se descartaron un motor externo, buscar mientras se escribe y la búsqueda semántica con IA.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.
