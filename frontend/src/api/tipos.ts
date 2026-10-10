@@ -60,6 +60,12 @@ export interface Categoria {
   documentos: number;
 }
 
+/** D42: dónde coincidió un resultado con lo buscado, de lo más a lo menos útil. */
+export type Coincidencia = 'nombre_exacto' | 'nombre_inicio' | 'nombre' | 'nombre_o_archivo' | 'descripcion' | 'categoria' | 'parecido';
+export type TipoDeArchivo = 'pdf' | 'imagen' | 'word' | 'excel';
+/** Según su última solicitud de aprobación; «sin_solicitud» si nunca se pidió. */
+export type EstadoDeAprobacion = 'sin_solicitud' | EstadoSolicitud;
+
 export interface DocumentoResumen {
   id: string;
   nombre: string;
@@ -68,6 +74,16 @@ export interface DocumentoResumen {
   subidoPor: Referencia;
   archivo: { tipoMime: string; pesoBytes: number };
   creadoEn: string;
+  /** Solo si se buscó un texto. */
+  coincidencia?: Coincidencia;
+}
+
+/** Una sugerencia mientras se escribe: lo justo para reconocer el documento. */
+export interface Sugerencia {
+  id: string;
+  nombre: string;
+  categoria: string;
+  coincidencia: Coincidencia;
 }
 
 export interface UltimaSolicitud {

@@ -41,7 +41,7 @@ auditoría técnica de octubre de 2026 (permisos finos, recuperación y supervis
 la segunda auditoría: hacer visible la trazabilidad (D27), adaptar la interfaz a cada empresa y a cada persona (D28),
 ver el archivo en la ficha (D29) y guardar sus versiones (D30); y la evidencia del capítulo 3: el listado
 documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca la verificación obligatoria del correo
-(D41).
+(D41) y el buscador avanzado (D42).
 
 | ID | Requisito | Quién | Fase |
 |---|---|---|---|
@@ -54,7 +54,7 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 | RF07 | Subir un documento con nombre, categoría, fecha y una descripción opcional | Todos | 3 |
 | RF08 | Editar los datos y la categoría de un documento | Quien lo subió, administrador | 3 |
 | RF09 | Eliminar un documento (eliminación lógica) | Quien lo subió, administrador | 3 |
-| RF10 | Buscar documentos por nombre —sin distinguir mayúsculas ni tildes—, categoría y rango de fechas, con paginación | Todos | 3 |
+| RF10 | Buscar documentos por palabras en cualquier orden —en el nombre, el archivo, la descripción o la categoría, sin distinguir mayúsculas ni tildes, por su raíz y con tolerancia a errores de escritura—, filtrar por categoría, tipo, estado de aprobación, quién lo subió y fechas del documento o de subida, con paginación, orden por relevancia y sugerencias mientras se escribe | Todos | 3 y C |
 | RF11 | Ver un documento en el navegador o descargarlo | Todos | 3 |
 | RF12 | Registrar el tiempo de respuesta del listado de documentos, medido en el servidor y en el navegador | Sistema | 3 y 6 |
 | RF13 | Crear, listar y editar usuarios (nombre, rol, contraseña); al crearlos, sin contraseña: les llega una invitación (RN35) | Administrador | 4 y C |
@@ -241,6 +241,17 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
   anula los anteriores, y un enlace solo vale para el correo al que se envió. No se admiten correos de servicios
   temporales conocidos.
 
+**Búsqueda (C)**
+
+- **RN39** Cada palabra buscada tiene que aparecer en el documento: en parte de una palabra de su nombre, archivo o
+  descripción, por su raíz o en el nombre de su categoría. Los artículos y preposiciones («de», «la») no cuentan. Solo
+  si nada coincide se buscan palabras parecidas (errores de escritura de 4 letras o más), nunca números, y esos
+  resultados se presentan como parecidos.
+- **RN40** Las sugerencias mientras se escribe ven lo mismo que la búsqueda (empresa, categorías restringidas,
+  papelera) y no se registran; elegir una sí se registra como búsqueda, con el documento elegido. El filtro por quién
+  subió un documento no amplía lo visible: un usuario filtra «los que subí yo» y no recibe la lista de sus colegas, que
+  es del administrador (GESTIONAR_USUARIOS).
+
 ## 6. Matriz de permisos
 
 El visitante solo puede iniciar sesión y pedir la recuperación de su contraseña.
@@ -312,7 +323,7 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `DOCUMENTO_RESTAURADO` | un administrador lo saca de la papelera | documento | nombre |
 | `DOCUMENTO_PURGADO` | un administrador lo elimina para siempre, o el sistema al vencer los 30 días (sin autor) | documento | nombre; si lo hizo el sistema, motivo y plazo |
 | `DOCUMENTO_VISUALIZADO` · `DOCUMENTO_DESCARGADO` | la API entrega un enlace para verlo (también para la vista previa, RF33) o descargarlo | documento | nombre que tenía en ese momento y número de versión |
-| `BUSQUEDA_REALIZADA` | se listan documentos con al menos un filtro | — | filtros y número de resultados |
+| `BUSQUEDA_REALIZADA` | se listan documentos con al menos un filtro, o se elige una sugerencia (RN40) | — | filtros y número de resultados; si solo hubo parecidos; si fue una sugerencia, el documento elegido |
 | `SOLICITUD_CREADA` | se pide aprobar un documento | solicitud | documento y comentario |
 | `SOLICITUD_APROBADA` · `SOLICITUD_RECHAZADA` | un administrador la resuelve | solicitud | comentario |
 | `ACCESO_DENEGADO` | la API responde 403 a alguien con sesión | la del recurso, si la hay | lo que se exigía (un permiso de la §6, o ser el propietario, o no ser el solicitante) y la ruta u operación |
@@ -337,7 +348,7 @@ recurso de otra empresa (para quien pregunta, ese recurso no existe).
 | # | Indicador | Lo que registra el sistema | Cálculo | Lo que el sistema no puede saber |
 |---|---|---|---|---|
 | 1 | Tiempo de organización y categorización | `DOCUMENTO_SUBIDO` y `DOCUMENTO_EDITADO`, con su instante | Tiempo entre la primera y la última acción de la tarea, por usuario | Cuándo empezó la tarea: la persona lee la consigna antes de tocar nada. El cronómetro sigue siendo la fuente principal; el sistema lo corrobora |
-| 2 | Tiempo de búsqueda | Cada consulta del listado, con o sin filtros (usuario e instante en `tiempos_respuesta`; los filtros, en `BUSQUEDA_REALIZADA`), y la obtención del documento (`DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO`) | Tiempo entre la primera consulta del listado y la obtención del documento pedido. Cuenta también a quien lo encuentra recorriendo el listado sin filtrar | Lo mismo que en el 1 |
+| 2 | Tiempo de búsqueda | Cada consulta del listado, con o sin filtros (usuario e instante en `tiempos_respuesta`; los filtros, en `BUSQUEDA_REALIZADA`, también la sugerencia elegida), y la obtención del documento (`DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO`) | Tiempo entre la primera consulta del listado y la obtención del documento pedido. Cuenta también a quien lo encuentra recorriendo el listado sin filtrar | Lo mismo que en el 1 |
 | 3 | Tasa de recuperación | `DOCUMENTO_VISUALIZADO` y `DOCUMENTO_DESCARGADO` | Documentos pedidos que se obtuvieron ÷ documentos pedidos | Qué documentos se pidieron: lo fija el protocolo de prueba |
 | 4 | Acciones registradas en el historial | Las 37 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
 | 5 | Accesibilidad remota | `SESION_INICIADA` y `SESION_FALLIDA`, con `es_movil` | Inicios de sesión exitosos desde móvil ÷ intentos desde móvil | Los intentos que nunca llegan al servidor (sin cobertura, servicio caído): los anota el evaluador |

@@ -80,8 +80,8 @@ export async function nuevaCuenta(request: APIRequestContext, empresa: EmpresaDe
 export async function subirDocumento(
   request: APIRequestContext,
   cuenta: Cuenta,
-  { nombre, categoria = 'Otros', fecha = '2026-09-15', archivo = 'documento.pdf', contenido = { mimeType: 'application/pdf', buffer: PDF } }: {
-    nombre: string; categoria?: string; fecha?: string; archivo?: string; contenido?: { mimeType: string; buffer: Buffer };
+  { nombre, categoria = 'Otros', fecha = '2026-09-15', archivo = 'documento.pdf', contenido = { mimeType: 'application/pdf', buffer: PDF }, descripcion }: {
+    nombre: string; categoria?: string; fecha?: string; archivo?: string; contenido?: { mimeType: string; buffer: Buffer }; descripcion?: string;
   },
 ): Promise<string> {
   const token = await tokenDe(request, cuenta.email, cuenta.clave);
@@ -89,7 +89,7 @@ export async function subirDocumento(
   const categoriaId = datos.find((c) => c.nombre === categoria)!.id;
   const { id } = await comoJson<{ id: string }>(await request.post(`${URL_API}/documentos`, {
     ...conToken(token),
-    multipart: { nombre, categoriaId, fechaDocumento: fecha, archivo: { name: archivo, ...contenido } },
+    multipart: { nombre, categoriaId, fechaDocumento: fecha, ...(descripcion && { descripcion }), archivo: { name: archivo, ...contenido } },
   }));
   return id;
 }

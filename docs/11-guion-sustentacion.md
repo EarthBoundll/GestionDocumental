@@ -22,7 +22,7 @@ mismo aunque falle Internet.
 |---|---|---|
 | 0:00–1:00 | **El problema.** En el taller los documentos viven en papel, carpetas y chats: buscar uno toma minutos y nadie sabe quién lo movió. Lo que midió la preprueba: **[Por completar]** | Una diapositiva con los tiempos y la tasa de recuperación de la preprueba |
 | 1:00–2:30 | **La solución.** Un sistema web en la nube, multiempresa, con costo cero: Vercel, Render y Supabase. Cada empresa ve solo lo suyo porque lo decide la propia base de datos (RLS), no solo el código | El diagrama de docs/02 §1. Una línea por decisión: D6, D17, D9, D13 |
-| 2:30–3:15 | **Buscar y recuperar (indicadores 2, 3 y 5).** La usuaria, desde su celular, busca «remision», sin tilde ni mayúscula, y abre la vista previa de una guía | El celular proyectado: el listado filtrado y la ficha con su vista previa |
+| 2:30–3:15 | **Buscar y recuperar (indicadores 2, 3 y 5).** La usuaria, desde su celular, busca «guias remision», sin tilde, en plural y en otro orden; el sistema le sugiere mientras escribe y le dice dónde coincidió cada resultado; abre la vista previa de una guía | El celular proyectado: el listado filtrado y la ficha con su vista previa |
 | 3:15–4:00 | **Organizar (indicador 1).** Sube una guía con su categoría y fecha; aparece en el listado | La subida desde el celular |
 | 4:00–4:45 | **Aprobar.** Pide la aprobación; la administradora la aprueba en la PC y la campana avisa a ambas | La PC y el celular, uno junto al otro |
 | 4:45–5:45 | **Trazabilidad (indicador 4).** Cada paso quedó en el historial, con quién, cuándo y desde qué dispositivo. La ficha cuenta la vida del documento. La hoja imprimible es el anexo firmado de cada sesión | *Historial*, la actividad de la ficha e *Imprimir* |
@@ -40,7 +40,7 @@ Respuestas de una o dos frases; el detalle está en la decisión que se cita.
 | ¿Qué impide que una empresa vea a otra? | Tres capas: la consulta filtra, la base aplica RLS con la empresa de la sesión y las claves foráneas compuestas impiden mezclar filas. La empresa sale de la sesión, nunca de lo que envía el navegador (D17, D6) |
 | ¿Y si un programador olvida un `WHERE`? | La base no le da filas ajenas: RLS. Una prueba exige política de aislamiento en toda tabla con `empresa_id` (D17) |
 | ¿El Master puede leer los documentos? | No: tiene su propio acceso, que ve empresas y cifras, nunca contenido. Su auditoría solo ve lo de la plataforma (D18, D24) |
-| ¿Escala? | Con 50.000 documentos el listado tarda 14 ms y la búsqueda 0,3 s en el servidor. La prueba encontró que la RLS evaluaba una función por fila y se corrigió (D31) |
+| ¿Escala? | Con 50.000 documentos el listado tarda 13 ms y la búsqueda 0,1 s en el servidor (0,5 s cuando busca errores de escritura). La prueba encontró que la RLS evaluaba una función por fila (D31) y que un número inexistente devolvía números parecidos (D42); los dos se corrigieron |
 | ¿Por qué en la nube y no en un servidor del taller? | Acceso desde el celular y desde cualquier lugar (indicador 5), sin equipo ni mantenimiento para una MYPE, y costo cero en capa gratuita (D11, D13) |
 | ¿Qué pasa si se pierde la base? | Respaldo nocturno en un bucket privado, 30 días, con la restauración probada en una base vacía; un comando la ensaya en una base desechable antes de cada hito (D25, D35) |
 | ¿Cómo saben que el sistema no cambió durante la evaluación? | Una etiqueta de versión en git, ninguna fusión ni despliegue hasta la última posprueba, y un respaldo del estado inicial con su restauración ensayada (D35) |
@@ -49,7 +49,7 @@ Respuestas de una o dos frases; el detalle está en la decisión que se cita.
 | ¿Qué hacen con los datos personales? | Consentimiento que nombra la transferencia a EE. UU. (Ley 29733), datos mínimos, documentos sin datos de terceros, y al cierre un procedimiento probado que borra todo, también de los respaldos (D33) |
 | ¿Por qué no IA, OCR o firma digital? | Están fuera del alcance a propósito: no los pide ningún indicador. Quedan como trabajo futuro |
 | ¿Qué pasa si suben un ejecutable con extensión .pdf? | Se rechaza: el servidor exige que la extensión y los primeros bytes coincidan (RN09) |
-| ¿Cuáles son las limitaciones? | Una muestra pequeña y un solo caso de validación; Render gratuito, que puede tardar en despertar (mitigado con el monitor); la búsqueda por nombre no usa su índice con RLS (medido, 0,3 s); aprobación de un solo nivel |
+| ¿Cuáles son las limitaciones? | Una muestra pequeña y un solo caso de validación; Render gratuito, que puede tardar en despertar (mitigado con el monitor); la búsqueda no puede usar índices con RLS (medido: 0,1 s, y 0,5 s con errores de escritura, con 50.000 documentos); aprobación de un solo nivel |
 
 ## 4. Si algo falla en vivo
 

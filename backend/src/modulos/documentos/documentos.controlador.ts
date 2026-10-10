@@ -5,6 +5,7 @@ import { actorDe, idDeRuta } from '../../compartido/peticion.js';
 import type { ServicioTiempos } from '../tiempos-respuesta/tiempos-respuesta.servicio.js';
 import {
   esquemaBusqueda, esquemaCambiosDocumento, esquemaFiltrosDelListado, esquemaModoArchivo, esquemaNuevaVersion, esquemaNuevoDocumento, esquemaNumeroDeVersion,
+  esquemaSugerenciaElegida, esquemaSugerencias,
 } from './documentos.esquemas.js';
 import type { ArchivoRecibido, ServicioDocumentos } from './documentos.servicio.js';
 
@@ -12,7 +13,7 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
   const listar: RequestHandler = async (req, res) => {
     const actor = actorDe(req);
     const filtros = esquemaBusqueda.parse(req.query);
-    const { datos, paginacion, conFiltros } = await servicio.listar(actor, filtros);
+    const { datos, paginacion, conFiltros, aproximada } = await servicio.listar(actor, filtros);
     // Indicador 7: desde que llegó la petición hasta que la respuesta está lista para salir.
     const tiempoRespuestaId = await tiempos.registrar(actor, {
       conFiltros,
@@ -20,7 +21,17 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
       duracionServidorMs: performance.now() - req.recibidaEn,
       esMovil: actor.contexto.esMovil,
     });
-    res.json({ datos, paginacion, tiempoRespuestaId });
+    res.json({ datos, paginacion, aproximada, tiempoRespuestaId });
+  };
+
+  const sugerencias: RequestHandler = async (req, res) => {
+    const { q } = esquemaSugerencias.parse(req.query);
+    res.json({ datos: await servicio.sugerencias(actorDe(req), q) });
+  };
+
+  const registrarSugerencia: RequestHandler = async (req, res) => {
+    await servicio.registrarSugerenciaElegida(actorDe(req), esquemaSugerenciaElegida.parse(req.body));
+    res.status(204).end();
   };
 
   const exportarListado: RequestHandler = async (req, res) => {
@@ -91,7 +102,7 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
     res.status(204).end();
   };
 
-  return { listar, exportarListado, subir, obtener, actividad, editar, eliminar, archivo, papelera, restaurar, purgar, versiones, subirVersion, restaurarVersion };
+  return { listar, sugerencias, registrarSugerencia, exportarListado, subir, obtener, actividad, editar, eliminar, archivo, papelera, restaurar, purgar, versiones, subirVersion, restaurarVersion };
 }
 
 /** El archivo del formulario multipart, o un 400 que dice qué falta. */

@@ -2,6 +2,7 @@ import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Almacenamiento } from '../../src/almacenamiento/almacenamiento.js';
+import { accesoDeEmpresa } from '../../src/db/acceso.js';
 import { condicionesDeBusqueda } from '../../src/modulos/documentos/documentos.repositorio.js';
 import {
   almacenamientoDePruebas, crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa,
@@ -240,23 +241,19 @@ describe('Documentos (RF07–RF12)', () => {
       expect((await listar(ajena.usuario, { q: 'cotizacion' })).body.datos).toEqual([]);
     });
 
-    it('la búsqueda que hace la API usa el índice de trigramas, con el escapado incluido', async () => {
-      const { empresa, categoria, empleadoId } = await conDocumentos();
-      // Con un volumen realista, y sin forzar al planificador, la consulta exacta que arma el repositorio
-      // debe elegir el índice. Si alguien cambiara la expresión buscada, dejaría de coincidir con la indexada.
-      await pool.query(
-        `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, fecha_documento,
-           archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
-         SELECT $1::uuid, $2::uuid, $3::uuid, 'Factura número ' || n, '2026-01-01', 'f.pdf', $1::text || '/masivo-' || n, 'application/pdf', 1000
-         FROM generate_series(1, 3000) AS n`,
-        [empresa.id, categoria('Otros'), empleadoId],
-      );
-      await pool.query('ANALYZE documentos');
-      const { where, parametros } = condicionesDeBusqueda(empresa.id, { q: 'cotizacion' });
+    it('con la RLS, la búsqueda lee las columnas de la 014 y no quita tildes fila por fila (D42)', async () => {
+      const { empresa, empleadoId } = await conDocumentos();
+      const { desde, where, parametros } = condicionesDeBusqueda(empresa.id, { q: 'cotización proveedor', fechaDe: 'documento' });
 
-      const plan = await pool.query(`EXPLAIN SELECT d.id FROM documentos d WHERE ${where}`, parametros);
+      // Como la ejecuta la API: con el rol de la empresa y su RLS, no con el dueño de las tablas.
+      const plan = await accesoDeEmpresa(pool, empresa.id, { usuarioId: empleadoId, rol: 'usuario' })
+        .ejecutar((db) => db.query(`EXPLAIN (VERBOSE) SELECT d.id FROM ${desde} WHERE ${where}`, parametros));
+      const texto = plan.rows.map((fila) => fila['QUERY PLAN']).join('\n');
 
-      expect(plan.rows.map((fila) => fila['QUERY PLAN']).join('\n')).toContain('documentos_nombre_trigramas');
+      expect(texto).toContain('busqueda_texto');
+      expect(texto).toContain('busqueda @@');
+      // normalizar() solo sobre las pocas categorías, nunca sobre el nombre de cada documento.
+      expect(texto).not.toMatch(/normalizar\(\(d\.nombre/);
     });
   });
 

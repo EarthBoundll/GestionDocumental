@@ -1,6 +1,6 @@
 import { api, descargar } from './cliente';
 import type {
-  ActividadDeDocumento, Administrador, Asiento, Categoria, ConInvitacion, Documento, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, Marca,
+  ActividadDeDocumento, Administrador, Asiento, Categoria, ConInvitacion, Documento, EstadoDeAprobacion, Sugerencia, TipoDeArchivo, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, Marca,
   MetricasDePlataforma, Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Tema, Usuario, Version,
 } from './tipos';
 
@@ -26,13 +26,25 @@ export interface FiltrosDocumentos {
   categoriaId?: string;
   desde?: string;
   hasta?: string;
-  orden?: 'recientes' | 'fecha' | 'nombre';
+  /** A qué fecha se aplican «desde» y «hasta»: la del documento (por defecto) o la de subida (D42). */
+  fechaDe?: 'documento' | 'subida';
+  tipo?: TipoDeArchivo;
+  estado?: EstadoDeAprobacion;
+  subidoPor?: string;
+  /** Sin elegir: por relevancia si hay texto, lo más reciente si no. */
+  orden?: 'relevancia' | 'recientes' | 'fecha' | 'nombre';
   pagina?: number;
 }
 
 export const documentos = {
+  /** `aproximada`: no hubo coincidencias exactas y estos resultados se parecen a lo buscado (D42). */
   listar: (filtros: FiltrosDocumentos, senal?: AbortSignal) =>
-    api<Pagina<DocumentoResumen> & { tiempoRespuestaId: string | null }>('/documentos', { consulta: { ...filtros }, senal }),
+    api<Pagina<DocumentoResumen> & { aproximada: boolean; tiempoRespuestaId: string | null }>('/documentos', { consulta: { ...filtros }, senal }),
+  /** Mientras se escribe: no queda en el historial (D36). */
+  sugerencias: (q: string, senal?: AbortSignal) => api<{ datos: Sugerencia[] }>('/documentos/sugerencias', { consulta: { q }, senal }),
+  /** Quien elige una sugerencia hizo una búsqueda que encontró su documento: esa sí se registra. */
+  registrarSugerencia: (q: string, documentoId: string) =>
+    api<void>('/documentos/busquedas', { metodo: 'POST', cuerpo: { q, documentoId } }),
   subir: (formulario: FormData) => api<Documento>('/documentos', { metodo: 'POST', formulario }),
   /** RF35: el inventario documental en CSV, con los filtros del listado. Solo administradores. */
   exportarListado: (filtros: Omit<FiltrosDocumentos, 'pagina' | 'orden'>) =>

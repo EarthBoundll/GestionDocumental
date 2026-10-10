@@ -74,6 +74,7 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
     await pool.query('INSERT INTO categoria_accesos (categoria_id, usuario_id, empresa_id) VALUES ($1, $2, $3)',
       [a.categorias[CATEGORIAS.indexOf('Planillas')], a.usuarioId, a.empresaId]);
     await cargarDocumentos(a.empresaId, a.categorias, personas, DOCUMENTOS);
+    await cargarSolicitudes(a.empresaId, sesion.usuario.id);
     await cargarHistorial(a.empresaId, personas, ASIENTOS);
 
     // Otra empresa en las mismas tablas: lo suyo no debe pesar en las consultas de la primera.
@@ -106,7 +107,7 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
     return ids;
   }
 
-  /** Documentos de tres años y medio, con su versión 1; uno de cada 50, en la papelera. */
+  /** Documentos de tres años y medio, con su versión 1; uno de cada 7 es una foto y uno de cada 50 está en la papelera. */
   async function cargarDocumentos(empresaId: string, categorias: string[], personas: string[], cantidad: number) {
     await pool.query(
       `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, descripcion, fecha_documento,
@@ -117,7 +118,8 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
                 || ' N° ' || lpad(g::text, 6, '0'),
               CASE WHEN g % 3 = 0 THEN 'Documento de prueba generado para la medición de carga' END,
               date '2023-01-01' + (g * 7919) % 1370,
-              'documento-' || g || '.pdf', $1::text || '/' || gen_random_uuid() || '.pdf', 'application/pdf',
+              'documento-' || g || CASE WHEN g % 7 = 0 THEN '.jpg' ELSE '.pdf' END, $1::text || '/' || gen_random_uuid() || '.pdf',
+              CASE WHEN g % 7 = 0 THEN 'image/jpeg' ELSE 'application/pdf' END,
               20000 + (g::bigint * 104729) % 2000000,
               now() - ($6 - g) * interval '25 minutes', now() - ($6 - g) * interval '25 minutes',
               CASE WHEN g % 50 = 0 THEN now() - interval '1 day' END,
@@ -132,6 +134,24 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
               subido_por, creado_en
        FROM documentos WHERE empresa_id = $1`,
       [empresaId],
+    );
+  }
+
+  /**
+   * Uno de cada diez documentos con su solicitud de aprobación: aprobada, rechazada o pendiente, por
+   * tercios, resuelta por la administradora. Lo necesita el filtro por estado (D42).
+   */
+  async function cargarSolicitudes(empresaId: string, administradoraId: string) {
+    await pool.query(
+      `INSERT INTO solicitudes (empresa_id, documento_id, solicitante_id, revisor_id, estado, comentario_resolucion, creada_en, resuelta_en)
+       SELECT d.empresa_id, d.id, d.subido_por, CASE WHEN d.n % 3 <> 2 THEN $2::uuid END,
+              (ARRAY['aprobada', 'rechazada', 'pendiente'])[1 + d.n % 3],
+              CASE WHEN d.n % 3 = 1 THEN 'Falta la firma' END,
+              d.creado_en + interval '1 hour', CASE WHEN d.n % 3 <> 2 THEN d.creado_en + interval '2 hours' END
+       FROM (SELECT id, empresa_id, subido_por, creado_en, row_number() OVER (ORDER BY creado_en) AS n
+             FROM documentos WHERE empresa_id = $1 AND eliminado_en IS NULL AND subido_por <> $2) d
+       WHERE d.n % 10 = 0`,
+      [empresaId, administradoraId],
     );
   }
 
@@ -154,10 +174,10 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
     );
   }
 
-  /** Cuántos resultados trajo: el total de la página, el de la vista imprimible o las filas del CSV. */
+  /** Cuántos resultados trajo: el total de la página, el de la vista imprimible, las sugerencias o las filas del CSV. */
   function resultadosDe(respuesta: request.Response): number | null {
     if (respuesta.type === 'text/csv') return respuesta.text.trim().split('\r\n').length - 1;
-    return respuesta.body?.paginacion?.total ?? respuesta.body?.total ?? null;
+    return respuesta.body?.paginacion?.total ?? respuesta.body?.total ?? respuesta.body?.datos?.length ?? null;
   }
 
   async function medir(escenario: string, quien: 'administradora' | 'usuaria', ruta: string,
@@ -189,9 +209,11 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
   }
 
   /** El plan de las consultas del listado tal como las ejecuta la API: con el rol sin privilegios y su RLS. */
-  async function explicar(titulo: string, usuarioId: string, rol: 'administrador' | 'usuario', consulta: Record<string, string>) {
+  async function explicar(
+    titulo: string, usuarioId: string, rol: 'administrador' | 'usuario', consulta: Record<string, string>, { parecidos = false } = {},
+  ) {
     const filtros = esquemaBusqueda.parse(consulta);
-    const { conteo, pagina } = consultasDeBusqueda(a.empresaId, filtros);
+    const { conteo, pagina } = consultasDeBusqueda(a.empresaId, filtros, { orden: filtros.orden ?? (filtros.q ? 'relevancia' : 'recientes'), parecidos });
     const acceso = accesoDeEmpresa(pool, a.empresaId, { usuarioId, rol });
     for (const [parte, sql] of [['total', conteo], ['página', pagina]] as const) {
       const { rows } = await acceso.ejecutar((db) =>
@@ -217,6 +239,16 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
     await medir('Nombre, categoría y fechas a la vez', 'usuaria',
       `${docs}?q=textiles&categoriaId=${categoria('Facturas')}&desde=2024-01-01&hasta=2024-12-31`);
     await medir('Ordenado por nombre', 'usuaria', `${docs}?orden=nombre`);
+    // D42: la búsqueda por palabras, su raíz y su relevancia, las sugerencias y los filtros nuevos.
+    await medir('Por palabras y su raíz, por relevancia («facturas textiles»)', 'usuaria', `${docs}?q=facturas%20textiles`);
+    await medir('Solo en la descripción («medicion carga»)', 'usuaria', `${docs}?q=medicion%20carga`);
+    await medir('Con errores de escritura: segunda pasada por parecido («factrua textiles»)', 'usuaria', `${docs}?q=factrua%20textiles`);
+    await medir('Sugerencias mientras se escribe («guia rem»)', 'usuaria', `${docs}/sugerencias?q=guia%20rem`);
+    await medir('Sugerencias de un documento concreto («031416»)', 'usuaria', `${docs}/sugerencias?q=031416`);
+    await medir('Filtro por estado de aprobación (pendientes)', 'usuaria', `${docs}?estado=pendiente`);
+    await medir('Filtro por tipo (fotos)', 'usuaria', `${docs}?tipo=imagen`);
+    await medir('Texto, tipo, estado y fecha de subida a la vez', 'usuaria',
+      `${docs}?q=factura&tipo=pdf&estado=aprobada&fechaDe=subida&desde=2025-01-01&hasta=2026-12-31`);
     await medir('Página 500 del listado', 'usuaria', `${docs}?pagina=500`);
     await medir('Historial: primera página', 'administradora', '/api/v1/historial');
     await medir('Historial filtrado por una semana', 'administradora', '/api/v1/historial?desde=2026-01-05&hasta=2026-01-11');
@@ -227,6 +259,9 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
 
     await explicar('Listado inicial de la usuaria', a.usuarioId, 'usuario', {});
     await explicar('Búsqueda por nombre de la usuaria', a.usuarioId, 'usuario', { q: 'guia de remision' });
+    await explicar('Búsqueda por relevancia de la usuaria', a.usuarioId, 'usuario', { q: 'facturas textiles' });
+    await explicar('Segunda pasada por parecido de la usuaria', a.usuarioId, 'usuario', { q: 'factrua textiles' }, { parecidos: true });
+    await explicar('Filtro por estado de la usuaria', a.usuarioId, 'usuario', { estado: 'pendiente' });
 
     for (const medicion of mediciones) expect(medicion.p95, medicion.escenario).toBeLessThan(medicion.umbral);
   }, 300_000);
@@ -237,6 +272,7 @@ function percentil(ordenados: number[], p: number): number {
 }
 
 const ms = (valor: number) => `${Math.round(valor)} ms`;
+const medianaDe = (escenario: string) => mediciones.find((m) => m.escenario === escenario)?.mediana ?? Number.NaN;
 
 function informe(): string {
   const cumplen = mediciones.filter((m) => m.p95 < m.umbral).length;
@@ -255,7 +291,7 @@ y buscar (RNF05) y 5 s para las dos exportaciones, que descargan de una vez todo
 
 - Empresa medida: ${DOCUMENTOS.toLocaleString('es-PE')} documentos de un taller textil (facturas, guías, órdenes de compra,
   planillas…) repartidos en ${CATEGORIAS.length} categorías, dos de ellas restringidas, con fechas de tres años y medio, su
-  versión 1 y uno de cada 50 en la papelera; ${ASIENTOS.toLocaleString('es-PE')} asientos de historial; 11 personas.
+  versión 1, uno de cada 7 como foto, uno de cada 10 con su solicitud de aprobación y uno de cada 50 en la papelera; ${ASIENTOS.toLocaleString('es-PE')} asientos de historial; 11 personas.
 - Otra empresa con ${DOCUMENTOS_DE_OTRA_EMPRESA.toLocaleString('es-PE')} documentos en las mismas tablas.
 - Quien mide: la **usuaria** ve una de las dos categorías restringidas, así que la RLS evalúa las dos
   ramas (D22); la **administradora** las ve todas. Carga de los datos: ${Math.round(duracionDeCarga / 1000)} s.
@@ -294,10 +330,33 @@ y cada página la evaluaba dos veces por documento (para el total y para la pág
 La migración 010 calcula una sola vez por consulta qué categorías ve quien pregunta (\`categorias_visibles()\`, un
 InitPlan) y cada fila solo se compara con esa lista; decide lo mismo que antes (D31).
 
-Queda una limitación conocida: con la RLS activa, la búsqueda por nombre no usa el índice de trigramas, porque
-\`LIKE\` no es *leakproof* y PostgreSQL no lo evalúa antes que las políticas. Recorre los documentos visibles de la
-empresa con un índice por categoría: unos 0,3 s con 50.000, lejos del umbral. Si alguna vez hiciera falta, la
-salida es una función que busque los identificadores con el índice dentro de la empresa activa.
+### La búsqueda de la migración 014 (D42)
+
+Antes de la 014, la búsqueda quitaba tildes al nombre de cada documento en cada consulta (\`normalizar(nombre)\`, que
+llama a \`unaccent\`), y el índice de trigramas no servía: con la RLS activa, \`LIKE\` no es *leakproof* y PostgreSQL no
+lo evalúa antes que las políticas. La 014 guarda el texto ya normalizado en columnas generadas y quitó ese índice, que
+solo costaba en cada escritura. La búsqueda ahora mira también el archivo, la descripción y la categoría, y la raíz
+de cada palabra, y aun así:
+
+| Escenario | Antes de la 014 (7 de octubre, mediana) | Con la 014 (mediana) |
+|---|---:|---:|
+| Búsqueda por nombre, sin tildes («guia de remision») | 282 ms | ${ms(medianaDe('Búsqueda por nombre, sin tildes («guia de remision»)'))} |
+| Búsqueda de un documento concreto («N° 031416») | 285 ms | ${ms(medianaDe('Búsqueda de un documento concreto («N° 031416»)'))} |
+| Ordenado por nombre | 159 ms | ${ms(medianaDe('Ordenado por nombre'))} |
+| Listado documental completo en CSV | 791 ms | ${ms(medianaDe('Listado documental completo en CSV'))} |
+
+Sigue sin usar índices con la RLS (\`@@\` y \`LIKE\` tampoco son *leakproof*): recorre los documentos visibles de la
+empresa. Por eso no se añadió ninguno; la segunda pasada, por similitud de trigramas, es la más cara y solo corre cuando
+la exacta no encontró nada. Si un día hiciera falta, la salida es una función que busque los identificadores con un
+índice dentro de la empresa activa.
+
+La primera medición de la 014, el 10 de octubre de 2026, encontró dos cosas que se corrigieron antes de publicarla:
+
+- Buscar un número que no está («N° 031415», de una categoría que la usuaria no ve) pasaba a la búsqueda por parecido
+  y devolvía 86 documentos con números vecinos, en 949 ms. Un número con un dígito distinto es otro documento: ahora
+  solo las palabras de letras admiten errores de escritura, y esa búsqueda no devuelve nada, en unos 75 ms.
+- La búsqueda por parecido sobre el nombre, el archivo y la descripción tardaba más de 1 s. Ahora compara solo con el
+  nombre, que es lo que se escribe de memoria, y tarda la mitad.
 
 ## Planes de ejecución
 

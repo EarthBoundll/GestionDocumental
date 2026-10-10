@@ -66,7 +66,7 @@ describe('Documentos', () => {
     const { peticiones, enrutador } = abrir('/documentos');
 
     expect(await screen.findByRole('link', { name: 'Contrato de alquiler del local' })).toHaveAttribute('href', '/documentos/doc-1');
-    await userEvent.type(screen.getByLabelText('Buscar por nombre'), 'contrato');
+    await userEvent.type(screen.getByLabelText('Buscar documentos'), 'contrato');
     await userEvent.click(screen.getByRole('button', { name: 'Buscar' }));
 
     await waitFor(() => expect(enrutador.state.location.search).toBe('?q=contrato'));
@@ -78,7 +78,7 @@ describe('Documentos', () => {
   it('en una pantalla táctil, buscar cierra el teclado y lleva los resultados a la vista; con ratón, el foco se queda para afinar', async () => {
     const desplazar = vi.spyOn(Element.prototype, 'scrollIntoView');
     abrir('/documentos');
-    const buscador = await screen.findByLabelText('Buscar por nombre');
+    const buscador = await screen.findByLabelText('Buscar documentos');
 
     await userEvent.type(buscador, 'contrato{Enter}');
     expect(buscador).toHaveFocus();
@@ -91,7 +91,7 @@ describe('Documentos', () => {
     desplazar.mockRestore();
   });
 
-  it('orden y fechas van plegados tras «Más filtros», que en el celular los muestra y los vuelve a plegar', async () => {
+  it('los filtros secundarios van plegados tras «Más filtros», que en el celular los muestra y los vuelve a plegar', async () => {
     abrir('/documentos');
 
     const mas = await screen.findByRole('button', { name: 'Más filtros' });
@@ -120,14 +120,14 @@ describe('Documentos', () => {
     expect(peticiones.find(esLaDeEsteListado)!.cuerpo).toEqual({ duracionClienteMs: expect.any(Number) });
   });
 
-  it('sin resultados, ofrece quitar los filtros', async () => {
+  it('sin resultados lo dice con lo buscado y ofrece limpiar los filtros', async () => {
     const { enrutador } = abrir('/documentos?q=nada');
 
-    expect(await screen.findByText('Ningún documento coincide')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Quitar los filtros' }));
+    const vacio = (await screen.findByText('Ningún documento coincide con «nada»')).closest('section')!;
+    await userEvent.click(within(vacio).getByRole('button', { name: 'Limpiar filtros' }));
 
     await waitFor(() => expect(enrutador.state.location.search).toBe(''));
-    expect(screen.getByLabelText('Buscar por nombre')).toHaveValue('');
+    expect(screen.getByLabelText('Buscar documentos')).toHaveValue('');
   });
 
   it('un documento de otra empresa se ve como inexistente (404), sin confirmar que existe', async () => {

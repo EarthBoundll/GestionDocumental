@@ -115,6 +115,9 @@ erDiagram
         timestamptz eliminado_en "eliminación lógica: a la papelera"
         uuid eliminado_por FK "quién lo eliminó"
         timestamptz purgado_en "archivo borrado para siempre"
+        text busqueda_nombre "generada: nombre normalizado"
+        text busqueda_texto "generada: nombre, archivo y descripción"
+        tsvector busqueda "generada: raíces en español"
     }
     solicitudes {
         uuid id PK
@@ -277,8 +280,12 @@ cambio queda en el historial (`CATEGORIA_EDITADA`).
 | eliminado_en | timestamptz | sí | | Eliminación lógica (M5): desde aquí, el documento está en la papelera (RN28) |
 | eliminado_por | uuid | sí | FK (`eliminado_por`, `empresa_id`) → usuarios | Quién lo eliminó; nulo en lo eliminado antes de la migración 005 |
 | purgado_en | timestamptz | sí | solo si `eliminado_en` no es nulo | El archivo ya no está en el almacenamiento; la fila queda como constancia y no se restaura |
+| busqueda_nombre | text | no | generada | El nombre en minúsculas, sin tildes y con los signos convertidos en espacios: para la coincidencia exacta, el comienzo, el orden por nombre y la pasada por parecido (D42) |
+| busqueda_texto | text | no | generada | Lo mismo con el nombre del archivo y la descripción: para encontrar parte de una palabra |
+| busqueda | tsvector | no | generada | Las raíces en español: nombre y archivo con peso A, descripción con B |
 
-Además, único (`id`, `empresa_id`).
+Además, único (`id`, `empresa_id`). Las tres columnas de búsqueda (014) las calcula la base al insertar o actualizar, también
+cuando una versión nueva cambia el archivo; nadie las escribe (error 428C9) y los respaldos no las guardan.
 
 ### solicitudes
 
@@ -388,6 +395,7 @@ No dependen de que el código se acuerde de comprobarlas.
 | Una versión no cambia ni se borra (RN33) | `app_empresa` solo tiene SELECT e INSERT sobre `documento_versiones` |
 | Cada número de versión, una vez por documento | Único (`documento_id`, `numero`); el número lo decide la API con el documento bloqueado |
 | Una versión oculta como su documento (RN29) | Política restrictiva: la versión solo se ve si su documento se ve (§3.1) |
+| La búsqueda lee siempre el texto normalizado al día (M8, D42) | Columnas generadas por la base: no dependen de que el código las actualice |
 | Nada se borra en cascada | Todas las claves foráneas restringen el borrado: empresas, usuarios y documentos no se borran |
 | Nadie de la aplicación marca un correo como verificado (RN37) | Permisos por columna: `app_empresa` y `app_plataforma` no pueden escribir `email_verificado_en` (error 42501); solo la capa de identidad, con el dueño de las tablas, al gastar un enlace (§3.1) |
 | Un correo nuevo no está verificado (RN36) | Trigger `reiniciar_verificacion` antes de actualizar `email` |
@@ -452,7 +460,6 @@ Además de los únicos de la sección anterior.
 | documentos | empresa + `creado_en` descendente, solo no eliminados | Listado por defecto |
 | documentos | empresa + categoría, solo no eliminados | Filtro por categoría |
 | documentos | empresa + `fecha_documento`, solo no eliminados | Filtro por fechas |
-| documentos | Trigramas (GIN) sobre el nombre en minúsculas y sin tildes | Búsqueda por nombre (M8) |
 | solicitudes | empresa + estado + `creada_en` descendente | Bandeja del administrador |
 | solicitudes | solicitante + `creada_en` descendente | «Mis solicitudes» |
 | notificaciones | usuario + `creada_en` descendente | Campana de notificaciones |
@@ -502,6 +509,9 @@ encuentra «Cotización», bajan los indicadores 2 y 3. El nombre se normaliza (
 con `unaccent`) y se indexa por trigramas (`pg_trgm`), que sirven para buscar fragmentos de palabra.
 *Descartado:* la búsqueda de texto completo (`tsvector`), pensada para textos largos, no para títulos
 cortos ni fragmentos.
+*Revisada en D42 (migración 014):* con búsquedas de varias palabras («facturas proveedores») el fragmento no basta,
+porque cambia el plural; el `tsvector` en español se suma a los fragmentos, no los reemplaza. El índice de trigramas se
+quitó: con la RLS el planificador no lo usaba (§3.1). El texto normalizado vive ahora en columnas generadas.
 
 **M9 · Sin IP en el historial.** Ningún indicador la necesita y es un dato personal (Ley 29733). Sí se
 guardan el user-agent, del que sale `es_movil` (indicador 5), y el rol de quien actuó (indicador 6).

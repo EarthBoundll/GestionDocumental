@@ -1,6 +1,8 @@
 import { desplazamiento } from '../../compartido/paginacion.js';
 import { clausulaSet } from '../../db/actualizacion.js';
 import type { Consultor } from '../../db/pool.js';
+import { GRUPOS_DE_TIPO } from '../../compartido/tipos-de-archivo.js';
+import { admiteParecido, COINCIDENCIAS, terminosDeBusqueda, UMBRAL_DE_PARECIDO, type Coincidencia } from './busqueda.js';
 import type { FiltrosBusqueda, FiltrosDelListado } from './documentos.esquemas.js';
 
 export interface DocumentoResumen {
@@ -11,6 +13,8 @@ export interface DocumentoResumen {
   subidoPor: { id: string; nombre: string };
   archivo: { tipoMime: string; pesoBytes: number };
   creadoEn: Date;
+  /** Con texto en la búsqueda: dónde coincidió (D42). */
+  coincidencia?: Coincidencia;
 }
 
 export interface UltimaSolicitud {
@@ -44,30 +48,114 @@ const COLUMNAS = {
   nombre: 'nombre', categoriaId: 'categoria_id', fechaDocumento: 'fecha_documento', descripcion: 'descripcion',
 };
 
-const ORDEN = {
+/** El orden de una página. «relevancia» solo tiene sentido con texto: sin él, se ordena por lo reciente. */
+export type Orden = 'relevancia' | 'recientes' | 'fecha' | 'nombre';
+
+const ORDEN: Record<Exclude<Orden, 'relevancia'>, string> = {
   recientes: 'd.creado_en DESC, d.id',
   fecha: 'd.fecha_documento DESC, d.creado_en DESC, d.id',
-  nombre: 'normalizar(d.nombre), d.id',
-} as const;
+  nombre: 'd.busqueda_nombre, d.id',
+};
 
-/** En LIKE, «%» y «_» son comodines; quien busca «10%» busca el texto «10%». */
-function escaparLike(texto: string): string {
-  return texto.replace(/[\\%_]/g, (caracter) => `\\${caracter}`);
+type FiltrosDeConsulta = Omit<FiltrosBusqueda, 'pagina' | 'porPagina' | 'orden'>;
+
+/** Agrega un valor a los parámetros de la consulta y devuelve cómo nombrarlo en el SQL («$7»). */
+type Agregar = (valor: unknown) => string;
+
+/** Una búsqueda ya armada: de dónde lee, qué exige y, si hay texto, cómo se ordena por relevancia. */
+export interface ConsultaDeBusqueda {
+  desde: string;
+  where: string;
+  parametros: unknown[];
+  /**
+   * Con texto: el nivel de COINCIDENCIAS (1 es el mejor) y, para desempatar, el puntaje. Cada uno agrega
+   * sus propios parámetros al usarse: PostgreSQL rechaza un parámetro que la consulta no nombra.
+   */
+  relevancia: { nivel(agregar: Agregar): string; puntaje(agregar: Agregar): string } | null;
 }
 
-/** El WHERE de una búsqueda. Se exporta para comprobar en las pruebas que usa el índice de trigramas. */
-export function condicionesDeBusqueda(empresaId: string, filtros: Omit<FiltrosBusqueda, 'pagina' | 'porPagina' | 'orden'>) {
+/**
+ * La búsqueda (RF10, D42). Cada palabra tiene que aparecer en algún sitio del documento: como parte de
+ * una palabra en el nombre, el archivo o la descripción («contra» en «contrato», «0245» en «F001-0245»),
+ * por su raíz en español («facturas» encuentra «factura») o en el nombre de su categoría. Con
+ * `parecidos`, además, por similitud de trigramas con el nombre, para los errores de escritura en palabras
+ * de letras: solo se usa si la búsqueda exacta no encontró nada. Todo va en parámetros, y la RLS filtra empresa y categorías debajo.
+ */
+export function condicionesDeBusqueda(
+  empresaId: string,
+  filtros: FiltrosDeConsulta,
+  { parecidos = false }: { parecidos?: boolean } = {},
+): ConsultaDeBusqueda {
   const condiciones = ['d.empresa_id = $1', 'd.eliminado_en IS NULL'];
   const parametros: unknown[] = [empresaId];
-  const agregar = (condicion: (parametro: string) => string, valor: unknown) => {
+  const parametro = (valor: unknown) => {
     parametros.push(valor);
-    condiciones.push(condicion(`$${parametros.length}`));
+    return `$${parametros.length}`;
   };
-  if (filtros.q) agregar((p) => `normalizar(d.nombre) LIKE '%' || normalizar(${p}) || '%' ESCAPE '\\'`, escaparLike(filtros.q));
-  if (filtros.categoriaId) agregar((p) => `d.categoria_id = ${p}`, filtros.categoriaId);
-  if (filtros.desde) agregar((p) => `d.fecha_documento >= ${p}`, filtros.desde);
-  if (filtros.hasta) agregar((p) => `d.fecha_documento <= ${p}`, filtros.hasta);
-  return { where: condiciones.join(' AND '), parametros };
+  let desde = 'documentos d';
+  let relevancia: ConsultaDeBusqueda['relevancia'] = null;
+
+  if (filtros.q !== undefined) {
+    const { frase, palabras } = terminosDeBusqueda(filtros.q);
+    if (palabras.length === 0) {
+      // Solo signos («%», «'»): no hay nada que buscar, y no se devuelve todo como si no hubiera texto.
+      condiciones.push('false');
+    } else {
+      const porPalabra = palabras.map((palabra) => {
+        const p = parametro(palabra);
+        const enNombre = `d.busqueda_nombre LIKE '%' || ${p} || '%'`;
+        const enTexto = `(d.busqueda_texto LIKE '%' || ${p} || '%' OR d.busqueda @@ to_tsquery('spanish', ${p} || ':*'))`;
+        const enCategoria = `d.categoria_id IN (SELECT ca.id FROM categorias ca WHERE ca.empresa_id = $1 AND normalizar(ca.nombre) LIKE '%' || ${p} || '%')`;
+        const coincide = `(${enTexto} OR ${enCategoria})`;
+        // Por parecido, solo en el nombre: es donde se busca de memoria, y recorrerlo cuesta un tercio que el texto entero.
+        const parecida = admiteParecido(palabra)
+          ? `extensions.word_similarity(${p}, d.busqueda_nombre) >= ${UMBRAL_DE_PARECIDO}` : null;
+        return {
+          enNombre,
+          // La raíz con peso A: en el nombre o en el nombre del archivo, no en la descripción.
+          enNombreOArchivo: `(${enNombre} OR d.busqueda @@ to_tsquery('spanish', ${p} || ':*A'))`,
+          enTexto,
+          condicion: parecidos && parecida ? `(${coincide} OR ${parecida})` : coincide,
+          similitud: `extensions.word_similarity(${p}, d.busqueda_nombre)`,
+        };
+      });
+      condiciones.push(...porPalabra.map((palabra) => palabra.condicion));
+      const todas = (clave: 'enNombre' | 'enNombreOArchivo' | 'enTexto') => porPalabra.map((palabra) => palabra[clave]).join(' AND ');
+      relevancia = parecidos
+        ? {
+          nivel: () => String(COINCIDENCIAS.indexOf('parecido') + 1),
+          puntaje: () => `(${porPalabra.map((palabra) => palabra.similitud).join(' + ')})`,
+        }
+        : {
+          nivel: (agregar) => {
+            const f = agregar(frase);
+            return `CASE WHEN d.busqueda_nombre = ${f} THEN 1 WHEN d.busqueda_nombre LIKE ${f} || '%' THEN 2
+              WHEN ${todas('enNombre')} THEN 3 WHEN ${todas('enNombreOArchivo')} THEN 4 WHEN ${todas('enTexto')} THEN 5 ELSE 6 END`;
+          },
+          puntaje: (agregar) => `ts_rank(d.busqueda, to_tsquery('spanish', ${agregar(palabras.map((palabra) => `${palabra}:*`).join(' | '))}))`,
+        };
+    }
+  }
+  if (filtros.categoriaId) condiciones.push(`d.categoria_id = ${parametro(filtros.categoriaId)}`);
+  if (filtros.tipo) condiciones.push(`d.archivo_tipo_mime = ANY(${parametro(GRUPOS_DE_TIPO[filtros.tipo])}::text[])`);
+  if (filtros.subidoPor) condiciones.push(`d.subido_por = ${parametro(filtros.subidoPor)}`);
+  if (filtros.fechaDe === 'subida') {
+    // Un día de subida es un día de Lima, aunque la base guarde el instante en UTC.
+    if (filtros.desde) condiciones.push(`d.creado_en >= (${parametro(filtros.desde)}::date)::timestamp AT TIME ZONE 'America/Lima'`);
+    if (filtros.hasta) condiciones.push(`d.creado_en < ((${parametro(filtros.hasta)}::date) + 1)::timestamp AT TIME ZONE 'America/Lima'`);
+  } else {
+    if (filtros.desde) condiciones.push(`d.fecha_documento >= ${parametro(filtros.desde)}`);
+    if (filtros.hasta) condiciones.push(`d.fecha_documento <= ${parametro(filtros.hasta)}`);
+  }
+  if (filtros.estado) {
+    // La última solicitud de cada documento, en una sola pasada por las solicitudes y no una por fila.
+    desde += ` LEFT JOIN (
+      SELECT DISTINCT ON (s.documento_id) s.documento_id, s.estado FROM solicitudes s
+      WHERE s.empresa_id = $1 ORDER BY s.documento_id, s.creada_en DESC
+    ) ultima ON ultima.documento_id = d.id`;
+    condiciones.push(`coalesce(ultima.estado, 'sin_solicitud') = ${parametro(filtros.estado)}`);
+  }
+  return { desde, where: condiciones.join(' AND '), parametros, relevancia };
 }
 
 interface FilaResumen {
@@ -81,14 +169,11 @@ interface FilaResumen {
   archivo_tipo_mime: string;
   archivo_peso_bytes: number;
   creado_en: Date;
+  nivel?: number | null;
 }
 
-const SELECCION_RESUMEN = `
-  SELECT d.id, d.nombre, d.fecha_documento, d.categoria_id, c.nombre AS categoria_nombre, d.subido_por,
-         u.nombre AS subido_por_nombre, d.archivo_tipo_mime, d.archivo_peso_bytes, d.creado_en
-  FROM documentos d
-  JOIN categorias c ON c.id = d.categoria_id
-  JOIN usuarios u ON u.id = d.subido_por`;
+const COLUMNAS_RESUMEN = `d.id, d.nombre, d.fecha_documento, d.categoria_id, c.nombre AS categoria_nombre, d.subido_por,
+         u.nombre AS subido_por_nombre, d.archivo_tipo_mime, d.archivo_peso_bytes, d.creado_en`;
 
 function aResumen(fila: FilaResumen): DocumentoResumen {
   return {
@@ -99,21 +184,50 @@ function aResumen(fila: FilaResumen): DocumentoResumen {
     subidoPor: { id: fila.subido_por, nombre: fila.subido_por_nombre },
     archivo: { tipoMime: fila.archivo_tipo_mime, pesoBytes: fila.archivo_peso_bytes },
     creadoEn: fila.creado_en,
+    ...(fila.nivel != null && { coincidencia: COINCIDENCIAS[fila.nivel - 1] }),
   };
+}
+
+/**
+ * El nivel de cada fila y el ORDER BY de una página (por relevancia solo si hay texto con el que medirla),
+ * con los parámetros que agregan, que van después de los del WHERE.
+ */
+function nivelYOrden(consulta: ConsultaDeBusqueda, orden: Orden) {
+  const extra: unknown[] = [];
+  const agregar: Agregar = (valor) => {
+    extra.push(valor);
+    return `$${consulta.parametros.length + extra.length}`;
+  };
+  const { relevancia } = consulta;
+  const nivel = relevancia ? relevancia.nivel(agregar) : 'NULL::int';
+  const porOrden = relevancia && orden === 'relevancia'
+    ? `nivel, ${relevancia.puntaje(agregar)} DESC, d.creado_en DESC, d.id`
+    : ORDEN[orden === 'relevancia' ? 'recientes' : orden];
+  return { nivel, orden: porOrden, parametros: [...consulta.parametros, ...extra] };
 }
 
 /**
  * Las dos consultas de una página del listado: el total y sus filas. Se exportan para que la prueba de
  * carga muestre el plan de las mismas consultas que ejecuta la API.
  */
-export function consultasDeBusqueda(empresaId: string, filtros: FiltrosBusqueda) {
-  const { where, parametros } = condicionesDeBusqueda(empresaId, filtros);
+export function consultasDeBusqueda(
+  empresaId: string,
+  filtros: FiltrosBusqueda,
+  { orden = filtros.orden ?? 'recientes', parecidos = false }: { orden?: Orden; parecidos?: boolean } = {},
+) {
+  const consulta = condicionesDeBusqueda(empresaId, filtros, { parecidos });
+  const { desde, where } = consulta;
+  const pagina = nivelYOrden(consulta, orden);
   return {
-    conteo: { texto: `SELECT count(*)::int AS total FROM documentos d WHERE ${where}`, parametros },
+    conteo: { texto: `SELECT count(*)::int AS total FROM ${desde} WHERE ${where}`, parametros: consulta.parametros },
     pagina: {
-      texto: `${SELECCION_RESUMEN} WHERE ${where} ORDER BY ${ORDEN[filtros.orden]}
-     LIMIT $${parametros.length + 1} OFFSET $${parametros.length + 2}`,
-      parametros: [...parametros, filtros.porPagina, desplazamiento(filtros)],
+      texto: `SELECT ${COLUMNAS_RESUMEN}, ${pagina.nivel} AS nivel
+     FROM ${desde}
+     JOIN categorias c ON c.id = d.categoria_id
+     JOIN usuarios u ON u.id = d.subido_por
+     WHERE ${where} ORDER BY ${pagina.orden}
+     LIMIT $${pagina.parametros.length + 1} OFFSET $${pagina.parametros.length + 2}`,
+      parametros: [...pagina.parametros, filtros.porPagina, desplazamiento(filtros)],
     },
   };
 }
@@ -145,12 +259,12 @@ export async function listadoDocumental(
   filtros: FiltrosDelListado,
   limite: number,
 ): Promise<FilaDelListado[]> {
-  const { where, parametros } = condicionesDeBusqueda(empresaId, filtros);
+  const { desde, where, parametros } = condicionesDeBusqueda(empresaId, filtros);
   const { rows } = await db.query<FilaDelListado>(
     `SELECT d.id, d.nombre, c.nombre AS categoria, d.fecha_documento, d.descripcion, u.nombre AS subido_por,
             to_char(d.creado_en AT TIME ZONE 'America/Lima', 'YYYY-MM-DD HH24:MI') AS subido_en_lima,
             d.archivo_tipo_mime, d.archivo_peso_bytes, d.version, s.estado AS estado_aprobacion, s.version AS version_revisada
-     FROM documentos d
+     FROM ${desde}
      JOIN categorias c ON c.id = d.categoria_id
      JOIN usuarios u ON u.id = d.subido_por
      LEFT JOIN (
@@ -158,7 +272,7 @@ export async function listadoDocumental(
        FROM solicitudes WHERE empresa_id = $1 ORDER BY documento_id, creada_en DESC
      ) s ON s.documento_id = d.id
      WHERE ${where}
-     ORDER BY c.nombre, d.fecha_documento, normalizar(d.nombre), d.id
+     ORDER BY c.nombre, d.fecha_documento, d.busqueda_nombre, d.id
      LIMIT $${parametros.length + 1}`,
     [...parametros, limite],
   );
@@ -169,11 +283,36 @@ export async function buscarDocumentos(
   db: Consultor,
   empresaId: string,
   filtros: FiltrosBusqueda,
+  opciones: { orden: Orden; parecidos?: boolean },
 ): Promise<{ filas: DocumentoResumen[]; total: number }> {
-  const { conteo, pagina } = consultasDeBusqueda(empresaId, filtros);
+  const { conteo, pagina } = consultasDeBusqueda(empresaId, filtros, opciones);
   const { rows: [total] } = await db.query<{ total: number }>(conteo.texto, conteo.parametros);
   const { rows } = await db.query<FilaResumen>(pagina.texto, pagina.parametros);
   return { filas: rows.map(aResumen), total: total?.total ?? 0 };
+}
+
+/** Una sugerencia mientras se escribe: lo justo para reconocer el documento y abrirlo. */
+export interface Sugerencia {
+  id: string;
+  nombre: string;
+  categoria: string;
+  coincidencia: Coincidencia;
+}
+
+/** Las mejores coincidencias de lo escrito hasta ahora, con la misma consulta y la misma RLS (D42). */
+export async function sugerirDocumentos(db: Consultor, empresaId: string, q: string, limite: number): Promise<Sugerencia[]> {
+  const consulta = condicionesDeBusqueda(empresaId, { q, fechaDe: 'documento' });
+  if (!consulta.relevancia) return [];
+  const { nivel, orden, parametros } = nivelYOrden(consulta, 'relevancia');
+  const { rows } = await db.query<{ id: string; nombre: string; categoria: string; nivel: number }>(
+    `SELECT d.id, d.nombre, c.nombre AS categoria, ${nivel} AS nivel
+     FROM ${consulta.desde} JOIN categorias c ON c.id = d.categoria_id
+     WHERE ${consulta.where}
+     ORDER BY ${orden}
+     LIMIT $${parametros.length + 1}`,
+    [...parametros, limite],
+  );
+  return rows.map((fila) => ({ id: fila.id, nombre: fila.nombre, categoria: fila.categoria, coincidencia: COINCIDENCIAS[fila.nivel - 1]! }));
 }
 
 interface FilaDocumento extends FilaResumen {

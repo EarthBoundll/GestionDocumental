@@ -85,7 +85,7 @@ backend/
 │       ├── plataforma/           lo que hace el Master: empresas, administradores y cifras
 │       ├── usuarios/             todos los módulos tienen la misma forma
 │       ├── categorias/
-│       ├── documentos/           y su versiones.repositorio: cada versión de un documento (RF34)
+│       ├── documentos/           y su versiones.repositorio (RF34) y busqueda.ts: cómo se parte en palabras lo buscado (D42)
 │       ├── solicitudes/
 │       ├── notificaciones/
 │       ├── historial/            incluye registrarAccion(), que usan los demás servicios
@@ -149,7 +149,7 @@ frontend/
 │   ├── paginas/
 │   │   ├── auth/                 IniciarSesion, RecuperarClave, y los enlaces del correo: RestablecerClave, ActivarCuenta y VerificarCorreo
 │   │   ├── plataforma/           Resumen, NuevaEmpresa, DetalleEmpresa (solo el Master)
-│   │   ├── documentos/           ListaDocumentos, SubirDocumento, DetalleDocumento con su VistaPrevia, VersionesDelDocumento y ActividadDelDocumento
+│   │   ├── documentos/           ListaDocumentos con su BuscadorDeDocumentos (sugerencias), SubirDocumento, DetalleDocumento con su VistaPrevia, VersionesDelDocumento y ActividadDelDocumento
 │   │   ├── solicitudes/
 │   │   ├── notificaciones/
 │   │   ├── cuenta/               MiCuenta: datos, contraseña y tema
@@ -157,7 +157,7 @@ frontend/
 │   │   ├── admin/                Tablero, Usuarios, Categorias, Historial (y su hoja para imprimir), Papelera, Identidad
 │   │   └── errores/              NoEncontrado (el 403 lo explica ErrorDeCarga, en componentes/Pagina)
 │   ├── hooks/                    useConsulta (cancela la petición anterior) y la medición del listado (indicador 7)
-│   ├── utilidades/               fechas en hora de Lima, pesos de archivo, resumen del historial, la imagen de fondo comprimida en el navegador…
+│   ├── utilidades/               fechas en hora de Lima, pesos de archivo, resumen del historial, la imagen de fondo comprimida en el navegador, los atajos de fecha del buscador…
 │   ├── pruebas/                  preparación de Vitest y una API simulada en memoria
 │   └── **/*.test.ts(x)           pruebas junto a lo que prueban: sesión, marco, documentos, apariencia, cliente
 ├── e2e/                          pruebas funcionales de punta a punta (E8)
@@ -312,7 +312,7 @@ D14 evita).
 **E7 · Las pruebas corren contra un PostgreSQL 17 real, sin instalar nada.** El paquete
 `embedded-postgres` arranca los binarios oficiales de PostgreSQL en un directorio temporal, una vez
 por ejecución; cada archivo de pruebas crea su propia base y le aplica las migraciones reales. Así, las
-restricciones, los triggers, el índice de trigramas y `unaccent` se prueban tal como funcionarán en
+restricciones, los triggers, las columnas generadas, la búsqueda en español y `unaccent` se prueban tal como funcionarán en
 Supabase, con la misma versión mayor.
 *Descartado:* PGlite (PostgreSQL compilado a WebAssembly). Se probó primero, y su servidor de sockets
 cierra la conexión tras cualquier error de SQL, justo el caso que más prueban estas pruebas. Tampoco se

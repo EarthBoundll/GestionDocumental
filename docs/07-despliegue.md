@@ -196,7 +196,7 @@ correcto» y las filas de cada tabla, o con el motivo por el que no se restaurar
 Un respaldo solo se restaura con las mismas migraciones con que se hizo. Por eso, después de desplegar
 una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones; la 010,
 la visibilidad por consulta y el listado documental; la 011, la constancia del cierre del estudio; la 012, el
-fondo de cada empresa; la 013, la verificación del correo), pide un
+fondo de cada empresa; la 013, la verificación del correo; la 014, la búsqueda), pide un
 respaldo en el momento desde *Respaldos*: el de la noche anterior solo se restauraría con el código
 anterior.
 
@@ -232,6 +232,9 @@ Después, a mano, la prueba de humo (unos diez minutos):
 - [ ] El administrador cambia el nombre comercial, el color y el logo desde *Identidad*; la usuaria, en su
       celular, los ve al volver a abrir el sistema. Cada uno elige el modo oscuro en *Mi cuenta* y lo
       encuentra igual al entrar desde el otro dispositivo.
+- [ ] Desde el celular, busca «facturas proveedores» (o dos palabras de un documento real en otro orden), escribe
+      un nombre con una letra cambiada y elige una sugerencia mientras escribes: los tres encuentran el documento y el
+      historial muestra las búsquedas (D42).
 - [ ] El administrador crea una cuenta con un correo al que tienes acceso: la lista dice «Pendiente de activar»,
       la invitación llega (revisa también *Spam*), el enlace lleva a *Activa tu cuenta*, y con la contraseña
       elegida se entra desde el celular. Un segundo uso del mismo enlace dice que ya no sirve (D41).
