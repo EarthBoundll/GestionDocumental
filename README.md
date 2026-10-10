@@ -45,8 +45,9 @@ empresa y su administrador. Los correos de recuperación de contraseña quedan e
 | `frontend/` | `npm run pruebas:funcionales` | Los 38 requisitos en un navegador real (46 casos, 66 ejecuciones en escritorio y celular, también con «reducir movimiento»), contra el sistema completo; informe en [`docs/evidencias/`](docs/evidencias/pruebas-funcionales.md) y HTML con capturas y vídeo de lo que falle (`npm run pruebas:informe`). La primera vez: `npx playwright install chromium` |
 | `frontend/` | `npm run pruebas:demo` | El guion de la sustentación: los casos marcados `@demo`, en un navegador visible y a velocidad de lectura |
 
-GitHub Actions ejecuta las tres primeras filas y las funcionales en cada push a `main` y en cada pull
-request ([`.github/workflows/pruebas.yml`](.github/workflows/pruebas.yml)).
+GitHub Actions ejecuta `npm test` del backend (con la batería de aislamiento) y del frontend, y las funcionales, en
+cada push a `main` y en cada pull request ([`.github/workflows/pruebas.yml`](.github/workflows/pruebas.yml)). La
+prueba de carga y los informes se ejecutan a mano.
 
 ## Desplegar
 
