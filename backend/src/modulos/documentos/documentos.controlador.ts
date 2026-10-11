@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores.js';
+import { enviarExportacion, esquemaFormato } from '../../compartido/exportacion.js';
 import { esquemaPaginacion } from '../../compartido/paginacion.js';
 import { actorDe, idDeRuta } from '../../compartido/peticion.js';
 import type { ServicioTiempos } from '../tiempos-respuesta/tiempos-respuesta.servicio.js';
@@ -35,13 +36,9 @@ export function crearControladorDocumentos(servicio: ServicioDocumentos, tiempos
   };
 
   const exportarListado: RequestHandler = async (req, res) => {
-    const csv = await servicio.exportarListado(actorDe(req), esquemaFiltrosDelListado.parse(req.query));
-    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
-    res.set({
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="listado-documental-${hoy}.csv"`,
-    });
-    res.send(csv);
+    const { formato } = esquemaFormato.parse(req.query);
+    const exportacion = await servicio.exportarListado(actorDe(req), esquemaFiltrosDelListado.parse(req.query), formato);
+    enviarExportacion(res, 'listado-documental', exportacion);
   };
 
   const subir: RequestHandler = async (req, res) => {

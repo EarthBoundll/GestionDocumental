@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { entrar, nuevaCuenta, nuevaEmpresa, subirDocumento } from './apoyo';
+import { entrar, leerExcel, nuevaCuenta, nuevaEmpresa, subirDocumento } from './apoyo';
 
 /** La luminosidad de un color de CSS, de 0 (negro) a 1 (blanco): Chrome los da en oklch o en rgb. */
 function luminosidad(color: string): number {
@@ -11,7 +11,7 @@ function luminosidad(color: string): number {
 }
 
 test.describe('Evidencia para el capítulo 3', () => {
-  test('RF35 · El administrador exporta el inventario documental en CSV, con lo filtrado en la pantalla', async ({ page, request }) => {
+  test('RF35 · El administrador exporta el inventario documental en Excel y en CSV, con lo filtrado en la pantalla', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     const ana = await nuevaCuenta(request, empresa, 'usuario', 'Ana Torres');
     await subirDocumento(request, ana, { nombre: 'Contrato de alquiler', categoria: 'Contratos' });
@@ -22,8 +22,16 @@ test.describe('Evidencia para el capítulo 3', () => {
     await page.goto('/documentos');
     await page.getByLabel('Categoría').selectOption({ label: 'Facturas y boletas' });
     await expect(page.getByRole('link', { name: 'Contrato de alquiler' })).toBeHidden();
-    const [descarga] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar listado' }).click()]);
 
+    // En Excel (D44): un resumen y la tabla «Documentos», la que abre Power BI, solo con lo filtrado.
+    const [excel] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar a Excel', exact: true }).click()]);
+    expect(excel.suggestedFilename()).toMatch(/^listado-documental-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const libro = leerExcel((await excel.path())!);
+    expect(libro.partes).toEqual(expect.arrayContaining(['xl/worksheets/sheet1.xml', 'xl/worksheets/sheet2.xml', 'xl/tables/table1.xml']));
+    expect(libro.textos).toEqual(expect.arrayContaining(['Listado documental', 'Factura 001', 'Factura 002', 'Ana Torres']));
+    expect(libro.textos).not.toContain('Contrato de alquiler');
+
+    const [descarga] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar a Excel en CSV' }).click()]);
     expect(descarga.suggestedFilename()).toMatch(/^listado-documental-\d{4}-\d{2}-\d{2}\.csv$/);
     const [encabezado, ...filas] = readFileSync((await descarga.path())!, 'utf8').slice(1).trim().split('\r\n');
     expect(encabezado).toBe('id,nombre,categoria,fecha_documento,descripcion,subido_por,subido_en_lima,tipo,peso_bytes,version_vigente,estado_aprobacion,version_revisada');

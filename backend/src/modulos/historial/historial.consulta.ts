@@ -1,12 +1,15 @@
 import { Router, type RequestHandler } from 'express';
 import { aCsv } from '../../compartido/csv.js';
+import { enviarExportacion, esquemaFormato, nombreDeLaEmpresa, type Exportacion, type Formato } from '../../compartido/exportacion.js';
 import { desplazamiento, esquemaPaginacion } from '../../compartido/paginacion.js';
 import { ErrorAplicacion } from '../../compartido/errores.js';
 import { actorDe, empresaDe, type Actor } from '../../compartido/peticion.js';
 import type { Permiso } from '../../compartido/permisos.js';
 import { sinVacios, z } from '../../compartido/validacion.js';
 import type { Consultor } from '../../db/pool.js';
+import { historialEnExcel } from './historial-en-excel.js';
 import { ACCIONES, autorDe, registrarAccion } from './historial.registro.js';
+import { NOMBRES_DE_ACCIONES } from './nombres-de-acciones.js';
 
 const fecha = z.iso.date('Usa el formato AAAA-MM-DD');
 
@@ -68,6 +71,23 @@ function condiciones(ambito: Ambito, filtros: Filtros) {
   if (filtros.desde) agregar((p) => `h.creado_en >= (${p}::date)::timestamp AT TIME ZONE 'America/Lima'`, filtros.desde);
   if (filtros.hasta) agregar((p) => `h.creado_en < (${p}::date + 1)::timestamp AT TIME ZONE 'America/Lima'`, filtros.hasta);
   return { where: lista.join(' AND '), parametros };
+}
+
+const fechaLegible = (iso: string) => iso.split('-').reverse().join('/');
+
+/** Los filtros del historial como los lee quien abre el Excel, con el nombre de la persona. */
+async function describirFiltros(db: Consultor, filtros: Filtros): Promise<string> {
+  const partes: string[] = [];
+  if (filtros.desde || filtros.hasta) {
+    partes.push([filtros.desde && `desde el ${fechaLegible(filtros.desde)}`, filtros.hasta && `hasta el ${fechaLegible(filtros.hasta)}`].filter(Boolean).join(' '));
+  }
+  if (filtros.usuarioId) {
+    const { rows: [persona] } = await db.query<{ nombre: string }>('SELECT nombre FROM usuarios WHERE id = $1', [filtros.usuarioId]);
+    partes.push(`de ${persona?.nombre ?? '(no disponible)'}`);
+  }
+  if (filtros.accion) partes.push(`acción «${NOMBRES_DE_ACCIONES[filtros.accion]}»`);
+  if (filtros.entidadTipo) partes.push(`sobre ${filtros.entidadTipo}${filtros.entidadId ? ` ${filtros.entidadId}` : ''}`);
+  return partes.length ? partes.join(' · ') : 'ninguno: toda la actividad registrada';
 }
 
 interface Asiento {
@@ -251,29 +271,43 @@ export function crearServicioHistorial() {
     },
 
     /**
-     * RF20: el historial en CSV, la evidencia del capítulo 3 (R3). Exportarlo también es una acción
-     * auditable: la lectura y su registro van en una transacción, y si no se puede registrar no se entrega.
+     * RF20: el historial en CSV o en Excel (D44), la evidencia del capítulo 3 (R3). Exportarlo también es una
+     * acción auditable: la lectura y su registro van en una transacción, y si no se puede registrar no se entrega.
      */
-    async exportar(actor: Actor, filtros: Filtros): Promise<string> {
+    async exportar(actor: Actor, filtros: Filtros, formato: Formato = 'csv'): Promise<Exportacion> {
       const { usuario } = actor.autenticacion;
-      const filas = await actor.datos.ejecutar(async (cliente) => {
+      const { filas, encabezado } = await actor.datos.ejecutar(async (cliente) => {
         const filas = await consultar(cliente, { empresaId: empresaDe(actor) }, filtros, MAXIMO_EXPORTABLE);
         await registrarAccion(cliente, {
           accion: 'HISTORIAL_EXPORTADO',
           autor: autorDe(usuario),
           contexto: actor.contexto,
-          detalle: { filtros, filas: filas.length },
+          detalle: { filtros, filas: filas.length, ...(formato === 'xlsx' && { formato }) },
         });
-        return filas;
+        const encabezado = formato === 'xlsx'
+          ? { empresa: await nombreDeLaEmpresa(cliente, empresaDe(actor)), exportadoPor: usuario.nombre, filtros: await describirFiltros(cliente, filtros) }
+          : null;
+        return { filas, encabezado };
       });
-      return aCsv(
+      if (encabezado) {
+        return {
+          formato,
+          contenido: historialEnExcel(filas.map((fila) => ({
+            id: fila.id, fechaLima: fila.creado_en_lima, accion: fila.accion,
+            usuario: fila.rol_usuario === 'master' ? AUTOR_DE_LA_PLATAFORMA : fila.usuario_nombre, email: fila.usuario_email,
+            rol: fila.rol_usuario, entidadTipo: fila.entidad_tipo, entidadId: fila.entidad_id, esMovil: fila.es_movil,
+            userAgent: fila.user_agent, detalle: fila.detalle,
+          })), encabezado),
+        };
+      }
+      return { formato, contenido: aCsv(
         ['id', 'fecha_hora_lima', 'fecha_hora_utc', 'accion', 'usuario', 'email', 'rol', 'entidad_tipo', 'entidad_id', 'es_movil', 'user_agent', 'detalle'],
         filas.map((fila) => [
           fila.id, fila.creado_en_lima, fila.creado_en.toISOString(), fila.accion,
           fila.rol_usuario === 'master' ? AUTOR_DE_LA_PLATAFORMA : fila.usuario_nombre, fila.usuario_email,
           fila.rol_usuario, fila.entidad_tipo, fila.entidad_id, fila.es_movil, fila.user_agent, fila.detalle,
         ]),
-      );
+      ) };
     },
   };
 }
@@ -310,13 +344,8 @@ export function crearRutasHistorial(
 
   rutas.get('/exportar', async (req, res) => {
     const filtros = esquemaFiltros.parse(req.query);
-    const csv = await servicio.exportar(actorDe(req), filtros);
-    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
-    res.set({
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="historial-${hoy}.csv"`,
-    });
-    res.send(csv);
+    const { formato } = esquemaFormato.parse(req.query);
+    enviarExportacion(res, 'historial', await servicio.exportar(actorDe(req), filtros, formato));
   });
 
   return rutas;

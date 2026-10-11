@@ -38,28 +38,33 @@ function abrir(ruta: string, extra: Parameters<typeof simularApi>[0] = {}, rol: 
 }
 
 describe('Documentos', () => {
-  it('el administrador exporta el listado documental con los filtros de la pantalla (RF35); un usuario no ve el botón', async () => {
+  it('el administrador exporta el listado documental en Excel o en CSV, con los filtros de la pantalla (RF35, D44)', async () => {
     URL.createObjectURL = vi.fn(() => 'blob:listado');
     URL.revokeObjectURL = vi.fn();
     const { peticiones } = abrir('/documentos?q=contrato&categoriaId=cat-contratos&orden=nombre&pagina=2', {
       'GET /documentos/exportar': {
-        cuerpo: 'id,nombre', cabeceras: { 'Content-Disposition': 'attachment; filename="listado-documental-2026-10-07.csv"' },
+        cuerpo: 'id,nombre', cabeceras: { 'Content-Disposition': 'attachment; filename="listado-documental-2026-10-07.xlsx"' },
       },
     }, 'administrador');
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Exportar listado' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Exportar a Excel' }));
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByRole('button', { name: 'Exportar a Excel en CSV' }));
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(2));
 
-    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
-    const pedida = peticiones.find((p) => p.ruta === '/documentos/exportar')!;
+    const pedidas = peticiones.filter((p) => p.ruta === '/documentos/exportar');
     // Los filtros, sin la página ni el orden: el inventario sale entero y ordenado por categoría.
-    expect(Object.fromEntries(pedida.consulta)).toEqual({ q: 'contrato', categoriaId: 'cat-contratos' });
+    expect(pedidas.map((p) => Object.fromEntries(p.consulta))).toEqual([
+      { q: 'contrato', categoriaId: 'cat-contratos', formato: 'xlsx' },
+      { q: 'contrato', categoriaId: 'cat-contratos', formato: 'csv' },
+    ]);
   });
 
-  it('un usuario no ve «Exportar listado»: el inventario es del administrador', async () => {
+  it('un usuario no ve «Exportar a Excel»: el inventario es del administrador', async () => {
     abrir('/documentos');
 
     await screen.findByRole('link', { name: 'Contrato de alquiler del local' });
-    expect(screen.queryByRole('button', { name: 'Exportar listado' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Exportar a Excel' })).not.toBeInTheDocument();
   });
 
   it('lista, busca por nombre y deja la búsqueda en la URL para poder compartirla o volver atrás', async () => {

@@ -720,6 +720,37 @@ Nada de esto cambia la decisión antes de la evaluación; sí deja escrito qué 
 el contenido con OCR (fuera del alcance, y con 0,1 CPU cada página escaneada tardaría, por estimación, decenas de
 segundos) y decidir sin medir.
 
+**D44 · Las exportaciones también en Excel (.xlsx), escritas por la API sin librerías; el CSV se queda.** La prueba de
+humo del 11 de octubre encontró que el CSV, abierto con doble clic en un Excel configurado en español, sale entero en la
+columna A: Excel separa los CSV con el separador de listas de Windows («;»), no con la coma. Ahora el listado
+documental y el historial salen también como un libro de Excel de verdad:
+- **Una hoja «Resumen»:** franja de título con los colores del sistema, la empresa, quién exportó y cuándo, los
+  filtros en palabras, cuatro tarjetas con los totales y conteos (por categoría, estado, persona, tipo, acción,
+  día, dispositivo) con barras dentro de las celdas.
+- **Los datos en una tabla de Excel:** se llama «Documentos» o «Historial», tiene filtros, el encabezado fijo, las
+  fechas y los números como tales y el estado coloreado como etiqueta. Power BI la lista por su nombre en *Obtener
+  datos → Libro de Excel*.
+- **Cómo se escribe:** la API lo arma con la misma consulta, la misma RLS y el mismo asiento del historial
+  (`formato: 'xlsx'` en el detalle). Es un ZIP (zlib de Node) de XML Office Open, en `compartido/excel/`, sin
+  dependencias nuevas.
+- **Sin fórmulas posibles:** todo texto va como texto compartido y ninguna celda lleva fórmula, así que un
+  documento llamado `=HIPERVINCULO(…)` se ve tal cual.
+- **El CSV se queda:** los botones ofrecen Excel y, al lado, CSV. En la API el formato por omisión sigue siendo CSV
+  (`?formato=xlsx` para el libro), así que las pruebas, la batería de aislamiento y lo que alguien haya
+  automatizado no cambian.
+
+Corrige a D32, que descartó el .xlsx porque exigía una librería. El autor abrió en su Excel los prototipos: los dos
+abrieron, pero el primero, una tabla sola, «no se veía moderno»; de ahí el resumen. En la prueba de carga, el listado
+de 49.000 documentos sale en Excel en 1,6 s (el CSV, en 0,6 s), dentro del umbral de 5 s; en Render, con 0,1 CPU,
+tardaría más, pero una MYPE tiene cientos de documentos, no decenas de miles.
+*Descartado:*
+- **El CSV con «;»:** falla en un Excel configurado con coma y sigue sin tipos.
+- **Una línea `sep=,`:** Excel ignora entonces la marca UTF-8 y rompe las tildes.
+- **Una librería como ExcelJS:** casi 200 paquetes en el prototipo para validar.
+- **Gráficos dentro del Excel:** mucho más XML y riesgo de que Excel pida «reparar» el archivo; los gráficos son lo
+  que hace Power BI.
+- **Una plantilla de Power BI (.pbit):** se arma con Power BI Desktop y no se puede revisar como texto.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

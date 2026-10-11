@@ -1,12 +1,12 @@
-import { ChevronRight, FileDown, History, LayoutDashboard } from 'lucide-react';
+import { ChevronRight, History, LayoutDashboard } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
-import { historial, tablero } from '../../api/recursos';
+import { historial, tablero, type FormatoDeExportacion } from '../../api/recursos';
 import type { Tablero as DatosDelTablero } from '../../api/tipos';
 import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
-import { Boton } from '../../componentes/Boton';
 import { Campo } from '../../componentes/Campos';
+import { BotonesDeExportacion } from '../../componentes/Exportar';
 import { EncabezadoDePagina, ErrorDeCarga, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
 import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
@@ -26,7 +26,6 @@ export function Tablero() {
   const [parametros, cambiarParametros] = useParametrosEnUrl();
   const periodo = { desde: parametros.get('desde') ?? undefined, hasta: parametros.get('hasta') ?? undefined };
   const consulta = useConsulta((senal) => tablero.obtener(periodo, senal), [parametros.toString()]);
-  const [exportando, setExportando] = useState(false);
   const [errorAlExportar, setErrorAlExportar] = useState<ErrorApi | null>(null);
 
   function cambiar(clave: 'desde' | 'hasta', valor: string) {
@@ -36,11 +35,9 @@ export function Tablero() {
     });
   }
 
-  async function exportar(datos: DatosDelTablero) {
-    setExportando(true);
+  async function exportar(datos: DatosDelTablero, formato: FormatoDeExportacion) {
     setErrorAlExportar(null);
-    await historial.exportar(datos.periodo).catch((error: ErrorApi) => setErrorAlExportar(error));
-    setExportando(false);
+    await historial.exportar(datos.periodo, formato);
   }
 
   if (consulta.error?.estado === 403) return <ErrorDeCarga error={consulta.error} />;
@@ -51,7 +48,7 @@ export function Tablero() {
         titulo="Tablero"
         descripcion="El estado de tu empresa y lo que el sistema registra de cada indicador en el periodo elegido."
         acciones={datos && (
-          <Boton variante="secundario" icono={FileDown} cargando={exportando} onClick={() => void exportar(datos)}>Historial del periodo (CSV)</Boton>
+          <BotonesDeExportacion etiqueta="Historial del periodo en Excel" exportar={(formato) => exportar(datos, formato)} alFallar={setErrorAlExportar} />
         )}
       />
       {errorAlExportar && <div className="mb-4"><Aviso tipo="error">{errorAlExportar.mensaje}</Aviso></div>}

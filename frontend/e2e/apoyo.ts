@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { inflateRawSync } from 'node:zlib';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { CARPETA_CORREOS, MASTER, URL_API } from './entorno';
 
@@ -155,4 +156,27 @@ export function enlaceDelCorreo(email: string, ruta: string): string {
   const enlace = new RegExp(`https?://\\S+${ruta}#[\\w-]+`).exec(ultimoCorreoPara(email))?.[0];
   expect(enlace, `el último correo para ${email} no trae un enlace a ${ruta}`).toBeTruthy();
   return enlace!;
+}
+
+/**
+ * Lo que dice un Excel descargado (D44): las partes del ZIP que lo forman y sus textos, para comprobar que
+ * trae su resumen, su tabla y los datos esperados sin abrir Excel.
+ */
+export function leerExcel(ruta: string): { partes: string[]; textos: string[] } {
+  const zip = readFileSync(ruta);
+  let fin = zip.length - 22;
+  while (fin >= 0 && zip.readUInt32LE(fin) !== 0x06054b50) fin--;
+  const partes = new Map<string, string>();
+  let posicion = zip.readUInt32LE(fin + 16);
+  for (let n = zip.readUInt16LE(fin + 10); n > 0; n--) {
+    const largoDelNombre = zip.readUInt16LE(posicion + 28);
+    const nombre = zip.toString('utf8', posicion + 46, posicion + 46 + largoDelNombre);
+    const local = zip.readUInt32LE(posicion + 42);
+    const inicio = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+    partes.set(nombre, inflateRawSync(zip.subarray(inicio, inicio + zip.readUInt32LE(posicion + 20))).toString('utf8'));
+    posicion += 46 + largoDelNombre + zip.readUInt16LE(posicion + 30) + zip.readUInt16LE(posicion + 32);
+  }
+  const textos = [...(partes.get('xl/sharedStrings.xml') ?? '').matchAll(/<t xml:space="preserve">([\s\S]*?)<\/t>/g)]
+    .map(([, texto]) => texto!.replaceAll('&quot;', '"').replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'));
+  return { partes: [...partes.keys()], textos };
 }

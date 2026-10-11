@@ -228,7 +228,9 @@ Después, a mano, la prueba de humo (unos diez minutos):
       de la foto.
 - [ ] Sube una versión nueva de un documento: la ficha dice «Versión 2», la 1 se descarga con su archivo
       de entonces y restaurarla crea la 3.
-- [ ] El administrador exporta el listado documental desde *Documentos* y lo abre en Excel; en *Historial*
+- [ ] El administrador exporta el listado documental desde *Documentos* con *Exportar a Excel* y lo abre: se ve el
+      resumen y la tabla «Documentos» con filtros (D44). *(11 de octubre: el CSV abierto en un Excel en español
+      salió en una sola columna; por eso el Excel.)* En *Historial*
       filtra un día, pulsa *Imprimir* y lo guarda como PDF: sale sin menú, en claro y con las firmas.
 - [ ] El administrador cambia el nombre comercial, el color y el logo desde *Identidad*; la usuaria, en su
       celular, los ve al volver a abrir el sistema. Cada uno elige el modo oscuro en *Mi cuenta* y lo

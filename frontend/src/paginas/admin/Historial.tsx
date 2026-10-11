@@ -1,12 +1,13 @@
-import { FileDown, History, Monitor, Printer, Smartphone } from 'lucide-react';
+import { History, Monitor, Printer, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
-import { historial, MAXIMO_IMPRIMIBLE, usuarios, type FiltrosHistorial } from '../../api/recursos';
+import { historial, MAXIMO_IMPRIMIBLE, usuarios, type FiltrosHistorial, type FormatoDeExportacion } from '../../api/recursos';
 import type { Asiento } from '../../api/tipos';
 import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton, clasesDeBoton } from '../../componentes/Boton';
 import { Campo, Selector } from '../../componentes/Campos';
+import { BotonesDeExportacion } from '../../componentes/Exportar';
 import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
@@ -26,7 +27,6 @@ export function Historial() {
   };
   const consulta = useConsulta((senal) => historial.listar(filtros, senal), [parametros.toString()]);
   const { datos: personas } = useConsulta((senal) => usuarios.listar({ porPagina: 100 }, senal), []);
-  const [exportando, setExportando] = useState(false);
   const [errorAlExportar, setErrorAlExportar] = useState<ErrorApi | null>(null);
 
   function filtrar(clave: keyof FiltrosHistorial, valor: string) {
@@ -37,12 +37,10 @@ export function Historial() {
     });
   }
 
-  async function exportar() {
-    setExportando(true);
+  async function exportar(formato: FormatoDeExportacion) {
     setErrorAlExportar(null);
     const { pagina: _pagina, ...sinPagina } = filtros;
-    await historial.exportar(sinPagina).catch((error: ErrorApi) => setErrorAlExportar(error));
-    setExportando(false);
+    await historial.exportar(sinPagina, formato);
   }
 
   // La vista imprimible (RF36) recibe los mismos filtros, sin la página: imprime todo lo filtrado.
@@ -66,7 +64,7 @@ export function Historial() {
               <Printer aria-hidden className="size-4" />Imprimir
             </Link>
           )}
-          <Boton variante="secundario" icono={FileDown} cargando={exportando} onClick={() => void exportar()}>Exportar a CSV</Boton>
+          <BotonesDeExportacion etiqueta="Exportar a Excel" exportar={exportar} alFallar={setErrorAlExportar} />
         </>}
       />
       {demasiadosParaImprimir && (

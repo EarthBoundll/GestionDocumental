@@ -1,11 +1,12 @@
-import { ChevronDown, Download, Eye, FileDown, FileText, SearchX, Upload, X } from 'lucide-react';
+import { ChevronDown, Download, Eye, FileText, SearchX, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
-import { categorias, documentos, usuarios, type FiltrosDocumentos } from '../../api/recursos';
+import { categorias, documentos, usuarios, type FiltrosDocumentos, type FormatoDeExportacion } from '../../api/recursos';
 import type { DocumentoResumen, EstadoDeAprobacion, Sugerencia, TipoDeArchivo } from '../../api/tipos';
 import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton, clasesDeBoton } from '../../componentes/Boton';
+import { BotonesDeExportacion } from '../../componentes/Exportar';
 import { Campo, Selector } from '../../componentes/Campos';
 import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
@@ -49,7 +50,6 @@ export function ListaDocumentos() {
   const [texto, setTexto] = useState(filtros.q ?? '');
   const [errorAlAbrir, setErrorAlAbrir] = useState<ErrorApi | null>(null);
   const { sesion, esAdministrador } = useSesion();
-  const [exportando, setExportando] = useState(false);
   const navegar = useNavigate();
 
   const medicion = useMedicionDeListado();
@@ -101,13 +101,11 @@ export function ListaDocumentos() {
     navegar(`/documentos/${sugerencia.id}`);
   }
 
-  /** RF35: el inventario en CSV, con los filtros de la pantalla. Lo exporta un administrador y queda registrado. */
-  async function exportarListado() {
-    setExportando(true);
+  /** RF35: el inventario en Excel o CSV, con los filtros de la pantalla. Lo exporta un administrador y queda registrado. */
+  async function exportarListado(formato: FormatoDeExportacion) {
     setErrorAlAbrir(null);
     const { pagina: _pagina, orden: _orden, ...soloFiltros } = filtros;
-    await documentos.exportarListado(soloFiltros).catch((error: ErrorApi) => setErrorAlAbrir(error));
-    setExportando(false);
+    await documentos.exportarListado(soloFiltros, formato);
   }
 
   async function abrir(id: string, modo: 'ver' | 'descargar') {
@@ -128,7 +126,7 @@ export function ListaDocumentos() {
         descripcion="Busca por nombre, archivo, descripción o categoría, sin preocuparte por las tildes, las mayúsculas ni el orden de las palabras."
         acciones={<>
           {esAdministrador && (
-            <Boton variante="secundario" icono={FileDown} cargando={exportando} onClick={() => void exportarListado()}>Exportar listado</Boton>
+            <BotonesDeExportacion etiqueta="Exportar a Excel" exportar={exportarListado} alFallar={setErrorAlAbrir} />
           )}
           <Link to="/documentos/nuevo" className={clasesDeBoton()}><Upload aria-hidden className="size-4" />Subir documento</Link>
         </>}

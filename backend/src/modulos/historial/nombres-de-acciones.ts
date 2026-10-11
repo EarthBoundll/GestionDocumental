@@ -1,0 +1,45 @@
+import type { AccionAuditable } from './historial.registro.js';
+
+/**
+ * Cómo se lee cada acción en el Excel del historial (D44): los mismos nombres que la pantalla
+ * (frontend/src/utilidades/acciones.ts); si cambia uno, cambia el otro. El tipo exige que estén todas.
+ */
+export const NOMBRES_DE_ACCIONES: Record<AccionAuditable, string> = {
+  SESION_INICIADA: 'Inicio de sesión',
+  SESION_FALLIDA: 'Inicio de sesión fallido',
+  SESION_CERRADA: 'Cierre de sesión',
+  CLAVE_CAMBIADA: 'Contraseña cambiada',
+  RECUPERACION_SOLICITADA: 'Recuperación de contraseña solicitada',
+  CLAVE_RESTABLECIDA: 'Contraseña restablecida por correo',
+  EMPRESA_CREADA: 'Empresa registrada',
+  EMPRESA_EDITADA: 'Datos de la empresa editados',
+  EMPRESA_DESACTIVADA: 'Empresa desactivada',
+  EMPRESA_REACTIVADA: 'Empresa reactivada',
+  USUARIO_CREADO: 'Usuario creado',
+  USUARIO_EDITADO: 'Usuario editado',
+  USUARIO_DESACTIVADO: 'Usuario desactivado',
+  USUARIO_REACTIVADO: 'Usuario reactivado',
+  CATEGORIA_CREADA: 'Categoría creada',
+  CATEGORIA_EDITADA: 'Categoría editada',
+  DOCUMENTO_SUBIDO: 'Documento subido',
+  DOCUMENTO_EDITADO: 'Documento editado',
+  DOCUMENTO_ELIMINADO: 'Documento eliminado',
+  DOCUMENTO_VISUALIZADO: 'Documento visto',
+  DOCUMENTO_DESCARGADO: 'Documento descargado',
+  BUSQUEDA_REALIZADA: 'Búsqueda',
+  SOLICITUD_CREADA: 'Aprobación solicitada',
+  SOLICITUD_APROBADA: 'Solicitud aprobada',
+  SOLICITUD_RECHAZADA: 'Solicitud rechazada',
+  ACCESO_DENEGADO: 'Acceso denegado',
+  HISTORIAL_EXPORTADO: 'Historial exportado',
+  DOCUMENTO_RESTAURADO: 'Documento restaurado',
+  DOCUMENTO_PURGADO: 'Documento eliminado para siempre',
+  RESPALDO_GENERADO: 'Respaldo de la base generado',
+  VERSION_SUBIDA: 'Versión nueva subida',
+  VERSION_RESTAURADA: 'Versión anterior restaurada',
+  LISTADO_EXPORTADO: 'Listado documental exportado',
+  EMPRESA_ELIMINADA: 'Datos de una empresa eliminados',
+  INVITACION_ENVIADA: 'Invitación enviada',
+  VERIFICACION_ENVIADA: 'Enlace para confirmar el correo enviado',
+  CORREO_VERIFICADO: 'Correo verificado',
+};

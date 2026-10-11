@@ -189,6 +189,7 @@ permisos dentro de una empresa.
 - Movimiento moderno y un acceso con más vida, solo con CSS y que respeta «reducir movimiento» (hecho)
 - Verificación obligatoria del correo: la cuenta nace sin contraseña y se activa con la invitación que le llega (hecho)
 - Buscador avanzado: palabras en cualquier orden, raíz, errores de escritura, filtros combinables y sugerencias (hecho)
+- Exportaciones en Excel con resumen y tabla para Power BI, además del CSV (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -370,6 +371,12 @@ evaluación, una consulta de búsquedas fallidas dirá si vale una prueba de con
 `docs/12-busqueda-e-ia.md`). La prueba aislada ya mostró que la semántica encuentra 12 de 13 búsquedas con otra palabra,
 pero siempre devuelve algo, sin umbral que lo filtre, y suma 340-370 MB a una API con 512 MB (`docs/12` §6). Se
 descartaron integrar embeddings ahora, el OCR y decidir sin medir.
+
+**Las exportaciones también en Excel, escritas por la API sin librerías; el CSV se queda.** Abierto con doble clic en un
+Excel en español, el CSV salía en una sola columna. El listado y el historial salen además como .xlsx: un resumen con los
+colores del sistema, tarjetas y conteos con barras, y los datos en una tabla de Excel que Power BI abre por su nombre; un
+ZIP de XML hecho con zlib, misma consulta, RLS y asiento, y ningún texto como fórmula (D44, corrige D32). Se descartaron
+el CSV con «;», la línea `sep=`, una librería como ExcelJS, gráficos dentro del Excel y una plantilla de Power BI.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

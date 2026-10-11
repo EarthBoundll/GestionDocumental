@@ -6,6 +6,9 @@ import type {
 
 // Una función por endpoint de docs/04-api.md, agrupadas por recurso.
 
+/** Las exportaciones salen en Excel, con su resumen y su tabla para Power BI, o en CSV (D44). */
+export type FormatoDeExportacion = 'xlsx' | 'csv';
+
 export const auth = {
   iniciarSesion: (email: string, clave: string) => api<SesionIniciada>('/auth/login', { metodo: 'POST', cuerpo: { email, clave } }),
   cerrarSesion: () => api<void>('/auth/logout', { metodo: 'POST' }),
@@ -46,9 +49,9 @@ export const documentos = {
   registrarSugerencia: (q: string, documentoId: string) =>
     api<void>('/documentos/busquedas', { metodo: 'POST', cuerpo: { q, documentoId } }),
   subir: (formulario: FormData) => api<Documento>('/documentos', { metodo: 'POST', formulario }),
-  /** RF35: el inventario documental en CSV, con los filtros del listado. Solo administradores. */
-  exportarListado: (filtros: Omit<FiltrosDocumentos, 'pagina' | 'orden'>) =>
-    descargar('/documentos/exportar', { ...filtros }, 'listado-documental.csv'),
+  /** RF35: el inventario documental en Excel o en CSV (D44), con los filtros del listado. Solo administradores. */
+  exportarListado: (filtros: Omit<FiltrosDocumentos, 'pagina' | 'orden'>, formato: FormatoDeExportacion = 'xlsx') =>
+    descargar('/documentos/exportar', { ...filtros, formato }, `listado-documental.${formato}`),
   obtener: (id: string, senal?: AbortSignal) => api<Documento>(`/documentos/${id}`, { senal }),
   editar: (id: string, cambios: Partial<{ nombre: string; categoriaId: string; fechaDocumento: string; descripcion: string | null }>) =>
     api<Documento>(`/documentos/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
@@ -129,7 +132,8 @@ export interface FiltrosHistorial {
 
 export const historial = {
   listar: (filtros: FiltrosHistorial, senal?: AbortSignal) => api<Pagina<Asiento>>('/historial', { consulta: { ...filtros }, senal }),
-  exportar: (filtros: Omit<FiltrosHistorial, 'pagina'>) => descargar('/historial/exportar', { ...filtros }, 'historial.csv'),
+  exportar: (filtros: Omit<FiltrosHistorial, 'pagina'>, formato: FormatoDeExportacion = 'xlsx') =>
+    descargar('/historial/exportar', { ...filtros, formato }, `historial.${formato}`),
   /** RF36: todo lo filtrado (hasta 2.000), para la vista imprimible. Queda registrado como exportación. */
   paraImprimir: (filtros: Omit<FiltrosHistorial, 'pagina'>, senal?: AbortSignal) =>
     api<{ datos: Asiento[]; total: number }>('/historial/impresion', { consulta: { ...filtros }, senal }),
