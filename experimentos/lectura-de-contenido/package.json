@@ -1,0 +1,24 @@
+{
+  "name": "experimento-lectura-de-contenido",
+  "private": true,
+  "type": "module",
+  "description": "Prueba aislada: leer el texto de PDF, Word y Excel y sacar sus palabras clave, sin IA. No forma parte del sistema desplegado: ni Render ni el CI la instalan.",
+  "scripts": {
+    "medir": "tsx medir.ts",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "unpdf": "1.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "@types/pdfkit": "^0.17.6",
+    "dejavu-fonts-ttf": "2.37.3",
+    "pdfkit": "0.20.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

@@ -51,6 +51,7 @@ Las fases 1 a 6 siguen la numeración del plan de la v1; la 7 y la 8, la del `CL
 | [Evidencias: aislamiento](evidencias/aislamiento-entre-empresas.md) | Informe de aislamiento entre empresas, generado por `npm run informe:aislamiento` (indicador 6) |
 | [Evidencias: pruebas funcionales](evidencias/pruebas-funcionales.md) | Cada requisito funcional probado en un navegador real, en escritorio y celular, generado por `npm run pruebas:funcionales` |
 | [Evidencias: búsqueda semántica](evidencias/busqueda-semantica.md) | La prueba aislada de la IA en la búsqueda: la actual, la del contenido y la semántica con 52 documentos ficticios y 43 búsquedas, con la memoria y el tiempo del modelo; generado por `npm run medir` en `experimentos/busqueda-semantica/` (D43) |
+| [Evidencias: lectura del contenido](evidencias/lectura-de-contenido.md) | El paso 1 de la búsqueda en el contenido, sin IA ni OCR: qué lee de 56 archivos ficticios (PDF, Word, Excel, escaneos y casos hostiles), su CPU, su memoria, su espacio en la base y las palabras clave que saca; generado por `npm run medir` en `experimentos/lectura-de-contenido/` |
 | [Evidencias: prueba de carga](evidencias/prueba-de-carga.md) | El listado y la búsqueda con 50.000 documentos, antes y después de la migración 010, generado por `npm run informe:carga` (indicador 7) |
 
 ## La arquitectura en un párrafo

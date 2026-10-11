@@ -1,0 +1,3 @@
+node_modules/
+# Los archivos ficticios que genera la medición, para abrirlos a mano.
+.archivos/
