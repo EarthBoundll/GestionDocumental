@@ -256,6 +256,9 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
       { repeticiones: 10, umbral: UMBRAL_EXPORTACION_MS });
     await medir('Listado documental completo en CSV', 'administradora', `${docs}/exportar`,
       { repeticiones: 5, umbral: UMBRAL_EXPORTACION_MS });
+    // D44: el mismo listado en Excel, con su resumen y su tabla; arma y comprime el libro en la API.
+    await medir('Listado documental completo en Excel', 'administradora', `${docs}/exportar?formato=xlsx`,
+      { repeticiones: 5, umbral: UMBRAL_EXPORTACION_MS });
 
     await explicar('Listado inicial de la usuaria', a.usuarioId, 'usuario', {});
     await explicar('Búsqueda por nombre de la usuaria', a.usuarioId, 'usuario', { q: 'guia de remision' });
@@ -285,7 +288,7 @@ Generado por \`npm run informe:carga\` (backend) el ${fecha}, hora de Lima.
 tiene ${DOCUMENTOS.toLocaleString('es-PE')} documentos, con categorías restringidas y otra empresa en las mismas tablas?
 
 **Resultado: ${cumplen} de ${mediciones.length} escenarios con el percentil 95 dentro de su umbral:** 1 s para listar
-y buscar (RNF05) y 5 s para las dos exportaciones, que descargan de una vez todo lo filtrado.
+y buscar (RNF05) y 5 s para las exportaciones (la hoja para imprimir, el CSV y el Excel), que descargan de una vez todo lo filtrado.
 
 ## Los datos
 

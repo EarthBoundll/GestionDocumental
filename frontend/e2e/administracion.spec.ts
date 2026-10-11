@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { enlaceDelCorreo, entrar, nuevaCuenta, nuevaEmpresa, salir, subirDocumento, unico } from './apoyo';
+import { enlaceDelCorreo, entrar, leerExcel, nuevaCuenta, nuevaEmpresa, salir, subirDocumento, unico } from './apoyo';
 
 test.describe('Administración de la empresa', () => {
   test('RF13, RF37, RF38 · El administrador invita a una persona y ve que está pendiente; reenviar enseguida se frena; ella activa su cuenta con su correo; él le cambia el nombre y el rol, y restablece su contraseña', async ({ page, request }) => {
@@ -138,15 +138,19 @@ test.describe('Administración de la empresa', () => {
     await expect(asientos).toContainText('Ana Torres');
   });
 
-  test('RF20 · El historial se exporta a CSV con tildes legibles en Excel y su fecha en el nombre', async ({ page, request }) => {
+  test('RF20 · El historial se exporta a Excel, con su resumen, y a CSV con tildes legibles; los dos con su fecha en el nombre', async ({ page, request }) => {
     const empresa = await nuevaEmpresa(request);
     await entrar(page, empresa.administrador);
     await page.goto('/admin/historial');
 
-    const [descarga] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar a CSV' }).click()]);
+    const [excel] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar a Excel', exact: true }).click()]);
+    expect(excel.suggestedFilename()).toMatch(/^historial-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(leerExcel((await excel.path())!).textos).toEqual(expect.arrayContaining(['Historial de actividad', 'Empresa registrada', 'Administración de la plataforma']));
+
+    const [descarga] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar a Excel en CSV' }).click()]);
     expect(descarga.suggestedFilename()).toMatch(/^historial-\d{4}-\d{2}-\d{2}\.csv$/);
     const csv = readFileSync((await descarga.path())!, 'utf8');
-    expect(csv.startsWith('﻿id,fecha_hora_lima,fecha_hora_utc,accion,')).toBe(true);
+    expect(csv.startsWith('\uFEFFid,fecha_hora_lima,fecha_hora_utc,accion,')).toBe(true);
     expect(csv).toContain('EMPRESA_CREADA');
     expect(csv).toContain('Administración de la plataforma');
   });

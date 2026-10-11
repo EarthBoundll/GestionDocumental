@@ -4,14 +4,17 @@ import type { Almacenamiento } from '../../almacenamiento/almacenamiento.js';
 import { calcularCambios, valoresNuevos } from '../../compartido/cambios.js';
 import { aCsv } from '../../compartido/csv.js';
 import { ErrorAplicacion, noEncontrado } from '../../compartido/errores.js';
+import { nombreDeLaEmpresa, type Exportacion, type Formato } from '../../compartido/exportacion.js';
 import type { Pagina, Paginacion } from '../../compartido/paginacion.js';
 import { empresaDe, type Actor, type UsuarioAutenticado } from '../../compartido/peticion.js';
 import { tienePermiso } from '../../compartido/permisos.js';
-import { identificarTipo, nombreDeTipo } from '../../compartido/tipos-de-archivo.js';
+import { identificarTipo, nombreDeTipo, type GrupoDeTipo } from '../../compartido/tipos-de-archivo.js';
+import type { Consultor } from '../../db/pool.js';
 import { actividadDeDocumento, type ActividadDeDocumento } from '../historial/historial.consulta.js';
 import { autorDe, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
 import { admiteParecidos, terminosDeBusqueda } from './busqueda.js';
 import type { CambiosDocumento, FiltrosBusqueda, FiltrosDelListado, NuevoDocumento, SugerenciaElegida } from './documentos.esquemas.js';
+import { listadoEnExcel } from './listado-en-excel.js';
 import {
   actualizarDocumento, bloquearEnPapelera, buscarDocumento, buscarDocumentos, categoriaDeLaEmpresa, insertarDocumento,
   listadoDocumental, listarPapelera, marcarEliminado, marcarPurgado, restaurarDocumento, sugerirDocumentos,
@@ -71,6 +74,32 @@ export function permisosSobre(usuario: UsuarioAutenticado, documento: Documento)
 function filtrosParaElHistorial(filtros: FiltrosDelListado) {
   const { q, categoriaId, desde, hasta, tipo, estado, subidoPor, fechaDe } = filtros;
   return { q, categoriaId, desde, hasta, tipo, estado, subidoPor, ...((desde || hasta) && fechaDe === 'subida' && { fechaDe }) };
+}
+
+const TIPOS_LEGIBLES: Record<GrupoDeTipo, string> = { pdf: 'PDF', imagen: 'imágenes', word: 'Word', excel: 'Excel' };
+const ESTADOS_LEGIBLES = { sin_solicitud: 'sin solicitud', pendiente: 'pendientes', aprobada: 'aprobados', rechazada: 'rechazados' } as const;
+const fechaLegible = (iso: string) => iso.split('-').reverse().join('/');
+
+/** Los filtros del listado como los lee quien abre el Excel, con los nombres de la categoría y de la persona. */
+async function describirFiltros(db: Consultor, filtros: FiltrosDelListado): Promise<string> {
+  const partes: string[] = [];
+  if (filtros.q) partes.push(`texto «${filtros.q}»`);
+  if (filtros.categoriaId) {
+    const { rows: [categoria] } = await db.query<{ nombre: string }>('SELECT nombre FROM categorias WHERE id = $1', [filtros.categoriaId]);
+    partes.push(`categoría ${categoria?.nombre ?? '(no disponible)'}`);
+  }
+  if (filtros.desde || filtros.hasta) {
+    const que = filtros.fechaDe === 'subida' ? 'subidos' : 'fechados';
+    const rango = [filtros.desde && `desde el ${fechaLegible(filtros.desde)}`, filtros.hasta && `hasta el ${fechaLegible(filtros.hasta)}`].filter(Boolean).join(' ');
+    partes.push(`${que} ${rango}`);
+  }
+  if (filtros.tipo) partes.push(`solo ${TIPOS_LEGIBLES[filtros.tipo]}`);
+  if (filtros.estado) partes.push(ESTADOS_LEGIBLES[filtros.estado]);
+  if (filtros.subidoPor) {
+    const { rows: [persona] } = await db.query<{ nombre: string }>('SELECT nombre FROM usuarios WHERE id = $1', [filtros.subidoPor]);
+    partes.push(`subidos por ${persona?.nombre ?? '(no disponible)'}`);
+  }
+  return partes.length ? partes.join(' · ') : 'ninguno: todos los documentos vigentes que puedes ver';
 }
 
 /** Una versión vista desde fuera: sin la ruta del archivo, y diciendo si es la vigente. */
@@ -382,12 +411,12 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
     },
 
     /**
-     * RF35: el inventario documental en CSV. Exportarlo queda en el historial, como el historial mismo: la
-     * lectura y su asiento van en una transacción, y si no se puede registrar no se entrega.
+     * RF35: el inventario documental, en CSV o en Excel (D44). Exportarlo queda en el historial, como el
+     * historial mismo: la lectura y su asiento van en una transacción, y si no se puede registrar no se entrega.
      */
-    async exportarListado(actor: Actor, filtros: FiltrosDelListado): Promise<string> {
+    async exportarListado(actor: Actor, filtros: FiltrosDelListado, formato: Formato = 'csv'): Promise<Exportacion> {
       const { usuario } = actor.autenticacion;
-      const filas = await actor.datos.ejecutar(async (cliente) => {
+      const { filas, encabezado } = await actor.datos.ejecutar(async (cliente) => {
         const filas = await listadoDocumental(cliente, empresaDe(actor), filtros, MAXIMO_EN_EL_LISTADO + 1);
         if (filas.length > MAXIMO_EN_EL_LISTADO) {
           throw new ErrorAplicacion(400, 'VALIDACION',
@@ -397,11 +426,15 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
           accion: 'LISTADO_EXPORTADO',
           autor: autorDe(usuario),
           contexto: actor.contexto,
-          detalle: { filtros: filtrosParaElHistorial(filtros), filas: filas.length },
+          detalle: { filtros: filtrosParaElHistorial(filtros), filas: filas.length, ...(formato === 'xlsx' && { formato }) },
         });
-        return filas;
+        const encabezado = formato === 'xlsx'
+          ? { empresa: await nombreDeLaEmpresa(cliente, empresaDe(actor)), exportadoPor: usuario.nombre, filtros: await describirFiltros(cliente, filtros) }
+          : null;
+        return { filas, encabezado };
       });
-      return aCsv(
+      if (encabezado) return { formato, contenido: listadoEnExcel(filas, encabezado) };
+      return { formato, contenido: aCsv(
         ['id', 'nombre', 'categoria', 'fecha_documento', 'descripcion', 'subido_por', 'subido_en_lima', 'tipo', 'peso_bytes',
           'version_vigente', 'estado_aprobacion', 'version_revisada'],
         filas.map((fila) => [
@@ -409,7 +442,7 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
           nombreDeTipo(fila.archivo_tipo_mime), fila.archivo_peso_bytes, fila.version, fila.estado_aprobacion ?? 'sin solicitud',
           fila.version_revisada,
         ]),
-      );
+      ) };
     },
 
     /** Lo eliminado que aún se puede restaurar, lo más reciente primero (RF26). Solo para administradores. */

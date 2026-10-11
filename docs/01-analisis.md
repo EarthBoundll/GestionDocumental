@@ -30,7 +30,7 @@ historial que registra cada acción. Lo que queda fuera del alcance está en el 
 | Administrador Master | Administra la plataforma: da de alta empresas con su primer administrador, las edita, las desactiva y ve sus cifras. No pertenece a ninguna empresa y no ve el contenido de ninguna (decisión E). Es una cuenta única, creada por un script |
 
 El investigador no es un rol del sistema: obtiene los datos exportando el historial con la cuenta de
-administrador de cada empresa evaluada (en CSV, o en una hoja imprimible para firmar como anexo), y con
+administrador de cada empresa evaluada (en Excel o CSV, o en una hoja imprimible para firmar como anexo), y con
 consultas de solo lectura a la base.
 
 ## 3. Requisitos funcionales
@@ -64,7 +64,7 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 | RF17 | Notificar dentro del sistema: a los administradores cuando se crea una solicitud y al solicitante cuando se resuelve | Sistema | 4 |
 | RF18 | Consultar las notificaciones y marcarlas como leídas | Todos | 4 |
 | RF19 | Consultar el historial filtrando por usuario, acción, entidad y fechas | Administrador | 4 |
-| RF20 | Exportar el historial a CSV | Administrador | 4 |
+| RF20 | Exportar el historial a Excel (con su resumen) y a CSV | Administrador | 4 |
 | RF21 | Recuperar la contraseña con un enlace de un solo uso enviado al correo | Visitante | v2 |
 | RF22 | Listar, editar, desactivar y reactivar empresas | Master | v2 |
 | RF23 | Añadir, editar, desactivar y reactivar a los administradores de una empresa | Master | v2 |
@@ -79,7 +79,7 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 | RF32 | Elegir el tema de la interfaz (el del dispositivo, claro u oscuro) y que se guarde en la cuenta | Todos | B |
 | RF33 | Ver una vista previa del PDF o la imagen dentro de la ficha del documento, sin abrir otra pestaña | Administrador, Usuario | B |
 | RF34 | Subir una versión nueva de un documento sin perder las anteriores, verlas y descargarlas, y restaurar una anterior como versión nueva | Administrador, Usuario (de los suyos) | B |
-| RF35 | Exportar el listado documental (el inventario) en CSV, con los filtros del listado: nombre, categoría, fecha, autor, tipo, peso, versión y estado de aprobación | Administrador | B |
+| RF35 | Exportar el listado documental (el inventario) en Excel (con su resumen) y en CSV, con los filtros del listado: nombre, categoría, fecha, autor, tipo, peso, versión y estado de aprobación | Administrador | B |
 | RF36 | Imprimir o guardar como PDF el historial filtrado, entero y con espacio para firmar, como anexo de una sesión de evaluación | Administrador | B |
 | RF37 | Activar la cuenta con la invitación que llega por correo, eligiendo la propia contraseña, y confirmar el correo con un enlace | Visitante | C |
 | RF38 | Ver si cada cuenta activó su invitación o confirmó su correo, y reenviarle el enlace | Administrador, Master | C |
@@ -327,8 +327,8 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `SOLICITUD_CREADA` | se pide aprobar un documento | solicitud | documento y comentario |
 | `SOLICITUD_APROBADA` · `SOLICITUD_RECHAZADA` | un administrador la resuelve | solicitud | comentario |
 | `ACCESO_DENEGADO` | la API responde 403 a alguien con sesión | la del recurso, si la hay | lo que se exigía (un permiso de la §6, o ser el propietario, o no ser el solicitante) y la ruta u operación |
-| `HISTORIAL_EXPORTADO` | un administrador exporta el historial en CSV o lo abre para imprimir (RF36) | — | filtros, filas y, si es para imprimir, `formato: impresion` |
-| `LISTADO_EXPORTADO` | un administrador exporta el listado documental (RF35) | — | filtros y filas exportadas |
+| `HISTORIAL_EXPORTADO` | un administrador exporta el historial en Excel o CSV, o lo abre para imprimir (RF36) | — | filtros, filas y, si no es CSV, `formato`: `xlsx` o `impresion` |
+| `LISTADO_EXPORTADO` | un administrador exporta el listado documental (RF35) | — | filtros, filas exportadas y, en Excel, `formato: xlsx` |
 | `EMPRESA_ELIMINADA` | el cierre del estudio borra los datos de una empresa (D33): sin autor ni empresa | empresa | motivo, filas y archivos borrados, sin datos personales |
 | `RESPALDO_GENERADO` | se guarda un respaldo de la base: cada noche (sin autor) o a petición del Master | — | archivo, tamaño y filas por tabla |
 | `VERSION_SUBIDA` | se sube una versión nueva de un documento | documento | número, archivo y comentario |

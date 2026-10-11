@@ -12,10 +12,12 @@ valen las fuentes siguientes, que se pueden guardar y repetir.
 
 Hay dos fuentes:
 
-- **El CSV del historial**, que cualquier administrador de la empresa exporta desde *Historial →
-  Exportar a CSV*, con los filtros de fecha de la sesión. Excel lo abre con las tildes bien. Con los
-  mismos filtros, *Historial → Imprimir* da la hoja para firmar como anexo (RF36), y *Documentos →
-  Exportar listado* el inventario del que sale la lista de documentos a pedir en el indicador 3 (RF35).
+- **El historial exportado**, que cualquier administrador de la empresa saca desde *Historial →
+  Exportar a Excel*, con los filtros de fecha de la sesión: un resumen (acciones por tipo, persona, día y
+  dispositivo) y la tabla «Historial», que también abre Power BI (D44). El botón *CSV*, al lado, da el mismo
+  contenido para otras herramientas. Con los mismos filtros, *Historial → Imprimir* da la hoja para firmar como
+  anexo (RF36), y *Documentos → Exportar a Excel* el inventario del que sale la lista de documentos a pedir en el
+  indicador 3 (RF35).
 - **Consultas de solo lectura** en el editor SQL de Supabase (*SQL Editor*), para los cálculos y para
   `tiempos_respuesta`, que no tiene pantalla.
 

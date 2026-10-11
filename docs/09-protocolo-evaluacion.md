@@ -75,7 +75,7 @@ las listas se describen por su tipo y su categoría, nunca por su contenido.
 | 2 · Capacitación | Todos | 30–45 min | Iniciar sesión en la PC y en el celular, subir, buscar, ver, descargar, pedir aprobación; el administrador, además, aprobar, restaurar y restringir una categoría. Con documentos que no están en la lista B |
 | Periodo de uso | Todos | **[Por definir]** | Si el asesor lo pide, unos días de uso real antes de medir. Suma tiempo de calendario, no de trabajo |
 | 3 · Posprueba | Cada participante | 45–60 min | Las mismas tareas de §6, en el sistema |
-| Cierre | Investigador | 30 min por sesión | Exportar el historial a CSV, imprimir su hoja de la sesión para que la firmen el administrador y el investigador (anexo, RF36) y ejecutar las consultas de [08 · Indicadores](08-indicadores.md) con la ventana de la sesión; guardar todo fuera de Supabase |
+| Cierre | Investigador | 30 min por sesión | Exportar el historial a Excel (y a CSV, si el análisis lo pide), imprimir su hoja de la sesión para que la firmen el administrador y el investigador (anexo, RF36) y ejecutar las consultas de [08 · Indicadores](08-indicadores.md) con la ventana de la sesión; guardar todo fuera de Supabase |
 
 ## 6. Tareas
 
@@ -243,7 +243,7 @@ la preprueba y la posprueba.
   plataforma los datos de la empresa evaluada, también de los respaldos (D33). El historial es inalterable
   para la aplicación, así que lo hace un procedimiento del dueño de la base, ya escrito y probado
   (`backend/tests/integracion/cierre.test.ts`):
-  1. Exportar antes lo que el análisis necesita (§5, *Cierre*): el CSV del historial, las hojas firmadas y
+  1. Exportar antes lo que el análisis necesita (§5, *Cierre*): el historial exportado (Excel y CSV), las hojas firmadas y
      el resultado de las consultas de [08 · Indicadores](08-indicadores.md), guardados fuera de Supabase.
   2. Desde la plataforma, el Master **desactiva** la empresa: nadie más entra.
   3. Con el `.env` de producción (la conexión de `gestion_api`), el **simulacro**

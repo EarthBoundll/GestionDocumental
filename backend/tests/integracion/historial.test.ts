@@ -3,6 +3,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa, UA_IPHONE } from '../apoyo/api.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
+import { binario, leerZip, textosDelLibro } from '../apoyo/zip.js';
 
 describe('Historial: consulta y exportación (RF19, RF20)', () => {
   let base: BaseDePruebas;
@@ -97,6 +98,26 @@ describe('Historial: consulta y exportación (RF19, RF20)', () => {
     // La SPA está en otro origen: si CORS no expone la cabecera, el archivo se guarda sin su nombre.
     const desdeLaSpa = await exportar(token).set('Origin', 'http://localhost:5173');
     expect(desdeLaSpa.headers['access-control-expose-headers']).toBe('Content-Disposition');
+  });
+
+  it('exporta a Excel (D44): acciones con su nombre legible, la persona, el dispositivo y los filtros; y queda registrado', async () => {
+    const { token, empresa, usuario } = await registrarEmpresa(app, { userAgent: UA_IPHONE });
+    const otra = await registrarEmpresa(app);
+
+    const respuesta = await exportar(token, '?formato=xlsx&accion=SESION_INICIADA').buffer(true).parse(binario);
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.headers['content-type']).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    expect(respuesta.headers['content-disposition']).toMatch(/^attachment; filename="historial-\d{4}-\d{2}-\d{2}\.xlsx"$/);
+    const libro = leerZip(respuesta.body as Buffer);
+    const textos = textosDelLibro(libro);
+    expect(textos).toEqual(expect.arrayContaining(['Historial de actividad', 'Inicio de sesión', 'SESION_INICIADA', usuario.nombre, usuario.email,
+      'Administrador', 'Celular', 'Sí', 'Filtros: acción «Inicio de sesión»']));
+    expect(textos).not.toContain(otra.usuario.email);
+    expect(libro.get('xl/tables/table1.xml')).toContain('name="Historial"');
+    expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
+      accion: 'HISTORIAL_EXPORTADO', detalle: { filtros: { accion: 'SESION_INICIADA' }, filas: 1, formato: 'xlsx' },
+    });
   });
 
   describe('vista imprimible', () => {

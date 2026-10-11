@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearAppDePruebas, crearUsuarioEn, historialDe, iniciarSesion, registrarEmpresa } from '../apoyo/api.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 import { crearSolicitud } from '../apoyo/datos.js';
+import { binario, leerZip, textosDelLibro } from '../apoyo/zip.js';
 
 describe('Listado documental en CSV (RF35)', () => {
   let base: BaseDePruebas;
@@ -68,6 +69,36 @@ describe('Listado documental en CSV (RF35)', () => {
     expect((await historialDe(pool, a.empresa.id)).at(-1)).toMatchObject({
       accion: 'LISTADO_EXPORTADO', usuario_id: a.usuario.id, detalle: { filtros: {}, filas: 4 },
     });
+  });
+
+  it('en Excel (D44): el resumen y la tabla «Documentos», con lo mismo que el CSV, y queda registrado con su formato', async () => {
+    const a = await empresaConDocumentos();
+    await a.documento('Contrato de alquiler', 'Contratos', '2026-03-01');
+    await a.documento('=HYPERLINK("http://x.pe")', 'Otros', '2026-02-02');
+    await a.documento('Borrador eliminado', 'Otros', '2026-02-03', true);
+    const b = await empresaConDocumentos();
+    await b.documento('Secreto de B', 'Contratos', '2026-01-01');
+
+    const respuesta = await exportar(a.token, '?formato=xlsx').buffer(true).parse(binario);
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.headers['content-type']).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    expect(respuesta.headers['content-disposition']).toMatch(/^attachment; filename="listado-documental-\d{4}-\d{2}-\d{2}\.xlsx"$/);
+    const libro = leerZip(respuesta.body as Buffer);
+    const textos = textosDelLibro(libro);
+    expect(textos).toEqual(expect.arrayContaining(['Listado documental', 'Contrato de alquiler', '=HYPERLINK("http://x.pe")', 'Contratos',
+      a.usuario.nombre, 'Sin solicitud', 'Filtros: ninguno: todos los documentos vigentes que puedes ver']));
+    expect(textos.some((texto) => texto.startsWith(`${a.empresa.nombre}  ·  Exportado el `) && texto.endsWith(`por ${a.usuario.nombre}`))).toBe(true);
+    // Lo eliminado y lo de otra empresa no está, igual que en el CSV: la misma consulta, con la misma RLS.
+    expect(textos.join('|')).not.toMatch(/Borrador eliminado|Secreto de B/);
+    expect(libro.get('xl/tables/table1.xml')).toContain('name="Documentos" displayName="Documentos" ref="A1:L3"');
+    expect((await historialDe(pool, a.empresa.id)).at(-1)).toMatchObject({
+      accion: 'LISTADO_EXPORTADO', usuario_id: a.usuario.id, detalle: { filtros: {}, filas: 2, formato: 'xlsx' },
+    });
+
+    const filtrado = await exportar(a.token, `?formato=xlsx&q=contrato&categoriaId=${a.categoria('Contratos')}&desde=2026-01-01`).buffer(true).parse(binario);
+    expect(textosDelLibro(leerZip(filtrado.body as Buffer))).toContain('Filtros: texto «contrato» · categoría Contratos · fechados desde el 01/01/2026');
+    expect((await exportar(a.token, '?formato=pdf')).status).toBe(400);
   });
 
   it('se filtra como la búsqueda: nombre sin tildes, categoría y fechas', async () => {
