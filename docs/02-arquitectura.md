@@ -632,7 +632,11 @@ octavo elemento: la búsqueda se mide con cronómetro (indicador 2) y el movimie
 versión, más lenta, alargaba un 55 % las pruebas funcionales, que esperan a que todo esté quieto antes de pulsar, y
 dejaba el acceso en movimiento 1,3 s. Lo animado del acceso es adorno oculto al lector de
 pantalla, que lee la frase entera y quieta. Revisarlo en modo oscuro encontró que el vidrio de las tarjetas usaba la
-escala slate, que ese modo invierte: lo que va sobre la foto lleva colores fijos.
+escala slate, que ese modo invierte: lo que va sobre la foto lleva colores fijos. El 11 de octubre el autor vio la
+palabra del titular cortada: la columna de palabras se desplazaba en porcentajes de su propia altura, y el contenedor
+la estiraba a una sola línea, así que cada paso movía un sexto de palabra. Ahora las cinco ocupan la misma celda y se
+relevan con opacidad y un desplazamiento corto, sin nada que las recorte y con margen para que el degradado alcance
+tildes y colas; se comprobó con fotogramas fijos en escritorio y en celular.
 *Descartado:* Framer Motion o GSAP (decenas de KB para lo que CSS ya hace), la API View Transitions (había que marcar
 cada enlace y cada navegación del código, y mientras dura la página no recibe clics), partículas en un canvas
 (consumen procesador sin parar en un celular) y contadores animados en el tablero (un indicador debe leerse exacto
