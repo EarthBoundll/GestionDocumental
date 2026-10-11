@@ -15,5 +15,6 @@ export function crearRutasUsuarios(
   rutas.patch('/:id', controlador.editar);
   rutas.patch('/:id/estado', controlador.cambiarEstado);
   rutas.post('/:id/invitacion', controlador.reenviarInvitacion);
+  rutas.delete('/:id', controlador.eliminar);
   return rutas;
 }

@@ -14,7 +14,8 @@ export function ActivarCuenta() {
       boton="Activar mi cuenta"
       otroEnlace={
         <p className="text-sm text-slate-600">
-          Pide otro con tu correo en{' '}
+          Si te llegó más de un correo, abre el más reciente: cada invitación nueva anula la anterior. Si ya caducó, pide
+          otra con tu correo en{' '}
           <Link to="/recuperar-clave" className="inline-block py-2 font-medium text-marca-700 hover:underline">¿Olvidaste tu contraseña?</Link>
           : te llegará una invitación nueva. También puede reenviártela quien te creó la cuenta.
         </p>

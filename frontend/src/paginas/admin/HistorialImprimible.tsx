@@ -7,7 +7,7 @@ import { Boton, clasesDeBoton } from '../../componentes/Boton';
 import { ErrorDeCarga } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
 import { useSesion } from '../../sesion/SesionContext';
-import { NOMBRES_DE_ACCIONES, resumirDetalle } from '../../utilidades/acciones';
+import { filtrosDelHistorial, GRUPOS_DEL_HISTORIAL, NOMBRES_DE_ACCIONES, resumirDetalle } from '../../utilidades/acciones';
 import { contar, formatearFecha, formatearFechaHora } from '../../utilidades/formato';
 import { NOMBRES_DE_ROLES } from '../../utilidades/roles';
 import { autorDe } from './Historial';
@@ -27,12 +27,7 @@ function describirPeriodo({ desde, hasta }: FiltrosHistorial): string {
 export function HistorialImprimible() {
   const [parametros] = useSearchParams();
   const { sesion } = useSesion();
-  const filtros: FiltrosHistorial = {
-    usuarioId: parametros.get('usuarioId') ?? undefined,
-    accion: parametros.get('accion') ?? undefined,
-    desde: parametros.get('desde') ?? undefined,
-    hasta: parametros.get('hasta') ?? undefined,
-  };
+  const { pagina: _pagina, ...filtros } = filtrosDelHistorial(parametros);
   const consulta = useConsulta((senal) => historial.paraImprimir(filtros, senal), [parametros.toString()]);
   const { datos: personas } = useConsulta((senal) => usuarios.listar({ porPagina: 100 }, senal), []);
   const [generadoEn] = useState(() => new Date().toISOString());
@@ -68,6 +63,7 @@ export function HistorialImprimible() {
           <Dato termino="Periodo">{periodo}</Dato>
           <Dato termino="Persona">{persona}</Dato>
           <Dato termino="Acción">{accion}</Dato>
+          {!filtros.accion && <Dato termino="Muestra">{GRUPOS_DEL_HISTORIAL.find((grupo) => grupo.valor === filtros.grupo)?.texto ?? 'Todo'}</Dato>}
           <Dato termino="Asientos">{consulta.datos ? consulta.datos.total : '…'}</Dato>
         </dl>
       </header>

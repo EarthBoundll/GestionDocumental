@@ -12,7 +12,7 @@ import { tienePermiso } from '../../compartido/permisos.js';
 import { identificarTipo, nombreDeTipo, type GrupoDeTipo } from '../../compartido/tipos-de-archivo.js';
 import type { Consultor } from '../../db/pool.js';
 import { actividadDeDocumento, type ActividadDeDocumento } from '../historial/historial.consulta.js';
-import { autorDe, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
+import { autorDe, busquedaYaRegistrada, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
 import { admiteParecidos, terminosDeBusqueda } from './busqueda.js';
 import type { CambiosDocumento, FiltrosBusqueda, FiltrosDelListado, NuevoDocumento, SugerenciaElegida } from './documentos.esquemas.js';
 import { contenidoParaGuardar, guardarContenido } from './contenido.js';
@@ -208,12 +208,15 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
         const parecida = probarParecidos ? await buscarDocumentos(cliente, empresaDe(actor), filtros, { orden, parecidos: true }) : null;
         const resultado = { ...(parecida ?? exacta), aproximada: Boolean(parecida && parecida.total > 0) };
         if (!conFiltros) return resultado;
+        const autor = autorDe(usuario);
+        const filtrosDelHistorial = filtrosParaElHistorial(filtros);
+        if (await busquedaYaRegistrada(cliente, autor, filtrosDelHistorial)) return resultado;
         await registrarAccion(cliente, {
           accion: 'BUSQUEDA_REALIZADA',
-          autor: autorDe(usuario),
+          autor,
           contexto: actor.contexto,
           detalle: {
-            filtros: filtrosParaElHistorial(filtros),
+            filtros: filtrosDelHistorial,
             resultados: resultado.total,
             ...(resultado.aproximada && { aproximada: true }),
           },

@@ -21,6 +21,8 @@ export type CodigoError =
   | 'DOCUMENTO_EN_REVISION'
   | 'VERSION_VIGENTE'
   | 'OPERACION_SOBRE_SI_MISMO'
+  // D46: una empresa no se queda sin administrador activo.
+  | 'ULTIMO_ADMINISTRADOR'
   | 'SOLICITUD_PENDIENTE'
   | 'SIN_REVISOR'
   | 'SOLICITUD_RESUELTA'

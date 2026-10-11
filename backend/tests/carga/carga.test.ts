@@ -285,6 +285,9 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
       `${docs}?q=factura&tipo=pdf&estado=aprobada&fechaDe=subida&desde=2025-01-01&hasta=2026-12-31`);
     await medir('Página 500 del listado', 'usuaria', `${docs}?pagina=500`);
     await medir('Historial: primera página', 'administradora', '/api/v1/historial');
+    // D46: la vista principal deja la rutina (aquí, la mitad: las vistas de documentos) aparte.
+    await medir('Historial: lo importante, primera página', 'administradora', '/api/v1/historial?grupo=importante');
+    await medir('Historial: la rutina, primera página', 'administradora', '/api/v1/historial?grupo=rutina');
     await medir('Historial filtrado por una semana', 'administradora', '/api/v1/historial?desde=2026-01-05&hasta=2026-01-11');
     await medir('Historial imprimible: seis días enteros', 'administradora', '/api/v1/historial/impresion?desde=2026-01-05&hasta=2026-01-10',
       { repeticiones: 10, umbral: UMBRAL_EXPORTACION_MS });

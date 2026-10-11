@@ -92,8 +92,9 @@ export function Privacidad() {
         <h2>9. Tus derechos</h2>
         <p>
           Puedes pedir acceder a tus datos, corregirlos, cancelarlos u oponerte a su uso, <ComoEscribir />. Tu contraseña y tu tema
-          los cambias tú mismo en <strong>Mi cuenta</strong>; tu nombre y tu correo, el administrador de tu empresa. La cancelación
-          del historial se hace al cierre del estudio. Si consideras que no se respetaron tus derechos, puedes acudir a la Autoridad
+          los cambias tú mismo en <strong>Mi cuenta</strong>; tu nombre y tu correo, el administrador de tu empresa. Si el
+          administrador elimina tu cuenta, se borran tu correo, tu DNI y tu contraseña; tu nombre se queda en tus documentos y en
+          el historial, porque dicen quién hizo cada cosa. La cancelación del historial se hace al cierre del estudio. Si consideras que no se respetaron tus derechos, puedes acudir a la Autoridad
           Nacional de Protección de Datos Personales.
         </p>
       </section>

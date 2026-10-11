@@ -29,5 +29,10 @@ export function crearControladorUsuarios(servicio: ServicioUsuarios) {
     res.json(await servicio.reenviarInvitacion(actorDe(req), idDeRuta(req)));
   };
 
-  return { listar, crear, editar, cambiarEstado, reenviarInvitacion };
+  const eliminar: RequestHandler = async (req, res) => {
+    await servicio.eliminar(actorDe(req), idDeRuta(req));
+    res.status(204).end();
+  };
+
+  return { listar, crear, editar, cambiarEstado, reenviarInvitacion, eliminar };
 }

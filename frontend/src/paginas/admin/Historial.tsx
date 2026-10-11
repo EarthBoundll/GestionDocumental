@@ -12,19 +12,17 @@ import { Insignia } from '../../componentes/Insignia';
 import { EncabezadoDePagina, ErrorDeCarga, Paginacion, Tarjeta } from '../../componentes/Pagina';
 import { useConsulta } from '../../hooks/useConsulta';
 import { useParametrosEnUrl } from '../../hooks/useParametrosEnUrl';
-import { NOMBRES_DE_ACCIONES, resumirDetalle } from '../../utilidades/acciones';
+import {
+  accionesDelGrupo, filtrosDelHistorial, grupoDeLaUrl, GRUPOS_DEL_HISTORIAL, NOMBRES_DE_ACCIONES, resumirDetalle,
+} from '../../utilidades/acciones';
 import { formatearFechaHora } from '../../utilidades/formato';
 import { NOMBRES_DE_ROLES } from '../../utilidades/roles';
 
 export function Historial() {
   const [parametros, cambiarParametros] = useParametrosEnUrl();
-  const filtros: FiltrosHistorial = {
-    usuarioId: parametros.get('usuarioId') ?? undefined,
-    accion: parametros.get('accion') ?? undefined,
-    desde: parametros.get('desde') ?? undefined,
-    hasta: parametros.get('hasta') ?? undefined,
-    pagina: Number(parametros.get('pagina') ?? 1),
-  };
+  const filtros = filtrosDelHistorial(parametros);
+  // D46: por defecto, lo importante; la rutina (inicios de sesión, búsquedas y vistas) se elige aparte.
+  const grupo = grupoDeLaUrl(parametros);
   const consulta = useConsulta((senal) => historial.listar(filtros, senal), [parametros.toString()]);
   const { datos: personas } = useConsulta((senal) => usuarios.listar({ porPagina: 100 }, senal), []);
   const [errorAlExportar, setErrorAlExportar] = useState<ErrorApi | null>(null);
@@ -34,6 +32,11 @@ export function Historial() {
       if (valor) siguientes.set(clave, valor);
       else siguientes.delete(clave);
       if (clave !== 'pagina') siguientes.delete('pagina');
+      // La acción elegida tiene que ser del grupo que se mira; si no, se quita.
+      const accion = siguientes.get('accion');
+      if (clave === 'grupo' && accion && !accionesDelGrupo(grupoDeLaUrl(siguientes)).some(([codigo]) => codigo === accion)) {
+        siguientes.delete('accion');
+      }
     });
   }
 
@@ -74,14 +77,19 @@ export function Historial() {
       )}
       {errorAlExportar && <div className="mb-4"><Aviso tipo="error">{errorAlExportar.mensaje}</Aviso></div>}
 
-      <Tarjeta className="mb-4 grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
+      <Tarjeta className="mb-4 grid grid-cols-2 gap-3 p-4 md:grid-cols-3 lg:grid-cols-5">
+        <div className="col-span-2 md:col-span-1">
+          <Selector etiqueta="Mostrar" value={grupo} onChange={(e) => filtrar('grupo', e.target.value === 'importante' ? '' : e.target.value)}>
+            {GRUPOS_DEL_HISTORIAL.map((opcion) => <option key={opcion.valor} value={opcion.valor}>{opcion.texto}</option>)}
+          </Selector>
+        </div>
         <Selector etiqueta="Persona" value={filtros.usuarioId ?? ''} onChange={(e) => filtrar('usuarioId', e.target.value)}>
           <option value="">Todas</option>
           {personas?.datos.map((persona) => <option key={persona.id} value={persona.id}>{persona.nombre}</option>)}
         </Selector>
         <Selector etiqueta="Acción" value={filtros.accion ?? ''} onChange={(e) => filtrar('accion', e.target.value)}>
           <option value="">Todas</option>
-          {Object.entries(NOMBRES_DE_ACCIONES).map(([accion, nombre]) => <option key={accion} value={accion}>{nombre}</option>)}
+          {accionesDelGrupo(grupo).map(([accion, nombre]) => <option key={accion} value={accion}>{nombre}</option>)}
         </Selector>
         <Campo etiqueta="Desde" type="date" value={filtros.desde ?? ''} onChange={(e) => filtrar('desde', e.target.value)} />
         <Campo etiqueta="Hasta" type="date" value={filtros.hasta ?? ''} onChange={(e) => filtrar('hasta', e.target.value)} />
@@ -131,6 +139,8 @@ export function FilaDeHistorial({ asiento, conEmpresa = false }: { asiento: Asie
           <p className="flex flex-wrap items-center gap-2">
             <Insignia tono={denegado ? 'peligro' : 'neutro'}>{NOMBRES_DE_ACCIONES[asiento.accion] ?? asiento.accion}</Insignia>
             <span className="font-medium text-slate-900">{autorDe(asiento)}</span>
+            {/* D46: una cuenta eliminada no tiene correo; su nombre sigue diciendo quién fue. */}
+            {asiento.usuario && asiento.usuario.email === null && <span className="text-xs text-slate-500">cuenta eliminada</span>}
             {asiento.rolUsuario && <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[asiento.rolUsuario]}</span>}
             {conEmpresa && asiento.empresa && <Insignia tono="marca">{asiento.empresa.nombre}</Insignia>}
           </p>

@@ -120,11 +120,17 @@ export const usuarios = {
     api<Usuario>(`/usuarios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   cambiarEstado: (id: string, activo: boolean) => api<Usuario>(`/usuarios/${id}/estado`, { metodo: 'PATCH', cuerpo: { activo } }),
   reenviarInvitacion: (id: string) => api<{ enviado: true }>(`/usuarios/${id}/invitacion`, { metodo: 'POST' }),
+  /** D46: la baja, para siempre. Su nombre sigue en sus documentos y en el historial. */
+  eliminar: (id: string) => api<void>(`/usuarios/${id}`, { metodo: 'DELETE' }),
 };
+
+/** D46: lo importante (sin la rutina), solo la rutina (inicios de sesión, búsquedas y vistas) o todo. */
+export type GrupoDelHistorial = 'importante' | 'rutina' | 'todo';
 
 export interface FiltrosHistorial {
   usuarioId?: string;
   accion?: string;
+  grupo?: GrupoDelHistorial;
   desde?: string;
   hasta?: string;
   pagina?: number;

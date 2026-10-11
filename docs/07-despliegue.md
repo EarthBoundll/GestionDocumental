@@ -200,7 +200,8 @@ correcto» y las filas de cada tabla, o con el motivo por el que no se restaurar
 Un respaldo solo se restaura con las mismas migraciones con que se hizo. Por eso, después de desplegar
 una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones; la 010,
 la visibilidad por consulta y el listado documental; la 011, la constancia del cierre del estudio; la 012, el
-fondo de cada empresa; la 013, la verificación del correo; la 014, la búsqueda; la 015, el contenido), pide un
+fondo de cada empresa; la 013, la verificación del correo; la 014, la búsqueda; la 015, el contenido; la 016, la
+baja de cuentas), pide un
 respaldo en el momento desde *Respaldos*: el de la noche anterior solo se restauraría con el código
 anterior.
 
@@ -243,6 +244,10 @@ Después, a mano, la prueba de humo (unos diez minutos):
       un nombre con una letra cambiada y elige una sugerencia mientras escribes: los tres encuentran el documento y el
       historial muestra las búsquedas (D42). *(10 de octubre: una búsqueda escrita desde un iPhone encontró el
       documento; faltan la letra cambiada y la sugerencia.)*
+- [ ] En *Usuarios*, elimina una cuenta de prueba que haya subido un documento: el diálogo pide confirmarlo, la
+      cuenta desaparece también de *Desactivados*, su documento sigue diciendo quién lo subió y en *Historial* queda
+      «Usuario eliminado». Reenvía una invitación: la fila dice a qué hora salió, y el correo nuevo llega aparte del
+      anterior, con la hora en el asunto (D46).
 - [ ] Sube un PDF de texto (por ejemplo, uno de `npm run documentos-de-prueba`) con un nombre que no diga lo que
       contiene, y busca desde el celular una palabra que solo dice el PDF: sale con «Dentro del archivo» y la frase
       donde aparece, y su ficha muestra las palabras clave. Una foto dice que su texto no se lee (D45).

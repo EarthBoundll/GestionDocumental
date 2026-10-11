@@ -91,7 +91,7 @@ export async function revocarSesionesDeEmpresa(db: Consultor, empresaId: string)
 
 export async function listarAdministradores(db: Consultor, empresaId: string): Promise<Administrador[]> {
   const { rows } = await db.query<Administrador>(
-    `SELECT ${COLUMNAS_ADMINISTRADOR} FROM usuarios WHERE empresa_id = $1 AND rol = 'administrador'
+    `SELECT ${COLUMNAS_ADMINISTRADOR} FROM usuarios WHERE empresa_id = $1 AND rol = 'administrador' AND eliminado_en IS NULL
      ORDER BY activo DESC, normalizar(nombre), id`,
     [empresaId],
   );
@@ -100,10 +100,20 @@ export async function listarAdministradores(db: Consultor, empresaId: string): P
 
 export async function buscarAdministrador(db: Consultor, id: string): Promise<Administrador | null> {
   const { rows } = await db.query<Administrador>(
-    `SELECT ${COLUMNAS_ADMINISTRADOR} FROM usuarios WHERE id = $1 AND rol = 'administrador'`,
+    `SELECT ${COLUMNAS_ADMINISTRADOR} FROM usuarios WHERE id = $1 AND rol = 'administrador' AND eliminado_en IS NULL`,
     [id],
   );
   return rows[0] ?? null;
+}
+
+/** Cuántos administradores activos tiene la empresa además de ese: si ninguno, desactivarlo la deja sin quien la gestione. */
+export async function otrosAdministradoresActivos(db: Consultor, empresaId: string, excepto: string): Promise<number> {
+  const { rows } = await db.query<{ otros: number }>(
+    `SELECT count(*)::int AS otros FROM usuarios
+     WHERE empresa_id = $1 AND rol = 'administrador' AND activo AND id <> $2`,
+    [empresaId, excepto],
+  );
+  return rows[0]?.otros ?? 0;
 }
 
 /** Como cualquier cuenta nueva, sin contraseña y sin verificar: la activa con su invitación (D41). */

@@ -193,7 +193,8 @@ export interface Asiento {
   accion: string;
   /** Null en lo que no pertenece a ninguna empresa (el Master en su cuenta, un correo desconocido). */
   empresa: Referencia | null;
-  usuario: (Referencia & { email: string }) | null;
+  /** Sin correo si la cuenta se eliminó (D46): su nombre sigue diciendo quién fue. */
+  usuario: (Referencia & { email: string | null }) | null;
   rolUsuario: Rol | null;
   entidad: { tipo: string; id: string } | null;
   detalle: Record<string, unknown>;

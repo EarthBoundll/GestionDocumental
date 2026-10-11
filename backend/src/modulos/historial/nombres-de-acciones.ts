@@ -42,4 +42,5 @@ export const NOMBRES_DE_ACCIONES: Record<AccionAuditable, string> = {
   INVITACION_ENVIADA: 'Invitación enviada',
   VERIFICACION_ENVIADA: 'Enlace para confirmar el correo enviado',
   CORREO_VERIFICADO: 'Correo verificado',
+  USUARIO_ELIMINADO: 'Usuario eliminado',
 };

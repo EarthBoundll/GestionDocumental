@@ -15,9 +15,23 @@ export const ACCIONES = [
   'LISTADO_EXPORTADO', 'EMPRESA_ELIMINADA',
   // D41 (migración 013).
   'INVITACION_ENVIADA', 'VERIFICACION_ENVIADA', 'CORREO_VERIFICADO',
+  // D46 (migración 016).
+  'USUARIO_ELIMINADO',
 ] as const;
 
 export type AccionAuditable = (typeof ACCIONES)[number];
+
+/**
+ * La rutina de cada día (D46): se sigue registrando, porque de ella salen los indicadores 2 a 5 y el bloqueo
+ * por contraseñas (RN27), pero no ocupa la vista principal del historial. Lo demás es «lo importante»: lo que
+ * cambia, saca o expone información, y los avisos de seguridad (accesos fallidos o denegados).
+ * SESION_CERRADA ya no se registra; queda por los asientos anteriores.
+ */
+export const ACCIONES_DE_RUTINA = ['SESION_INICIADA', 'SESION_CERRADA', 'BUSQUEDA_REALIZADA', 'DOCUMENTO_VISUALIZADO'] as const satisfies readonly AccionAuditable[];
+
+/** Qué muestra el historial: lo importante, solo la rutina o todo. */
+export const GRUPOS_DEL_HISTORIAL = ['importante', 'rutina', 'todo'] as const;
+export type GrupoDelHistorial = (typeof GRUPOS_DEL_HISTORIAL)[number];
 export type TipoEntidad = 'empresa' | 'usuario' | 'sesion' | 'categoria' | 'documento' | 'solicitud';
 
 /** Quién actuó y en qué empresa queda el asiento. Todo nulo solo en un acceso con un correo desconocido. */
@@ -67,6 +81,26 @@ export async function registrarAccion(db: Consultor, { accion, autor, contexto, 
     [autor.empresaId, autor.usuarioId, autor.rol, accion, entidad?.tipo ?? null, entidad?.id ?? null,
       detalle ?? {}, contexto?.userAgent ?? null, contexto?.esMovil ?? null],
   );
+}
+
+/** Una misma búsqueda de la misma persona dentro de este tiempo se registra una vez (D46). */
+export const MINUTOS_DE_UNA_BUSQUEDA = 10;
+
+/**
+ * Si esa persona ya registró esta misma búsqueda hace poco: pasar de página, cambiar el orden o volver a la
+ * lista desde un documento repite la consulta, pero es la misma búsqueda, y contarla otra vez inflaría los
+ * indicadores del tablero. Elegir una sugerencia se registra aparte (lleva `origen`) y no cuenta aquí.
+ */
+export async function busquedaYaRegistrada(db: Consultor, autor: Autor, filtros: Record<string, unknown>): Promise<boolean> {
+  if (!autor.empresaId || !autor.usuarioId) return false;
+  const { rowCount } = await db.query(
+    `SELECT 1 FROM historial
+     WHERE empresa_id = $1 AND usuario_id = $2 AND accion = 'BUSQUEDA_REALIZADA' AND NOT detalle ? 'origen'
+       AND creado_en > now() - make_interval(mins => $4) AND detalle -> 'filtros' = $3::jsonb
+     LIMIT 1`,
+    [autor.empresaId, autor.usuarioId, JSON.stringify(filtros), MINUTOS_DE_UNA_BUSQUEDA],
+  );
+  return (rowCount ?? 0) > 0;
 }
 
 /**

@@ -28,8 +28,13 @@ const TABLAS: readonly (readonly [string, string])[] = [
   ['categoria_accesos', 'empresa_id = $1'],
   ['categorias', 'empresa_id = $1'],
   ['tiempos_respuesta', 'empresa_id = $1'],
+  // Los correos de su gente salen también de sus altas en el historial: una cuenta dada de baja ya no tiene el
+  // suyo (D46), y sus intentos sin empresa tienen que irse igual.
   ['historial', `empresa_id = $1 OR usuario_id IN (${SU_GENTE})
-     OR (empresa_id IS NULL AND lower(detalle ->> 'email') IN (SELECT lower(email) FROM usuarios WHERE empresa_id = $1))`],
+     OR (empresa_id IS NULL AND lower(detalle ->> 'email') IN (
+       SELECT lower(email) FROM usuarios WHERE empresa_id = $1 AND email IS NOT NULL
+       UNION SELECT lower(a.detalle ->> 'email') FROM historial a
+        WHERE a.empresa_id = $1 AND a.accion = 'USUARIO_CREADO' AND a.detalle ? 'email'))`],
   ['sesiones', `usuario_id IN (${SU_GENTE})`],
   ['recuperaciones_clave', `usuario_id IN (${SU_GENTE})`],
   ['usuarios', 'empresa_id = $1'],

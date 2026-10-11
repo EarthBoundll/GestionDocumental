@@ -60,6 +60,8 @@ test.describe('Evidencia para el capítulo 3', () => {
     await entrar(page, empresa.administrador);
     await page.goto('/admin/historial');
     await page.getByLabel('Persona').selectOption({ label: 'Ana Torres' });
+    // Todo, también sus inicios de sesión (D46): el anexo de una sesión de evaluación los necesita (indicador 5).
+    await page.getByLabel('Mostrar').selectOption({ label: 'Todo' });
     await expect(page.getByRole('navigation', { name: 'Paginación' })).toBeVisible();
     await page.getByRole('link', { name: 'Imprimir' }).click();
 

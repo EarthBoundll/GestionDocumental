@@ -131,16 +131,12 @@ export function crearServicioAuth({ pool, firmador, duracionHoras, correo, urlFr
       return { token, expiraEn: expiraEn.toISOString(), ...(await perfilDe(cuenta.id)) };
     },
 
-    async cerrarSesion({ autenticacion, contexto }: Actor): Promise<void> {
-      await conTransaccion(pool, async (cliente) => {
-        await revocarSesion(cliente, autenticacion.sesionId);
-        await registrarAccion(cliente, {
-          accion: 'SESION_CERRADA',
-          autor: autorDe(autenticacion.usuario),
-          contexto,
-          entidad: { tipo: 'sesion', id: autenticacion.sesionId },
-        });
-      });
+    /**
+     * Cerrar sesión la revoca en la base, que es lo que la hace valer al instante (D5). No se registra en el
+     * historial (D46): la sesión ya guarda cuándo se revocó, y ningún indicador lo usa.
+     */
+    async cerrarSesion({ autenticacion }: Actor): Promise<void> {
+      await conTransaccion(pool, (cliente) => revocarSesion(cliente, autenticacion.sesionId));
     },
 
     async cambiarClave({ autenticacion, contexto }: Actor, { claveActual, claveNueva }: DatosCambioClave): Promise<void> {

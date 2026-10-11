@@ -8,7 +8,7 @@ import type { Permiso } from '../../compartido/permisos.js';
 import { sinVacios, z } from '../../compartido/validacion.js';
 import type { Consultor } from '../../db/pool.js';
 import { historialEnExcel } from './historial-en-excel.js';
-import { ACCIONES, autorDe, registrarAccion } from './historial.registro.js';
+import { ACCIONES, ACCIONES_DE_RUTINA, autorDe, GRUPOS_DEL_HISTORIAL, registrarAccion } from './historial.registro.js';
 import { NOMBRES_DE_ACCIONES } from './nombres-de-acciones.js';
 
 const fecha = z.iso.date('Usa el formato AAAA-MM-DD');
@@ -17,6 +17,8 @@ const esquemaFiltros = z
   .object({
     usuarioId: sinVacios(z.uuid().optional()),
     accion: sinVacios(z.enum(ACCIONES).optional()),
+    /** D46: «importante» deja fuera la rutina (inicios de sesión, búsquedas y vistas); sin él, todo. */
+    grupo: sinVacios(z.enum(GRUPOS_DEL_HISTORIAL).optional()),
     entidadTipo: sinVacios(z.enum(['empresa', 'usuario', 'sesion', 'categoria', 'documento', 'solicitud']).optional()),
     entidadId: sinVacios(z.uuid().optional()),
     /** Solo en el historial de la plataforma: en el de una empresa, la empresa es siempre la del actor. */
@@ -66,6 +68,8 @@ function condiciones(ambito: Ambito, filtros: Filtros) {
   }
   if (filtros.usuarioId) agregar((p) => `h.usuario_id = ${p}`, filtros.usuarioId);
   if (filtros.accion) agregar((p) => `h.accion = ${p}`, filtros.accion);
+  if (filtros.grupo === 'importante') agregar((p) => `h.accion <> ALL (${p}::text[])`, ACCIONES_DE_RUTINA);
+  if (filtros.grupo === 'rutina') agregar((p) => `h.accion = ANY (${p}::text[])`, ACCIONES_DE_RUTINA);
   if (filtros.entidadTipo) agregar((p) => `h.entidad_tipo = ${p}`, filtros.entidadTipo);
   if (filtros.entidadId) agregar((p) => `h.entidad_id = ${p}`, filtros.entidadId);
   if (filtros.desde) agregar((p) => `h.creado_en >= (${p}::date)::timestamp AT TIME ZONE 'America/Lima'`, filtros.desde);
@@ -86,6 +90,8 @@ async function describirFiltros(db: Consultor, filtros: Filtros): Promise<string
     partes.push(`de ${persona?.nombre ?? '(no disponible)'}`);
   }
   if (filtros.accion) partes.push(`acción «${NOMBRES_DE_ACCIONES[filtros.accion]}»`);
+  if (filtros.grupo === 'importante') partes.push('lo importante, sin inicios de sesión, búsquedas ni vistas');
+  if (filtros.grupo === 'rutina') partes.push('solo inicios de sesión, búsquedas y vistas');
   if (filtros.entidadTipo) partes.push(`sobre ${filtros.entidadTipo}${filtros.entidadId ? ` ${filtros.entidadId}` : ''}`);
   return partes.length ? partes.join(' · ') : 'ninguno: toda la actividad registrada';
 }
@@ -95,7 +101,8 @@ interface Asiento {
   accion: string;
   /** La empresa del asiento; null en lo que no pertenece a ninguna (el Master en su cuenta). */
   empresa: { id: string; nombre: string } | null;
-  usuario: { id: string; nombre: string; email: string } | null;
+  /** Sin correo si la cuenta se dio de baja (D46): su nombre sigue diciendo quién fue. */
+  usuario: { id: string; nombre: string; email: string | null } | null;
   rolUsuario: string | null;
   entidad: { tipo: string; id: string } | null;
   detalle: Record<string, unknown>;
@@ -149,7 +156,7 @@ function aAsiento(fila: FilaAsiento): Asiento {
     accion: fila.accion,
     empresa: fila.empresa_id && fila.empresa_nombre !== null ? { id: fila.empresa_id, nombre: fila.empresa_nombre } : null,
     usuario: fila.usuario_id && fila.usuario_nombre !== null
-      ? { id: fila.usuario_id, nombre: fila.usuario_nombre, email: fila.usuario_email! }
+      ? { id: fila.usuario_id, nombre: fila.usuario_nombre, email: fila.usuario_email }
       : null,
     rolUsuario: fila.rol_usuario,
     entidad: fila.entidad_tipo ? { tipo: fila.entidad_tipo, id: fila.entidad_id! } : null,
@@ -169,9 +176,12 @@ async function listarEn(actor: Actor, ambito: Ambito, filtros: Filtros, paginaci
   return { datos: filas.map(aAsiento), paginacion: { ...paginacion, total: conteo?.total ?? 0 } };
 }
 
-/** Lo último que pasó en una empresa, para el tablero (RF28): el «centro de actividad» sin un módulo aparte. */
+/**
+ * Lo último que pasó en una empresa, para el tablero (RF28): el «centro de actividad» sin un módulo aparte. Solo lo
+ * importante (D46): una mañana de inicios de sesión taparía lo que de verdad cambió.
+ */
 export async function asientosRecientes(db: Consultor, empresaId: string, limite: number): Promise<Asiento[]> {
-  return (await consultar(db, { empresaId }, {}, limite)).map(aAsiento);
+  return (await consultar(db, { empresaId }, { grupo: 'importante' }, limite)).map(aAsiento);
 }
 
 /** El ciclo de vida de un documento: lo que lo cambia y lo que pasa con sus solicitudes de aprobación. */

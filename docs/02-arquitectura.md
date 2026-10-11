@@ -797,6 +797,45 @@ lo de no leer los archivos; lo demás de D43 sigue: nada de IA.
 - **Ordenar dentro del contenido por cuántas veces dice la palabra:** obligaría a leer el texto de todas las
   coincidencias; ahí empatan y va primero lo más reciente.
 
+**D46 · Eliminar una cuenta sin borrar su traza, y un historial que muestra primero lo importante.** El autor pidió
+poder eliminar perfiles («los desactivados, ¿para qué?») y un historial que no se sature de inicios de sesión. El
+diagnóstico, con datos de producción del 11 de octubre: 3 de las 5 cuentas de empresa estaban desactivadas y seguían en
+la lista; 4 de las 5 tenían documentos, sesiones o asientos que las nombran; de 196 asientos, el 43 % eran inicios y
+cierres de sesión y el 13 %, búsquedas, y cada cambio de página o vuelta a la lista registraba la misma búsqueda otra vez.
+- **Eliminar es una baja definitiva que conserva el nombre.** La fila no se borra: la nombran por clave foránea sus
+  documentos, versiones y solicitudes, y el historial, que nadie puede modificar. Se marca `eliminado_en`, se revocan sus
+  sesiones y se borran su correo (que queda libre), su DNI, su contraseña y sus permisos en categorías restringidas; deja
+  de listarse, de contarse y de poder entrar, y no se reactiva (lo impide una restricción de la tabla). Lo hace
+  `dar_de_baja_usuario()` (migración 016), una función `SECURITY DEFINER` que decide con la identidad de la transacción,
+  como la RLS: solo un administrador, en su empresa y nunca sobre sí mismo; el Master no tiene empresa y no se alcanza. Así
+  la empresa sigue sin poder escribir correos (D41). Queda `USUARIO_ELIMINADO`, con el nombre y sin datos de contacto.
+- **Desactivar se queda, para suspender:** se deshace, y ahora se confirma, como eliminar. La lista muestra las activas y
+  las pendientes; las desactivadas, en su pestaña. El Master no puede desactivar al último administrador activo de una empresa.
+- **El historial muestra primero lo importante.** Los inicios de sesión, las búsquedas y las vistas se siguen registrando
+  —de ellos salen los indicadores 2 a 5 y el bloqueo por cuenta (RN27)—, pero la pantalla, su Excel, su hoja para imprimir
+  y la actividad reciente del tablero muestran por defecto lo demás; la rutina se elige en «Mostrar». Las consultas de los
+  indicadores (`docs/08`) leen la tabla y no cambian.
+- **Una búsqueda, un asiento:** la misma búsqueda de la misma persona en menos de 10 minutos no se registra otra vez, y
+  elegir una sugerencia sigue registrándose aparte. Cerrar sesión deja de registrarse: la sesión ya guarda cuándo se cerró.
+- **Retención:** se conserva todo hasta el cierre del estudio, que lo borra con la empresa (D33) y ahora busca también los
+  correos de sus altas, porque una cuenta eliminada ya no tiene el suyo. Con 200.000 asientos el historial filtrado responde
+  en unos 50 ms (`docs/evidencias/prueba-de-carga.md`).
+
+Con esto se corrigió además un fallo de D41 que reportó el autor: al reenviar una invitación, Gmail juntaba los correos
+(mismo asunto) y dejaba a la vista el primero, cuyo enlace ya estaba anulado; y el aviso de «enviado» salía arriba de la
+página, fuera de la vista. Ahora el asunto lleva la hora del envío, el correo dice que vale el más reciente y la
+confirmación sale en la fila de la persona.
+*Descartado:*
+- **Borrar la fila:** las claves foráneas lo impiden con razón; habría que borrar o reescribir su traza, que es evidencia.
+- **Anonimizar también el nombre:** el historial diría «alguien» y dejaría de servir de auditoría; los datos de las personas
+  se borran al cierre del estudio, como promete el consentimiento.
+- **Dejar de registrar los inicios de sesión:** rompería el indicador 5 y el bloqueo por cuenta.
+- **Un registro de seguridad aparte:** otra tabla con su RLS para lo que ya separa un filtro; la auditoría del Master ya
+  reúne lo que no es de ninguna empresa (D24).
+- **Borrar asientos por antigüedad:** el volumen es mínimo y el historial es la evidencia del capítulo 3; además, la base
+  no deja borrarlos (RN17).
+- **Solo esconder en la pantalla:** las búsquedas repetidas inflaban de verdad los conteos del tablero.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

@@ -133,6 +133,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     ['editar una categoría', 'PATCH', `/api/v1/categorias/${b.categoriaId}`, { nombre: 'Lo cambió A' }],
     ['editar un usuario', 'PATCH', `/api/v1/usuarios/${b.usuarioId}`, { nombre: 'Lo cambió A' }],
     ['desactivar un usuario', 'PATCH', `/api/v1/usuarios/${b.usuarioId}/estado`, { activo: false }],
+    ['eliminar un usuario (D46)', 'DELETE', `/api/v1/usuarios/${b.usuarioId}`, undefined],
     ['restablecer la contraseña de un administrador', 'PATCH', `/api/v1/usuarios/${b.adminId}`, { clave: 'clave-puesta-por-a' }],
     ['resolver una solicitud de aprobación', 'POST', `/api/v1/solicitudes/${b.solicitudId}/resolucion`, { decision: 'aprobada' }],
     ['reenviar la invitación de una cuenta pendiente', 'POST', `/api/v1/usuarios/${b.pendienteId}/invitacion`, undefined],
@@ -177,7 +178,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
   it('nada de B cambió tras todos los intentos', async () => {
     const { rows: [documento] } = await pool.query('SELECT nombre, eliminado_en FROM documentos WHERE id = $1', [b.documentoId]);
     const { rows: [categoria] } = await pool.query('SELECT nombre FROM categorias WHERE id = $1', [b.categoriaId]);
-    const { rows: [usuario] } = await pool.query('SELECT nombre, activo FROM usuarios WHERE id = $1', [b.usuarioId]);
+    const { rows: [usuario] } = await pool.query('SELECT nombre, activo, eliminado_en FROM usuarios WHERE id = $1', [b.usuarioId]);
     const { rows: [solicitud] } = await pool.query('SELECT estado FROM solicitudes WHERE id = $1', [b.solicitudId]);
     const { rows: [aviso] } = await pool.query('SELECT leida_en FROM notificaciones WHERE id = $1', [b.notificacionId]);
     const { rows: [medicion] } = await pool.query('SELECT duracion_cliente_ms FROM tiempos_respuesta WHERE id = $1', [b.medicionId]);
@@ -190,7 +191,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
 
     expect(documento).toEqual({ nombre: b.documentoNombre, eliminado_en: null });
     expect(categoria).toEqual({ nombre: 'Confidencial de B' });
-    expect(usuario).toMatchObject({ activo: true });
+    expect(usuario).toMatchObject({ activo: true, eliminado_en: null });
     expect(usuario.nombre).not.toBe('Lo cambió A');
     expect(solicitud).toEqual({ estado: 'pendiente' });
     expect(aviso).toEqual({ leida_en: null });
@@ -218,6 +219,10 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
       ['listar solicitudes', '/api/v1/solicitudes', (c) => ids(c.datos)],
       ['listar notificaciones', '/api/v1/notificaciones', (c) => ids(c.datos)],
       ['consultar el historial de un usuario de B', `/api/v1/historial?usuarioId=${b.usuarioId}`, (c) => ids(c.datos)],
+      // La rutina de A incluye sus propias búsquedas, con el nombre del documento de B que ella escribió: aquí se
+      // miran los inicios de sesión, los de las personas de B no pueden aparecer.
+      ['consultar los inicios de sesión de la rutina del historial (D46)', '/api/v1/historial?grupo=rutina&accion=SESION_INICIADA',
+        (c) => (c.datos as { usuario: { id: string } | null }[]).map((asiento) => asiento.usuario?.id ?? '')],
       ['consultar el historial de un documento de B', `/api/v1/historial?entidadTipo=documento&entidadId=${b.documentoId}`, (c) => ids(c.datos)],
     ];
 
