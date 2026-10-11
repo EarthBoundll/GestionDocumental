@@ -9,6 +9,7 @@ import { useSesion } from '../sesion/SesionContext';
 import { inicioDe, NOMBRES_DE_ROLES } from '../utilidades/roles';
 import { Campana } from './Campana';
 import { Navegacion } from './Navegacion';
+import { EN_LA_ZONA } from './zona';
 
 /**
  * El logo (o el icono), el producto y la empresa, con su nombre comercial si lo tiene (RF31). En la barra del
@@ -22,20 +23,20 @@ function Marca({ compacta = false }: { compacta?: boolean }) {
   const nombre = empresa ? (empresa.marca.nombreComercial ?? empresa.nombre) : 'Administración de la plataforma';
   const logo = empresa?.marca.logoUrl;
   return (
-    <Link to={sesion ? inicioDe(sesion.usuario.rol) : '/'} className="flex min-w-0 items-center gap-3 rounded-lg px-1">
+    <Link to={sesion ? inicioDe(sesion.usuario.rol) : '/'} className="flex min-w-0 items-center gap-3 rounded-lg px-1 focus-visible:outline-zona-foco">
       {logo && logo !== logoFallido ? (
         // Sobre blanco también en el modo oscuro: un logo con letras oscuras y fondo transparente no desaparece.
         <img src={logo} alt="" onError={() => setLogoFallido(logo)}
           className={`shrink-0 rounded-md bg-white object-contain p-0.5 ring-1 ring-slate-200 ${compacta ? 'h-8 max-w-20' : 'h-9 max-w-24'}`} />
       ) : (
-        <img src="/icono.svg" alt="" className={`shrink-0 ${compacta ? 'size-8' : 'size-9'}`} />
+        <img src="/icono.svg" alt="" className={`icono-de-marca shrink-0 ${compacta ? 'size-8' : 'size-9'}`} />
       )}
       {compacta ? (
-        <p className="truncate text-sm font-semibold text-slate-900">{nombre}</p>
+        <p className="truncate text-sm font-semibold text-zona-fuerte">{nombre}</p>
       ) : (
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900">Gestión documental</p>
-          <p className="truncate text-xs text-slate-500">{nombre}</p>
+          <p className="truncate text-sm font-semibold text-zona-fuerte">Gestión documental</p>
+          <p className="truncate text-xs text-zona-suave">{nombre}</p>
         </div>
       )}
     </Link>
@@ -58,13 +59,13 @@ function MenuDeUsuario() {
 
   return (
     <div className="flex items-center gap-1">
-      <Link to="/cuenta" className="hidden items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-100 sm:flex">
-        <CircleUser aria-hidden className="size-5 text-slate-500" />
-        <span className="max-w-40 truncate font-medium text-slate-700">{sesion.usuario.nombre}</span>
-        <span className="text-xs text-slate-500">{NOMBRES_DE_ROLES[sesion.usuario.rol]}</span>
+      <Link to="/cuenta" className={`hidden items-center gap-2 px-2 py-1.5 text-sm sm:flex ${EN_LA_ZONA}`}>
+        <CircleUser aria-hidden className="size-5 text-zona-suave" />
+        <span className="max-w-40 truncate font-medium text-zona-texto">{sesion.usuario.nombre}</span>
+        <span className="text-xs text-zona-suave">{NOMBRES_DE_ROLES[sesion.usuario.rol]}</span>
       </Link>
       {/* Se confirma: en el celular este botón queda junto a la campana, y un toque de más obligaría a volver a entrar. */}
-      <button type="button" onClick={() => setConfirmando(true)} className="rounded-lg p-2.5 text-slate-600 hover:bg-slate-100" aria-label="Cerrar sesión" title="Cerrar sesión">
+      <button type="button" onClick={() => setConfirmando(true)} className={`p-2.5 text-zona-texto ${EN_LA_ZONA}`} aria-label="Cerrar sesión" title="Cerrar sesión">
         <LogOut aria-hidden className="size-5" />
       </button>
       <Modal
@@ -104,10 +105,10 @@ function Despedida({ nombre }: { nombre: string }) {
 function PieDelMenu() {
   return (
     <div className="mt-auto">
-      <Link to="/cuenta" className="block rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Mi cuenta</Link>
-      <nav aria-label="Información legal" className="mt-1 flex gap-3 px-3 text-xs text-slate-500">
-        <Link to="/terminos" className="py-1 hover:text-marca-700 hover:underline">Términos</Link>
-        <Link to="/privacidad" className="py-1 hover:text-marca-700 hover:underline">Privacidad</Link>
+      <Link to="/cuenta" className={`block px-3 py-2 text-sm text-zona-texto ${EN_LA_ZONA}`}>Mi cuenta</Link>
+      <nav aria-label="Información legal" className="mt-1 flex gap-3 px-3 text-xs text-zona-suave">
+        <Link to="/terminos" className="rounded py-1 hover:text-zona-fuerte hover:underline focus-visible:outline-zona-foco">Términos</Link>
+        <Link to="/privacidad" className="rounded py-1 hover:text-zona-fuerte hover:underline focus-visible:outline-zona-foco">Privacidad</Link>
       </nav>
     </div>
   );
@@ -149,7 +150,7 @@ export function Layout() {
       </a>
 
       {/* Al imprimir (el historial, RF36) sale solo el contenido: sin menú ni barra. */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 border-r border-slate-200 bg-superficie px-4 py-5 lg:flex print:hidden">
+      <aside className="zona-menu fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 overflow-y-auto border-r border-zona-borde bg-zona px-4 py-5 lg:flex print:hidden">
         <Marca />
         <Navegacion />
         <PieDelMenu />
@@ -158,10 +159,10 @@ export function Layout() {
       {menuAbierto && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menú">
           <button type="button" aria-label="Cerrar el menú" className="absolute inset-0 bg-black/40" onClick={() => setMenuAbierto(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-6 overflow-y-auto bg-superficie px-4 py-5 shadow-xl">
+          <div className="zona-menu absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-6 overflow-y-auto bg-zona px-4 py-5 shadow-xl">
             <div className="flex items-center justify-between">
               <Marca />
-              <button type="button" onClick={() => setMenuAbierto(false)} aria-label="Cerrar el menú" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100">
+              <button type="button" onClick={() => setMenuAbierto(false)} aria-label="Cerrar el menú" className={`p-2 text-zona-texto ${EN_LA_ZONA}`}>
                 <X aria-hidden className="size-5" />
               </button>
             </div>
@@ -171,8 +172,8 @@ export function Layout() {
         </div>
       )}
 
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-slate-200 bg-superficie/95 px-4 backdrop-blur sm:px-6 print:hidden">
-        <button type="button" onClick={() => setMenuAbierto(true)} aria-label="Abrir el menú" className="-ml-1 rounded-lg p-2.5 text-slate-600 hover:bg-slate-100 lg:hidden">
+      <header className="zona-barra sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-zona-borde bg-zona px-4 backdrop-blur sm:px-6 print:hidden">
+        <button type="button" onClick={() => setMenuAbierto(true)} aria-label="Abrir el menú" className={`-ml-1 p-2.5 text-zona-texto lg:hidden ${EN_LA_ZONA}`}>
           <Menu aria-hidden className="size-5" />
         </button>
         <div className="min-w-0 flex-1 lg:hidden">

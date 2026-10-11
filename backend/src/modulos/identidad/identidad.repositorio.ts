@@ -1,5 +1,6 @@
 import { clausulaSet } from '../../db/actualizacion.js';
 import type { Consultor } from '../../db/pool.js';
+import type { Esquinas, EstiloDeZona } from './identidad.esquemas.js';
 
 export interface FilaIdentidad {
   nombreComercial: string | null;
@@ -7,15 +8,20 @@ export interface FilaIdentidad {
   colorFondo: string | null;
   logoRuta: string | null;
   fondoRuta: string | null;
+  estiloMenu: EstiloDeZona;
+  estiloBarra: EstiloDeZona;
+  esquinas: Esquinas;
 }
 
 const COLUMNAS = {
   nombreComercial: 'nombre_comercial', colorPrimario: 'color_primario', colorFondo: 'color_fondo', logoRuta: 'logo_ruta', fondoRuta: 'fondo_ruta',
+  estiloMenu: 'estilo_menu', estiloBarra: 'estilo_barra', esquinas: 'esquinas',
 };
 
 /** Las columnas de la identidad con el nombre que usa el código; también las lee el perfil al iniciar sesión. */
 export const SELECT_IDENTIDAD = `e.nombre_comercial AS "nombreComercial", e.color_primario AS "colorPrimario",
-  e.color_fondo AS "colorFondo", e.logo_ruta AS "logoRuta", e.fondo_ruta AS "fondoRuta"`;
+  e.color_fondo AS "colorFondo", e.logo_ruta AS "logoRuta", e.fondo_ruta AS "fondoRuta",
+  e.estilo_menu AS "estiloMenu", e.estilo_barra AS "estiloBarra", e.esquinas`;
 
 /** Con el acceso de quien pregunta: una empresa solo ve su fila; el Master, cualquiera (D17). */
 export async function leerIdentidad(db: Consultor, empresaId: string): Promise<FilaIdentidad | null> {

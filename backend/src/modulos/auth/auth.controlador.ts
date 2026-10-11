@@ -28,9 +28,8 @@ export function crearControladorAuth(servicio: ServicioAuth) {
   };
 
   const cambiarPreferencias: RequestHandler = async (req, res) => {
-    const { tema } = esquemaPreferencias.parse(req.body);
-    await servicio.cambiarTema(actorDe(req), tema);
-    res.json({ tema });
+    const cambios = esquemaPreferencias.parse(req.body);
+    res.json(await servicio.cambiarPreferencias(actorDe(req), cambios));
   };
 
   // La misma respuesta exista o no el correo (CLAUDE.md v2): no revela qué cuentas hay.

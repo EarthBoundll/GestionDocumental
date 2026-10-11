@@ -6,6 +6,17 @@ export type RolDeEmpresa = Exclude<Rol, 'master'>;
 export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada';
 /** RF32: «sistema» sigue al dispositivo. */
 export type Tema = 'sistema' | 'claro' | 'oscuro';
+/** RF32 (D47): toda la interfaz está en rem, así que agranda todo, no solo los textos. */
+export type TamanoDeTexto = 'normal' | 'grande' | 'muy_grande';
+/** D47: el menú lateral y la barra de arriba, claros o del color de la empresa. */
+export type EstiloDeZona = 'claro' | 'marca';
+export type Esquinas = 'rectas' | 'suaves' | 'redondeadas';
+
+/** Lo que cada persona elige para sí: se guarda en su cuenta y no cambia lo que ven los demás. */
+export interface Preferencias {
+  tema: Tema;
+  tamanoTexto: TamanoDeTexto;
+}
 
 export interface Referencia {
   id: string;
@@ -17,13 +28,12 @@ export interface Pagina<T> {
   paginacion: { pagina: number; porPagina: number; total: number };
 }
 
-export interface UsuarioDeSesion {
+export interface UsuarioDeSesion extends Preferencias {
   id: string;
   nombre: string;
   email: string;
   rol: Rol;
   dni: string | null;
-  tema: Tema;
 }
 
 /** RF31: la identidad de una empresa, con los enlaces de sus imágenes ya firmados. Null es «la de la plataforma». */
@@ -35,6 +45,9 @@ export interface Marca {
   logoUrl: string | null;
   /** Detrás de las pantallas, solo en computadoras (D39). */
   fondoUrl: string | null;
+  estiloMenu: EstiloDeZona;
+  estiloBarra: EstiloDeZona;
+  esquinas: Esquinas;
 }
 
 export interface Perfil {

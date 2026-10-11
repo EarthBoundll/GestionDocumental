@@ -11,9 +11,9 @@ import type { Marca, ServicioIdentidad } from '../identidad/identidad.servicio.j
 import { correoDeRecuperacion } from './auth.correos.js';
 import type { DatosActivacion, DatosCambioClave, DatosConfirmacionRecuperacion, DatosInicioSesion } from './auth.esquemas.js';
 import {
-  actualizarClaveHash, actualizarTema, anularEnlacesDe, buscarClaveHash, buscarCuentaPorEmail, buscarDni, buscarPerfil,
+  actualizarClaveHash, actualizarPreferencias, anularEnlacesDe, buscarClaveHash, buscarCuentaPorEmail, buscarDni, buscarPerfil,
   consumirEnlace, fallosRecientes, insertarEnlace, insertarSesion, marcarVerificado, revocarOtrasSesiones, revocarSesion,
-  revocarSesionesDe, type Empresa, type FilaPerfil, type Tema,
+  revocarSesionesDe, type Empresa, type FilaPerfil, type Preferencias,
 } from './auth.repositorio.js';
 import { huella, type EnlacesDeCuenta } from './enlaces.js';
 
@@ -164,10 +164,9 @@ export function crearServicioAuth({ pool, firmador, duracionHoras, correo, urlFr
 
     obtenerPerfil: ({ autenticacion }: Actor): Promise<Perfil> => perfilDe(autenticacion.usuario.id),
 
-    /** RF32: el tema de la interfaz. Es de la cuenta, para que siga a la persona en cualquier dispositivo. */
-    async cambiarTema({ autenticacion }: Actor, tema: Tema): Promise<void> {
-      await actualizarTema(pool, autenticacion.usuario.id, tema);
-    },
+    /** RF32: el tema y el tamaño del texto. Son de la cuenta, para que sigan a la persona en cualquier dispositivo. */
+    cambiarPreferencias: ({ autenticacion }: Actor, cambios: Partial<Preferencias>): Promise<Preferencias> =>
+      actualizarPreferencias(pool, autenticacion.usuario.id, cambios),
 
     /**
      * Pide un enlace de recuperación (CLAUDE.md v2). Responda lo que responda la base, quien llama no se

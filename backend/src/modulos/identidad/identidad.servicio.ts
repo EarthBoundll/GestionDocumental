@@ -4,7 +4,7 @@ import { calcularCambios, valoresNuevos } from '../../compartido/cambios.js';
 import { noEncontrado } from '../../compartido/errores.js';
 import type { Actor } from '../../compartido/peticion.js';
 import { registrarAccion, type Autor } from '../historial/historial.registro.js';
-import type { CambiosIdentidad } from './identidad.esquemas.js';
+import type { CambiosIdentidad, Esquinas, EstiloDeZona } from './identidad.esquemas.js';
 import { formatoDe, IMAGENES, mimeDeRuta, type ArchivoDeImagen, type Imagen } from './identidad.imagenes.js';
 import { actualizarIdentidad, leerIdentidad, type FilaIdentidad } from './identidad.repositorio.js';
 
@@ -15,6 +15,9 @@ export interface Marca {
   colorFondo: string | null;
   logoUrl: string | null;
   fondoUrl: string | null;
+  estiloMenu: EstiloDeZona;
+  estiloBarra: EstiloDeZona;
+  esquinas: Esquinas;
 }
 
 export type ServicioIdentidad = ReturnType<typeof crearServicioIdentidad>;
@@ -28,9 +31,9 @@ export function crearServicioIdentidad({ almacenamiento, vigenciaSegundos }: { a
   const firmar = (ruta: string | null) =>
     ruta ? almacenamiento.firmarEnlace(ruta, { segundos: vigenciaSegundos, tipoMime: mimeDeRuta(ruta) }) : null;
 
-  async function marcaDe({ nombreComercial, colorPrimario, colorFondo, logoRuta, fondoRuta }: FilaIdentidad): Promise<Marca> {
+  async function marcaDe({ logoRuta, fondoRuta, ...datos }: FilaIdentidad): Promise<Marca> {
     const [logoUrl, fondoUrl] = await Promise.all([firmar(logoRuta), firmar(fondoRuta)]);
-    return { nombreComercial, colorPrimario, colorFondo, logoUrl, fondoUrl };
+    return { ...datos, logoUrl, fondoUrl };
   }
 
   async function identidadExistente(actor: Actor, empresaId: string): Promise<FilaIdentidad> {
@@ -58,8 +61,8 @@ export function crearServicioIdentidad({ almacenamiento, vigenciaSegundos }: { a
 
     async editar(actor: Actor, empresaId: string, autor: Autor, propuesta: CambiosIdentidad): Promise<Marca> {
       const actual = await identidadExistente(actor, empresaId);
-      const { nombreComercial, colorPrimario, colorFondo } = actual;
-      const cambios = calcularCambios({ nombreComercial, colorPrimario, colorFondo }, propuesta);
+      const { logoRuta: _logo, fondoRuta: _fondo, ...editables } = actual;
+      const cambios = calcularCambios(editables, propuesta);
       if (Object.keys(cambios).length > 0) await guardar(actor, empresaId, autor, valoresNuevos(cambios), { cambios });
       return marcaDe({ ...actual, ...valoresNuevos(cambios) });
     },

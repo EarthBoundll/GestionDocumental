@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { notificaciones, NOTIFICACIONES_LEIDAS } from '../api/recursos';
 import { useConsulta } from '../hooks/useConsulta';
 import { formatearFechaHora } from '../utilidades/formato';
+import { EN_LA_ZONA } from './zona';
 
 /**
  * Las notificaciones se piden al cambiar de pantalla, al volver a la pestaña y al marcar alguna como
@@ -57,7 +58,7 @@ export function Campana() {
         onClick={() => setAbierta((valor) => !valor)}
         aria-expanded={abierta}
         aria-label={noLeidas > 0 ? `Notificaciones: ${noLeidas} sin leer` : 'Notificaciones'}
-        className="relative rounded-lg p-2.5 text-slate-600 hover:bg-slate-100"
+        className={`relative p-2.5 text-zona-texto ${EN_LA_ZONA}`}
       >
         <Bell aria-hidden className="size-5" />
         {noLeidas > 0 && (

@@ -145,6 +145,7 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     ['cambiar la identidad de B por la ruta del Master', 'PATCH', `/api/v1/plataforma/empresas/${b.empresaId}/identidad`, { colorPrimario: '#000000' }],
     ['quitar el logo de B por la ruta del Master', 'DELETE', `/api/v1/plataforma/empresas/${b.empresaId}/identidad/logo`, undefined],
     ['quitar el fondo de B por la ruta del Master', 'DELETE', `/api/v1/plataforma/empresas/${b.empresaId}/identidad/fondo`, undefined],
+    ['cambiar el estilo de B por la ruta del Master (D47)', 'PATCH', `/api/v1/plataforma/empresas/${b.empresaId}/identidad`, { estiloMenu: 'marca', esquinas: 'rectas' }],
     ['reenviar la invitación de un administrador de B por la ruta del Master', 'POST', `/api/v1/plataforma/administradores/${b.adminId}/invitacion`, undefined],
   ];
 
@@ -184,7 +185,8 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     const { rows: [medicion] } = await pool.query('SELECT duracion_cliente_ms FROM tiempos_respuesta WHERE id = $1', [b.medicionId]);
     const { rows: solicitudesDeB } = await pool.query('SELECT 1 FROM solicitudes WHERE documento_id = $1', [b.documentoId]);
     const { rows: [identidad] } = await pool.query(
-      'SELECT nombre_comercial, color_primario, color_fondo, logo_ruta, fondo_ruta FROM empresas WHERE id = $1', [b.empresaId],
+      `SELECT nombre_comercial, color_primario, color_fondo, logo_ruta, fondo_ruta, estilo_menu, estilo_barra, esquinas
+       FROM empresas WHERE id = $1`, [b.empresaId],
     );
     const { rows: versionesDeB } = await pool.query('SELECT numero FROM documento_versiones WHERE documento_id = $1', [b.documentoId]);
     const { rows: enlacesDelPendiente } = await pool.query('SELECT 1 FROM recuperaciones_clave WHERE usuario_id = $1', [b.pendienteId]);
@@ -197,7 +199,10 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     expect(aviso).toEqual({ leida_en: null });
     expect(medicion).toEqual({ duracion_cliente_ms: null });
     expect(solicitudesDeB).toHaveLength(1);
-    expect(identidad).toEqual({ nombre_comercial: null, color_primario: null, color_fondo: null, logo_ruta: null, fondo_ruta: null });
+    expect(identidad).toEqual({
+      nombre_comercial: null, color_primario: null, color_fondo: null, logo_ruta: null, fondo_ruta: null,
+      estilo_menu: 'claro', estilo_barra: 'claro', esquinas: 'suaves',
+    });
     expect(versionesDeB).toEqual([{ numero: 1 }]);
     expect(enlacesDelPendiente, 'A no logró mandarle otra invitación').toHaveLength(1);
     expect(await iniciarSesion(app, (await pool.query('SELECT email FROM usuarios WHERE id = $1', [b.adminId])).rows[0].email))
@@ -295,6 +300,18 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
       expect(await empresaDe('usuarios', usuario.body.id)).toBe(a.empresaId);
       expect(await empresaDe('documentos', documento.body.id)).toBe(a.empresaId);
       expect(ids(listado.body.datos)).not.toContain(b.documentoId);
+    });
+
+    it('el estilo de la empresa enviando el empresaId de B: cambia el de A, el de B no (D47)', async () => {
+      const respuesta = await request(app).patch(`/api/v1/empresa/identidad?empresaId=${b.empresaId}`)
+        .set('Authorization', `Bearer ${a.adminToken}`).send({ estiloBarra: 'marca', empresaId: b.empresaId });
+      const estiloDe = async (id: string) =>
+        (await pool.query<{ estilo_barra: string }>('SELECT estilo_barra FROM empresas WHERE id = $1', [id])).rows[0]?.estilo_barra;
+      const correcto = respuesta.status === 200 && await estiloDe(a.empresaId) === 'marca' && await estiloDe(b.empresaId) === 'claro';
+      anotar({ quien: 'administrador de A', operacion: 'cambiar el estilo enviando el empresaId de B', metodo: 'PATCH', ruta: '/api/v1/empresa/identidad', esperado: 'cambia A, no B', obtenido: respuesta.status }, correcto);
+
+      expect(await estiloDe(a.empresaId)).toBe('marca');
+      expect(await estiloDe(b.empresaId)).toBe('claro');
     });
 
     it('ni siquiera con el secreto de firma: un token con la empresa cambiada se rechaza', async () => {

@@ -103,6 +103,9 @@ const NOMBRES_DE_CAMPOS: Record<string, string> = {
   colorFondo: 'color de fondo',
   logo: 'logo',
   fondo: 'imagen de fondo',
+  estiloMenu: 'menú lateral',
+  estiloBarra: 'barra superior',
+  esquinas: 'esquinas',
 };
 
 const legible = (codigo: string) => codigo.toLowerCase().replaceAll('_', ' ');

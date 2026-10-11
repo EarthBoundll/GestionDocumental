@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PNG, salir } from './apoyo';
 import { URL_WEB } from './entorno';
 
@@ -15,15 +15,10 @@ const colorDelBoton = (page: Page, nombre: string, esperado: string) =>
   expect.poll(() => page.getByRole('button', { name: nombre, exact: true }).evaluate((boton) => getComputedStyle(boton).backgroundColor)).toBe(esperado);
 
 /**
- * El contraste WCAG entre el fondo de la página y un texto secundario (slate-500, el más claro que se usa), tal
- * como los pinta el navegador: cada color se dibuja en un píxel y se lee de vuelta, así cuenta también oklch().
+ * El contraste WCAG entre dos colores tal como los pinta el navegador: cada uno se dibuja en un píxel y se lee de
+ * vuelta, así cuentan también oklch() y color-mix().
  */
-const contrasteDelTextoSecundario = (page: Page) => page.evaluate(() => {
-  const muestra = document.createElement('p');
-  muestra.className = 'text-slate-500';
-  document.body.append(muestra);
-  const texto = getComputedStyle(muestra).color;
-  muestra.remove();
+const contrasteDeColores = (page: Page, colores: [string, string]) => page.evaluate(([a, b]) => {
   const pixel = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
   const luminancia = (color: string) => {
     pixel.clearRect(0, 0, 1, 1);
@@ -35,9 +30,31 @@ const contrasteDelTextoSecundario = (page: Page) => page.evaluate(() => {
     });
     return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
   };
-  const [clara, oscura] = [luminancia(getComputedStyle(document.body).backgroundColor), luminancia(texto)].sort((x, y) => y - x);
+  const [clara, oscura] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
   return (clara! + 0.05) / (oscura! + 0.05);
-});
+}, colores);
+
+/** El contraste entre el fondo de la página y un texto secundario (slate-500, el más claro que se usa). */
+const contrasteDelTextoSecundario = async (page: Page) => {
+  const texto = await page.evaluate(() => {
+    const muestra = document.createElement('p');
+    muestra.className = 'text-slate-500';
+    document.body.append(muestra);
+    const color = getComputedStyle(muestra).color;
+    muestra.remove();
+    return color;
+  });
+  return contrasteDeColores(page, [texto, await page.evaluate(() => getComputedStyle(document.body).backgroundColor)]);
+};
+
+/** El contraste del texto de un elemento sobre el fondo de la zona que lo contiene (el menú o la barra, D47). */
+const contrasteEnLaZona = async (page: Page, elemento: Locator, zona: Locator) =>
+  contrasteDeColores(page, [
+    await elemento.evaluate((e) => getComputedStyle(e).color),
+    await zona.evaluate((e) => getComputedStyle(e).backgroundColor),
+  ]);
+
+const fondoDe = (elemento: Locator) => elemento.evaluate((e) => getComputedStyle(e).backgroundColor);
 
 /** Una foto apaisada como la de una cámara, de 1600 × 1000 px: la dibuja el propio navegador. */
 const fotoApaisada = async (page: Page) => Buffer.from(await page.evaluate(async () => {
@@ -213,5 +230,98 @@ test.describe('Identidad de la empresa y tema de cada persona', () => {
     await celular.emulateMedia({ colorScheme: 'dark' });
     await expect.poll(() => celular.evaluate(() => document.documentElement.dataset.tema)).toBe('oscuro');
     await otroDispositivo.close();
+  });
+
+  test('RF31 · El estilo de la empresa: menú y barra de su color y esquinas, cada uno solo en lo suyo y legible @movil', async ({ page, request }, prueba) => {
+    const enCelular = prueba.project.name === 'celular';
+    const empresa = await nuevaEmpresa(request);
+    const ana = await nuevaCuenta(request, empresa, 'usuario', 'Ana Torres');
+    const otra = await nuevaEmpresa(request);
+    await page.emulateMedia({ colorScheme: 'light' });
+    const barra = page.getByRole('banner');
+    const elegir = (grupo: string, opcion: string) => page.getByRole('group', { name: grupo }).getByText(opcion, { exact: true }).click();
+
+    await entrar(page, empresa.administrador);
+    await irDesdeElMenu(page, 'Identidad');
+    const tarjeta = page.locator('section', { has: page.getByRole('heading', { name: 'Nombre, colores y estilo' }) });
+    const barraClara = await fondoDe(barra);
+
+    // Mientras elige, toda la pantalla lo muestra; «Descartar» lo deja como estaba, sin guardar nada.
+    await elegir('Barra superior', 'Del color de la empresa');
+    await expect.poll(() => fondoDe(barra)).toBe(VERDE_DE_LA_PLATAFORMA);
+    await expect(page.getByText('Cambios sin guardar: solo los ves tú.')).toBeVisible();
+    await page.getByRole('button', { name: 'Descartar' }).click();
+    await expect.poll(() => fondoDe(barra)).toBe(barraClara);
+
+    await elegir('Barra superior', 'Del color de la empresa');
+    await elegir('Menú lateral', 'Del color de la empresa');
+    await elegir('Esquinas', 'Rectas');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.getByText(/Identidad guardada/)).toBeVisible();
+
+    // Cada opción cambia solo lo suyo: la barra toma el color, las tarjetas siguen blancas y con esquinas rectas.
+    await expect.poll(() => fondoDe(barra)).toBe(VERDE_DE_LA_PLATAFORMA);
+    expect(await fondoDe(tarjeta)).toBe('rgb(255, 255, 255)');
+    expect(await tarjeta.evaluate((e) => getComputedStyle(e).borderTopLeftRadius)).toBe('4px');
+    // Legible en la barra y en el menú, en claro y en oscuro: el texto blanco sobre el color de la empresa (AA, 4,5:1).
+    const cerrarSesion = page.getByRole('button', { name: 'Cerrar sesión' });
+    if (enCelular) await page.getByRole('button', { name: 'Abrir el menú' }).click();
+    const menu = page.locator('.zona-menu').filter({ visible: true });
+    const enlaceDelMenu = menu.getByRole('link', { name: 'Tablero' });
+    for (const modo of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: modo });
+      await expect.poll(() => page.evaluate(() => document.documentElement.dataset.tema)).toBe(modo === 'light' ? 'claro' : 'oscuro');
+      expect(await contrasteEnLaZona(page, cerrarSesion, barra)).toBeGreaterThanOrEqual(4.5);
+      expect(await contrasteEnLaZona(page, enlaceDelMenu, menu)).toBeGreaterThanOrEqual(4.5);
+      await prueba.attach(`estilo-de-la-empresa-${modo === 'light' ? 'claro' : 'oscuro'}`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
+    }
+    await page.emulateMedia({ colorScheme: 'light' });
+    // El velo de detrás también se llama «Cerrar el menú»; el botón es el de la X, dentro del menú.
+    if (enCelular) await menu.getByRole('button', { name: 'Cerrar el menú' }).click();
+    await sinDesbordeLateral(page);
+
+    // En el historial, con quién lo cambió (indicador 4).
+    await irDesdeElMenu(page, 'Historial');
+    // El detalle se guarda en jsonb, que ordena las claves por su largo: el orden es siempre este.
+    await expect(page.getByText('cambió esquinas, menú lateral, barra superior')).toBeVisible();
+    await salir(page);
+
+    // Ana lo ve al entrar; la otra empresa sigue con lo suyo.
+    await entrar(page, ana);
+    await expect.poll(() => fondoDe(barra)).toBe(VERDE_DE_LA_PLATAFORMA);
+    expect(await page.evaluate(() => document.documentElement.dataset.esquinas)).toBe('rectas');
+    await salir(page);
+    await entrar(page, otra.administrador);
+    await expect.poll(() => fondoDe(barra)).toBe(barraClara);
+    expect(await page.evaluate(() => document.documentElement.dataset.esquinas)).toBe('suaves');
+  });
+
+  test('RF32 · Cada persona agranda el texto para sí: nada se sale de la pantalla y a los demás no les cambia @movil', async ({ page, request }, prueba) => {
+    const empresa = await nuevaEmpresa(request);
+    const ana = await nuevaCuenta(request, empresa, 'usuario', 'Ana Torres');
+    const letra = () => page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
+
+    await entrar(page, ana);
+    expect(await letra()).toBe('16px');
+    await page.goto('/cuenta');
+    await page.locator('label', { hasText: 'Muy grande' }).click();
+    await expect.poll(letra).toBe('20px');
+    // Toda la interfaz crece con la letra, y en 360 px se sigue acomodando sin desplazamiento lateral (indicador 5).
+    for (const ruta of ['/documentos', '/documentos/nuevo', '/solicitudes', '/cuenta']) {
+      await page.goto(ruta);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await sinDesbordeLateral(page);
+    }
+    await page.goto('/documentos');
+    await expect(page.getByRole('heading', { name: 'Documentos', level: 1 })).toBeVisible();
+    await prueba.attach('texto-muy-grande', { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
+    // Se guardó en su cuenta: al recargar, sigue igual.
+    await page.reload();
+    await expect.poll(letra).toBe('20px');
+    await salir(page);
+
+    // A los demás no les cambia.
+    await entrar(page, empresa.administrador);
+    expect(await letra()).toBe('16px');
   });
 });

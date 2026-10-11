@@ -192,6 +192,7 @@ permisos dentro de una empresa.
 - Exportaciones en Excel con resumen y tabla para Power BI, además del CSV (hecho)
 - Búsqueda en lo que dice el archivo (PDF, Word y Excel) y palabras clave en la ficha, sin IA ni OCR (hecho)
 - Eliminar cuentas sin perder su traza, y un historial que muestra primero lo importante (hecho)
+- Menú y barra superior del color de la empresa, esquinas a elegir y tamaño del texto de cada persona (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -394,6 +395,12 @@ documentos y en el historial; la decide la base (`dar_de_baja_usuario()`), nunca
 Inicios de sesión, búsquedas y vistas se siguen registrando (indicadores 2 a 5, RN27) pero no ocupan la vista principal,
 una búsqueda repetida en 10 minutos cuenta una vez y el cierre de sesión ya no se registra (D46). Se descartaron borrar la
 fila, anonimizar el nombre, dejar de registrar los inicios de sesión, un registro de seguridad aparte y borrar por antigüedad.
+
+**Más personalización con opciones cerradas, nunca colores libres.** El menú y la barra superior van claros o del color
+principal (que ya se lee con texto blanco), las esquinas son rectas, suaves o redondeadas, y cada persona agranda el
+texto para sí; la pantalla de identidad muestra sin guardar, descarta y restablece, y guarda solo lo que cambió (D47). Se
+descartaron un color por elemento, color secundario y favicon, sombras, densidad, filas y orden por persona (rompen la
+comparación de los indicadores 2 y 7) y la marca en el acceso (exigiría la empresa en la dirección).
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

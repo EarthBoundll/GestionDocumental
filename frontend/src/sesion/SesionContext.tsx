@@ -1,11 +1,15 @@
 import { createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { conectarSesion } from '../api/cliente';
 import { auth } from '../api/recursos';
-import type { Marca, Perfil, SesionIniciada, Tema } from '../api/tipos';
-import { aplicarColor, aplicarFondo, aplicarTema } from './apariencia';
+import type { Marca, Perfil, Preferencias, SesionIniciada } from '../api/tipos';
+import {
+  aplicarColor, aplicarEstilo, aplicarFondo, aplicarTamanoDeTexto, aplicarTema, ESTILO_DE_LA_PLATAFORMA, type Estilo,
+} from './apariencia';
 
 const CLAVE = 'gestion-documental.sesion';
-const MARCA_DE_LA_PLATAFORMA: Marca = { nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null };
+const MARCA_DE_LA_PLATAFORMA: Marca = {
+  nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null, ...ESTILO_DE_LA_PLATAFORMA,
+};
 
 interface ValorSesion {
   sesion: SesionIniciada | null;
@@ -18,24 +22,29 @@ interface ValorSesion {
   esMaster: boolean;
   iniciar(sesion: SesionIniciada): void;
   cerrar(): Promise<void>;
-  /** RF32: se ve en el acto y se guarda en la cuenta; si la API no lo guarda, vuelve el anterior y se lanza el error. */
-  cambiarTema(tema: Tema): Promise<void>;
+  /** RF32: el tema o el tamaño del texto. Se ve en el acto y se guarda en la cuenta; si la API no lo guarda, vuelve lo anterior y se lanza el error. */
+  cambiarPreferencias(cambios: Partial<Preferencias>): Promise<void>;
   /** Tras cambiar la identidad de la propia empresa: se ve sin volver a entrar. */
   actualizarMarca(marca: Marca): void;
   /** Mientras se elige un color, toda la interfaz lo muestra; null vuelve al guardado. */
   previsualizarColor(color: string | null): void;
   /** Lo mismo con el color de fondo (D39); undefined vuelve al guardado, null muestra el fondo neutro. */
   previsualizarFondo(color: string | null | undefined): void;
+  /** Y con el estilo (D47): el menú, la barra y las esquinas; null vuelve al guardado. */
+  previsualizarEstilo(estilo: Estilo | null): void;
 }
 
 const Contexto = createContext<ValorSesion | null>(null);
 
-/** Una sesión guardada antes de la identidad y el tema (008), o del fondo (012), no los trae: valen los de siempre. */
+/**
+ * Una sesión guardada antes de la identidad y el tema (008), del fondo (012) o del estilo y el tamaño del texto (017)
+ * no los trae: valen los de siempre.
+ */
 function completar(sesion: SesionIniciada): SesionIniciada {
   const { usuario, empresa } = sesion;
   return {
     ...sesion,
-    usuario: { ...usuario, tema: usuario.tema ?? 'sistema' },
+    usuario: { ...usuario, tema: usuario.tema ?? 'sistema', tamanoTexto: usuario.tamanoTexto ?? 'normal' },
     empresa: empresa && { ...empresa, marca: { ...MARCA_DE_LA_PLATAFORMA, ...empresa.marca } },
   };
 }
@@ -66,6 +75,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const [cerrada, setCerrada] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
   const [fondoPrevio, setFondoPrevio] = useState<string | null | undefined>(undefined);
+  const [estiloPrevio, setEstiloPrevio] = useState<Estilo | null>(null);
   const actual = useRef(sesion);
   actual.current = sesion;
 
@@ -93,6 +103,10 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const fondo = fondoPrevio === undefined ? (sesion?.empresa?.marca.colorFondo ?? null) : fondoPrevio;
   useLayoutEffect(() => aplicarColor(color), [color]);
   useLayoutEffect(() => aplicarFondo(fondo), [fondo]);
+  const { estiloMenu, estiloBarra, esquinas } = estiloPrevio ?? sesion?.empresa?.marca ?? ESTILO_DE_LA_PLATAFORMA;
+  useLayoutEffect(() => aplicarEstilo({ estiloMenu, estiloBarra, esquinas }), [estiloMenu, estiloBarra, esquinas]);
+  const tamanoTexto = sesion?.usuario.tamanoTexto ?? 'normal';
+  useLayoutEffect(() => aplicarTamanoDeTexto(tamanoTexto), [tamanoTexto]);
 
   // El cliente HTTP necesita el token y saber qué hacer si la API lo rechaza. Va en un efecto de diseño
   // (useLayoutEffect) porque React ejecuta los efectos normales de los hijos antes que los del padre: con
@@ -141,21 +155,23 @@ export function SesionProvider({ children }: { children: ReactNode }) {
       setCerrada(true);
       olvidar();
     },
-    async cambiarTema(nuevo) {
+    async cambiarPreferencias(cambios) {
       const antes = actual.current;
       if (!antes) return;
-      const conTema = (base: SesionIniciada, elegido: Tema) => ({ ...base, usuario: { ...base.usuario, tema: elegido } });
-      cambiar(conTema(antes, nuevo));
+      const con = (base: SesionIniciada, elegidas: Partial<Preferencias>) => ({ ...base, usuario: { ...base.usuario, ...elegidas } });
+      cambiar(con(antes, cambios));
       try {
-        await auth.cambiarPreferencias(nuevo);
+        await auth.cambiarPreferencias(cambios);
       } catch (error) {
-        if (actual.current?.token === antes.token) cambiar(conTema(actual.current, antes.usuario.tema));
+        const { tema, tamanoTexto } = antes.usuario;
+        if (actual.current?.token === antes.token) cambiar(con(actual.current, { tema, tamanoTexto }));
         throw error;
       }
     },
     actualizarMarca,
     previsualizarColor: setVistaPrevia,
     previsualizarFondo: setFondoPrevio,
+    previsualizarEstilo: setEstiloPrevio,
   }), [sesion, caducada, cerrada, cambiar, olvidar, actualizarMarca]);
 
   return <Contexto value={valor}>{children}</Contexto>;

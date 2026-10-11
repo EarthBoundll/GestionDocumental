@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
 /*
- * La apariencia sale de tres datos (RF31, RF32, D28, D39): el color de la empresa, en --marca; su color de
- * fondo, en --fondo, y el tema de la persona, en data-tema de <html>. Tailwind compila cada color a una variable (bg-slate-50 es
- * var(--color-slate-50)), así que el modo oscuro redefine variables y ningún componente cambia de clases.
+ * La apariencia sale de pocos datos (RF31, RF32, D28, D39, D47): el color de la empresa, en --marca; su color de
+ * fondo, en --fondo; su estilo, en data-menu, data-barra y data-esquinas de <html>, y lo de cada persona, en data-tema
+ * y data-texto. Tailwind compila cada color a una variable (bg-slate-50 es var(--color-slate-50)), así que el modo
+ * oscuro y el estilo redefinen variables y ningún componente cambia de clases.
  */
 
 @theme {
@@ -29,6 +30,20 @@
   --color-superficie: #fff;
   /* Detrás de las tarjetas: el gris muy claro de siempre, o el tono del fondo de la empresa (D39). */
   --color-pagina: var(--pagina-clara);
+  /*
+   * El menú lateral y la barra de arriba (D47) usan sus propios colores, «de zona». Por defecto son los de siempre;
+   * con el estilo «del color de la empresa», los redefine una regla de más abajo solo dentro de esa zona.
+   */
+  --color-zona: var(--color-superficie);
+  --color-zona-texto: var(--color-slate-700);
+  --color-zona-suave: var(--color-slate-500);
+  --color-zona-fuerte: var(--color-slate-900);
+  --color-zona-hover: var(--color-slate-100);
+  --color-zona-activa: var(--color-marca-50);
+  --color-zona-activa-texto: var(--color-marca-800);
+  --color-zona-acento: var(--color-marca-600);
+  --color-zona-borde: var(--color-slate-200);
+  --color-zona-foco: var(--color-marca-600);
   /*
    * El texto secundario, un punto más oscuro que el slate-500 de Tailwind (55,4 %), que sobre su propio slate-50
    * daba 4,55:1, justo en el límite. Con 52 % da 5,25:1 sobre el gris y al menos 4,8:1 sobre cualquier fondo
@@ -121,6 +136,77 @@
   --marca: #0f766e;
   color-scheme: light;
   --velo: var(--velo-claro);
+  /* El menú y la barra del color de la empresa (D47); en el modo oscuro, algo más oscuro, para no deslumbrar. */
+  --zona-marca: var(--marca);
+}
+
+/*
+ * El estilo de la empresa (D47). La barra de arriba, clara, deja ver un poco lo que pasa por debajo; del color de la
+ * empresa es opaca, para que nada baje el contraste de su texto blanco.
+ */
+.zona-barra {
+  --color-zona: color-mix(in srgb, var(--color-superficie) 95%, transparent);
+}
+
+/*
+ * «Del color de la empresa»: fondo de la marca y todo el texto blanco. La API solo acepta colores con los que el blanco
+ * se lee (4,5:1), así que el menú queda legible con cualquier color que pase; lo marcado y el paso del ratón se
+ * oscurecen, que solo sube el contraste. Los paneles que se abren dentro (la campana, el diálogo de salir) no usan estos
+ * colores: siguen con los de la superficie.
+ */
+:root[data-menu="marca"] .zona-menu,
+:root[data-barra="marca"] .zona-barra {
+  --color-zona: var(--zona-marca);
+  --color-zona-texto: #fff;
+  --color-zona-suave: #fff;
+  --color-zona-fuerte: #fff;
+  --color-zona-hover: color-mix(in srgb, var(--zona-marca) 82%, black);
+  --color-zona-activa: color-mix(in srgb, var(--zona-marca) 68%, black);
+  --color-zona-activa-texto: #fff;
+  --color-zona-acento: #fff;
+  --color-zona-borde: transparent;
+  --color-zona-foco: #fff;
+}
+
+/* El icono de la plataforma es del mismo verde: sobre la marca, va en blanco como un logo, para no perderse. */
+:root[data-menu="marca"] .zona-menu .icono-de-marca,
+:root[data-barra="marca"] .zona-barra .icono-de-marca {
+  border-radius: var(--radius-md);
+  background-color: #fff;
+  padding: 2px;
+}
+
+/*
+ * Las esquinas de la empresa (D47): Tailwind compila rounded-lg como var(--radius-lg), así que basta redefinir la
+ * escala. Las píldoras y los círculos (rounded-full) no cambian.
+ */
+:root[data-esquinas="rectas"] {
+  --radius-sm: 0.125rem;
+  --radius-md: 0.125rem;
+  --radius-lg: 0.1875rem;
+  --radius-xl: 0.25rem;
+  --radius-2xl: 0.375rem;
+}
+:root[data-esquinas="redondeadas"] {
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.5rem;
+}
+
+/*
+ * El tamaño del texto de cada persona (D47). Todo está en rem, así que la letra de la página agranda la interfaz entera
+ * en la misma proporción; los cortes de pantalla (sm, lg) se miden con la del navegador y no se mueven. Solo en
+ * pantalla: lo que se imprime sale siempre igual.
+ */
+@media screen {
+  :root[data-texto="grande"] {
+    font-size: 112.5%;
+  }
+  :root[data-texto="muy_grande"] {
+    font-size: 125%;
+  }
 }
 
 /*
@@ -179,6 +265,7 @@
     --color-slate-950: oklch(98.4% 0.003 247.858);
     --color-pagina: var(--pagina-oscura);
     --velo: var(--velo-oscuro);
+    --zona-marca: color-mix(in srgb, var(--marca) 80%, black);
 
     /* La marca sobre fondo oscuro: los fondos, teñidos de la superficie; los textos, aclarados con blanco. */
     --color-marca-50: color-mix(in srgb, var(--marca) 22%, var(--color-superficie));

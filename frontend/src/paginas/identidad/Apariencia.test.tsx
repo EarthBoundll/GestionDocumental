@@ -12,7 +12,10 @@ import { prepararFondo } from '../../utilidades/imagen';
 vi.mock('../../utilidades/imagen', async (original) => ({ ...await original<typeof import('../../utilidades/imagen')>(), prepararFondo: vi.fn() }));
 
 const raiz = document.documentElement;
-const SIN_MARCA: Marca = { nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null };
+const SIN_MARCA: Marca = {
+  nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null,
+  estiloMenu: 'claro', estiloBarra: 'claro', esquinas: 'suaves',
+};
 const METRICAS = { usuarios: 3, usuariosActivos: 3, documentos: 0, almacenamientoBytes: 0, ultimoAcceso: null };
 
 function sesionCon(rol: Rol, cambios: { tema?: SesionIniciada['usuario']['tema']; marca?: Marca } = {}): SesionIniciada {
@@ -103,9 +106,33 @@ describe('Tema de cada persona (RF32)', () => {
 
     await userEvent.click(await screen.findByRole('radio', { name: 'Oscuro' }));
 
-    expect(await screen.findByText(/No se pudo guardar el tema/)).toBeInTheDocument();
+    expect(await screen.findByText(/No se pudo guardar el cambio/)).toBeInTheDocument();
     expect(raiz.dataset.tema).toBe('claro');
     expect(screen.getByRole('radio', { name: 'Claro' })).toBeChecked();
+  });
+
+  it('el tamaño del texto agranda la interfaz al instante, se guarda en la cuenta y vuelve a lo predeterminado (D47)', async () => {
+    dispositivoEnModo(false);
+    const { peticiones } = abrir(sesionCon('usuario'), '/cuenta', {
+      'PUT /auth/preferencias': ({ cuerpo }) => ({ cuerpo: { tema: 'sistema', tamanoTexto: 'normal', ...(cuerpo as object) } }),
+    });
+    const usuario = userEvent.setup();
+    expect(await screen.findByRole('radio', { name: 'Normal' })).toBeChecked();
+    expect(raiz.dataset.texto).toBe('normal');
+    expect(screen.queryByRole('button', { name: 'Volver a lo predeterminado' })).not.toBeInTheDocument();
+
+    await usuario.click(screen.getByRole('radio', { name: 'Muy grande' }));
+
+    expect(raiz.dataset.texto).toBe('muy_grande');
+    await waitFor(() => expect(peticiones.filter((p) => p.ruta === '/auth/preferencias').map((p) => p.cuerpo)).toEqual([{ tamanoTexto: 'muy_grande' }]));
+    expect(JSON.parse(localStorage.getItem('gestion-documental.sesion')!).usuario.tamanoTexto).toBe('muy_grande');
+
+    await usuario.click(screen.getByRole('radio', { name: 'Oscuro' }));
+    await usuario.click(screen.getByRole('button', { name: 'Volver a lo predeterminado' }));
+
+    expect(raiz.dataset.texto).toBe('normal');
+    expect(screen.getByRole('radio', { name: 'Del dispositivo' })).toBeChecked();
+    await waitFor(() => expect(peticiones.filter((p) => p.ruta === '/auth/preferencias').at(-1)?.cuerpo).toEqual({ tema: 'sistema', tamanoTexto: 'normal' }));
   });
 
   it('una sesión guardada antes de esta versión, sin tema ni marca, sigue funcionando', async () => {
@@ -119,6 +146,104 @@ describe('Tema de cada persona (RF32)', () => {
 
     expect(await screen.findByRole('radio', { name: 'Del dispositivo' })).toBeChecked();
     expect(raiz.dataset.tema).toBe('claro');
+    expect(raiz.dataset.texto).toBe('normal');
+    expect(raiz.dataset.menu).toBe('claro');
+    expect(raiz.dataset.esquinas).toBe('suaves');
+  });
+});
+
+describe('Estilo de la empresa (D47)', () => {
+  const menu = () => screen.getByRole('group', { name: 'Menú lateral' });
+  const barra = () => screen.getByRole('group', { name: 'Barra superior' });
+
+  it('todos los de la empresa ven su menú y su barra del color de la empresa y sus esquinas; al salir, vuelve lo de siempre', async () => {
+    dispositivoEnModo(false);
+    abrir(sesionCon('usuario', { marca: { ...SIN_MARCA, estiloMenu: 'marca', estiloBarra: 'marca', esquinas: 'rectas' } }), '/cuenta',
+      { 'POST /auth/logout': { estado: 204 } });
+
+    await screen.findByRole('heading', { name: 'Mi cuenta' });
+    expect(raiz.dataset).toMatchObject({ menu: 'marca', barra: 'marca', esquinas: 'rectas' });
+    // estilos.css lo aplica solo dentro de estas dos zonas: el contenido no cambia de colores.
+    expect(screen.getByRole('banner')).toHaveClass('zona-barra');
+    expect(screen.getByRole('navigation', { name: 'Principal' }).closest('aside')).toHaveClass('zona-menu');
+    expect(screen.getByRole('main').closest('.zona-menu, .zona-barra')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sí, cerrar sesión' }));
+    await screen.findByRole('heading', { name: 'Iniciar sesión' });
+    expect(raiz.dataset).toMatchObject({ menu: 'claro', barra: 'claro', esquinas: 'suaves' });
+  });
+
+  it('el administrador lo ve en toda la pantalla mientras elige, puede descartarlo, y guarda solo lo que cambió', async () => {
+    dispositivoEnModo(false);
+    const { peticiones } = abrir(sesionCon('administrador'), '/admin/identidad', {
+      'GET /empresa/identidad': { cuerpo: SIN_MARCA },
+      'PATCH /empresa/identidad': ({ cuerpo }) => ({ cuerpo: { ...SIN_MARCA, ...(cuerpo as object) } }),
+    });
+    const usuario = userEvent.setup();
+    await screen.findByRole('group', { name: 'Menú lateral' });
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+
+    await usuario.click(within(menu()).getByRole('radio', { name: 'Del color de la empresa' }));
+    expect(raiz.dataset.menu).toBe('marca');
+    expect(screen.getByRole('status')).toHaveTextContent('Cambios sin guardar');
+    await usuario.click(screen.getByRole('button', { name: 'Descartar' }));
+    expect(raiz.dataset.menu).toBe('claro');
+    expect(within(menu()).getByRole('radio', { name: 'Claro' })).toBeChecked();
+    expect(screen.queryByText(/Cambios sin guardar/)).not.toBeInTheDocument();
+
+    await usuario.click(within(barra()).getByRole('radio', { name: 'Del color de la empresa' }));
+    await usuario.click(screen.getByRole('radio', { name: 'Redondeadas' }));
+    expect(raiz.dataset).toMatchObject({ barra: 'marca', esquinas: 'redondeadas' });
+    await usuario.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText(/Identidad guardada/)).toBeInTheDocument();
+    expect(peticiones.filter((p) => p.metodo === 'PATCH').map((p) => p.cuerpo)).toEqual([{ estiloBarra: 'marca', esquinas: 'redondeadas' }]);
+    expect(raiz.dataset).toMatchObject({ menu: 'claro', barra: 'marca', esquinas: 'redondeadas' });
+    expect(JSON.parse(localStorage.getItem('gestion-documental.sesion')!).empresa.marca.estiloBarra).toBe('marca');
+  });
+
+  it('«Restablecer» vuelve el color y el estilo a los de la plataforma, sin tocar el nombre ni el logo', async () => {
+    dispositivoEnModo(false);
+    const guardada: Marca = {
+      ...SIN_MARCA, nombreComercial: 'Textiles Andinos', colorPrimario: '#1d4ed8', logoUrl: 'https://archivos.ejemplo/logo.png?firma=1',
+      estiloBarra: 'marca', esquinas: 'rectas',
+    };
+    const { peticiones } = abrir(sesionCon('administrador', { marca: guardada }), '/admin/identidad', {
+      'GET /empresa/identidad': { cuerpo: guardada },
+      'PATCH /empresa/identidad': ({ cuerpo }) => ({ cuerpo: { ...guardada, ...(cuerpo as object), colorPrimario: null } }),
+    });
+    const usuario = userEvent.setup();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Restablecer colores y estilo' }));
+
+    expect(screen.getByRole('textbox', { name: /Color principal/ })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: /Nombre comercial/ })).toHaveValue('Textiles Andinos');
+    expect(raiz.dataset).toMatchObject({ barra: 'claro', esquinas: 'suaves' });
+    expect(raiz.style.getPropertyValue('--marca')).toBe('#0f766e');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText(/Identidad guardada/)).toBeInTheDocument();
+    expect(peticiones.find((p) => p.metodo === 'PATCH')?.cuerpo).toEqual({ colorPrimario: '', estiloBarra: 'claro', esquinas: 'suaves' });
+    expect(screen.getByRole('img', { name: /Logo de/ })).toHaveAttribute('src', guardada.logoUrl);
+    expect(screen.queryByRole('button', { name: 'Restablecer colores y estilo' })).not.toBeInTheDocument();
+  });
+
+  it('si sale sin guardar, vuelve el estilo que estaba', async () => {
+    dispositivoEnModo(false);
+    abrir(sesionCon('administrador', { marca: { ...SIN_MARCA, esquinas: 'rectas' } }), '/admin/identidad', {
+      'GET /empresa/identidad': { cuerpo: { ...SIN_MARCA, esquinas: 'rectas' } },
+      'GET /tablero': { estado: 503, cuerpo: { error: { codigo: 'ERROR', mensaje: 'No disponible' } } },
+    });
+    const usuario = userEvent.setup();
+
+    await usuario.click(await screen.findByRole('radio', { name: 'Redondeadas' }));
+    await usuario.click(within(menu()).getByRole('radio', { name: 'Del color de la empresa' }));
+    expect(raiz.dataset).toMatchObject({ menu: 'marca', esquinas: 'redondeadas' });
+
+    await usuario.click(screen.getAllByRole('link', { name: 'Tablero' })[0]!);
+    await screen.findByRole('heading', { name: 'Tablero' });
+    expect(raiz.dataset).toMatchObject({ menu: 'claro', esquinas: 'rectas' });
   });
 });
 
@@ -246,7 +371,8 @@ describe('Identidad de la empresa (RF31)', () => {
     expect(await screen.findByText(/Identidad guardada/)).toBeInTheDocument();
     const cambio = peticiones.find((p) => p.metodo === 'PATCH')!;
     expect(cambio.ruta).toBe('/plataforma/empresas/empresa-b/identidad');
-    expect(cambio.cuerpo).toEqual({ nombreComercial: 'Contadores Lima', colorPrimario: '' });
+    // Solo lo que cambió: el historial no registra lo que nadie tocó.
+    expect(cambio.cuerpo).toEqual({ nombreComercial: 'Contadores Lima' });
     expect(screen.getAllByText('Administración de la plataforma').length).toBeGreaterThan(0);
   });
 });

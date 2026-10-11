@@ -836,6 +836,45 @@ confirmación sale en la fila de la persona.
   no deja borrarlos (RN17).
 - **Solo esconder en la pantalla:** las búsquedas repetidas inflaban de verdad los conteos del tablero.
 
+**D47 · Más personalización sin perder la legibilidad: opciones cerradas para la empresa y el tamaño del texto para
+cada persona.** El autor pidió una personalización «de marca blanca»: colores independientes para cada elemento (menú,
+barra, fondo, tarjetas, botones, enlaces, foco), color secundario y de acento, favicon, banner, sombras, densidad,
+estilo de tablas, la marca en la pantalla de acceso, preferencias por persona (tamaño del texto, densidad, vista de
+tabla o cuadrícula, columnas, filas por página, orden) y un tablero que se reordena. Antes de escribir código se auditó
+lo que había: la identidad de D28 y D39 ya cubría nombre comercial, color, logo, fondo y su vista previa en toda la
+pantalla, y su garantía es que **cualquier combinación se lee en los dos modos**, porque todo sale de un solo color con
+contraste comprobado (4,5:1 con el texto blanco) y de un tono de fondo con la claridad fijada por la interfaz.
+- **Lo que se sumó, todo con la misma garantía:** el menú lateral y la barra superior pueden ir «del color de la
+  empresa». Es el color principal, que ya se lee con el texto blanco; lo marcado y el paso del ratón se oscurecen (solo
+  sube el contraste) y en el modo oscuro el fondo también se oscurece un poco. Las esquinas se eligen entre rectas, suaves y
+  redondeadas: Tailwind compila `rounded-lg` como `var(--radius-lg)`, así que basta redefinir la escala en un punto. Son
+  tres columnas de `empresas` con valor por defecto (las empresas existentes no cambian), sus `CHECK` y el mismo permiso
+  de columna y la misma política que el color (migración 017).
+- **Cada persona elige el tamaño del texto** (normal, grande o muy grande), en su cuenta como el tema: toda la interfaz
+  está en `rem`, así que la letra de la página la agranda entera y los cortes de pantalla no se mueven. No cambia lo que
+  ven los demás; las pruebas recorren a 360 px las pantallas principales con el tamaño mayor sin desplazamiento lateral.
+- **La pantalla de identidad** agrupa nombre, colores y estilo en un solo formulario: muestra los cambios en toda la
+  pantalla sin guardarlos, avisa de los pendientes, permite descartarlos y restablecer solo los colores y el estilo
+  (nunca el nombre ni el logo), y guarda solo lo que cambió, así que el historial nombra exactamente lo que se tocó.
+- **Cómo se aplica:** el menú y la barra usan colores «de zona» (`--color-zona-*`) que una regla redefine solo dentro de
+  esas dos zonas; los paneles que se abren dentro (la campana, el diálogo de salir) siguen con los de siempre, y el foco
+  del teclado se ve blanco sobre la marca. Ningún componente del contenido cambió de clases.
+
+*Descartado:*
+- **Un color libre por elemento:** con diez colores serían unas veinte combinaciones de texto y fondo que validar en
+  cada modo, y «texto blanco sobre fondo blanco» sería posible. Las opciones cerradas dan el efecto de marca sin ese riesgo.
+- **Color secundario y de acento, y favicon:** los descartó la segunda auditoría y siguen postergados; el favicon se
+  pide antes de iniciar sesión, cuando no se sabe de qué empresa es nadie.
+- **Banner institucional:** repite la imagen de fondo (D39).
+- **Sombras:** la interfaz casi no las usa y Tailwind las escribe en cada clase, no en una variable.
+- **Densidad de la interfaz:** en Tailwind 4 el espaciado también mide iconos, anchos y el menú; tendría efectos en todo.
+- **Vista en cuadrícula, columnas visibles y estilo de tablas:** el listado es una lista, no una tabla configurable.
+- **Filas por página y orden de cada persona:** cada participante mediría algo distinto en los indicadores 2 y 7.
+- **La marca de la empresa en la pantalla de acceso:** exigiría la empresa en la dirección (`/acceso/taller-x`), lo que
+  permite enumerar empresas y ver su logo sin sesión.
+- **Reordenar u ocultar tarjetas del tablero:** el tablero es la evidencia de los siete indicadores.
+- **Accesos rápidos personales:** el menú tiene como mucho diez entradas.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

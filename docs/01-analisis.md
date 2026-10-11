@@ -75,8 +75,8 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 | RF28 | Ver el tablero de la empresa: su estado, el flujo de aprobación, las últimas acciones y lo que el sistema registra de cada indicador en un periodo | Administrador | A y B |
 | RF29 | Respaldar la base cada noche y a petición, y restaurarla en una base vacía | Sistema, Master | A |
 | RF30 | Ver en la ficha de un documento su actividad: su ciclo de vida para todos y, para el administrador, también quién lo vio y lo descargó | Todos | B |
-| RF31 | Dar a la empresa una identidad visual (nombre comercial, color principal, logo y fondo) que ven todas sus personas | Administrador, Master | B |
-| RF32 | Elegir el tema de la interfaz (el del dispositivo, claro u oscuro) y que se guarde en la cuenta | Todos | B |
+| RF31 | Dar a la empresa una identidad visual (nombre comercial, color principal, logo, fondo, y menú, barra superior y esquinas) que ven todas sus personas | Administrador, Master | B |
+| RF32 | Elegir el tema de la interfaz (el del dispositivo, claro u oscuro) y el tamaño del texto, y que se guarden en la cuenta | Todos | B |
 | RF33 | Ver una vista previa del PDF o la imagen dentro de la ficha del documento, sin abrir otra pestaña | Administrador, Usuario | B |
 | RF34 | Subir una versión nueva de un documento sin perder las anteriores, verlas y descargarlas, y restaurar una anterior como versión nueva | Administrador, Usuario (de los suyos) | B |
 | RF35 | Exportar el listado documental (el inventario) en Excel (con su resumen) y en CSV, con los filtros del listado: nombre, categoría, fecha, autor, tipo, peso, versión y estado de aprobación | Administrador | B |
@@ -217,7 +217,10 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
   firmado que dura lo que la sesión. La razón social no cambia con ella: es un dato legal que cambia el Master.
   El fondo es un color, del que solo cuenta el tono (la claridad la fija la interfaz en cada modo, así que no
   se valida su contraste), y una imagen WebP o JPG de hasta 512 KB, que el navegador reduce y comprime antes
-  de subirla y que solo se muestra, y se descarga, en pantallas de 1024 px o más (D39).
+  de subirla y que solo se muestra, y se descarga, en pantallas de 1024 px o más (D39). El estilo son opciones
+  cerradas, nunca colores libres: el menú lateral y la barra superior, claros o del color principal (con el
+  texto blanco que ese color ya garantiza legible), y las esquinas, rectas, suaves o redondeadas. Por defecto,
+  claros y suaves, como siempre (D47).
 - **RN34** El listado documental y la hoja imprimible salen enteros o no salen: con más de 50.000
   documentos o de 2.000 acciones, se pide filtrar en vez de entregar una parte. Los dos se registran en el
   historial, y un texto que una hoja de cálculo tomaría por fórmula (=, +, -, @) sale como texto.
@@ -228,9 +231,10 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
   de la v2): la historia no retrocede. La aprobación es de una versión: con una nueva, la ficha dice en
   cuál se aprobó y que la vigente no se ha revisado. Purgar un documento borra el archivo de todas sus
   versiones, y el espacio ocupado las cuenta todas.
-- **RN32** Cada persona elige su tema: el del dispositivo (por defecto), claro u oscuro. Se guarda en su
-  cuenta, así que la sigue a cualquier dispositivo, y no se registra en el historial: es una preferencia
-  de presentación, no una acción sobre los datos.
+- **RN32** Cada persona elige su tema: el del dispositivo (por defecto), claro u oscuro, y el tamaño del
+  texto: normal (por defecto), grande o muy grande, que agranda la interfaz entera. Se guardan en su cuenta,
+  así que la siguen a cualquier dispositivo; no cambian lo que ven los demás ni los colores de la empresa, y no
+  se registran en el historial: son preferencias de presentación, no acciones sobre los datos (D47).
 
 **Verificación del correo (C)**
 

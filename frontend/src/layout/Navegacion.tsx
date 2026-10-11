@@ -67,7 +67,7 @@ export function Navegacion({ alNavegar }: { alNavegar?: () => void }) {
     <nav aria-label="Principal" className="space-y-6">
       {GRUPOS.filter((grupo) => rol && grupo.roles.includes(rol)).map(({ titulo, enlaces }) => (
         <div key={titulo}>
-          <p className="px-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">{titulo}</p>
+          <p className="px-3 text-xs font-semibold tracking-wide text-zona-suave uppercase">{titulo}</p>
           <ul className="mt-2 space-y-1">
             {enlaces.map(({ a, texto, icono: Icono }) => (
               <li key={a}>
@@ -76,8 +76,8 @@ export function Navegacion({ alNavegar }: { alNavegar?: () => void }) {
                   end={a !== '/plataforma'}
                   onClick={alNavegar}
                   className={({ isActive }) =>
-                    `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
-                      marcado(a, isActive) ? 'bg-marca-50 text-marca-800 shadow-[inset_3px_0_0_var(--color-marca-600)]' : 'text-slate-700 hover:bg-slate-100'
+                    `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-zona-foco ${
+                      marcado(a, isActive) ? 'bg-zona-activa text-zona-activa-texto shadow-[inset_3px_0_0_var(--color-zona-acento)]' : 'text-zona-texto hover:bg-zona-hover'
                     }`}
                 >
                   <Icono aria-hidden className="size-5 shrink-0" />

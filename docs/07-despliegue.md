@@ -201,7 +201,7 @@ Un respaldo solo se restaura con las mismas migraciones con que se hizo. Por eso
 una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones; la 010,
 la visibilidad por consulta y el listado documental; la 011, la constancia del cierre del estudio; la 012, el
 fondo de cada empresa; la 013, la verificación del correo; la 014, la búsqueda; la 015, el contenido; la 016, la
-baja de cuentas), pide un
+baja de cuentas; la 017, el estilo y el tamaño del texto), pide un
 respaldo en el momento desde *Respaldos*: el de la noche anterior solo se restauraría con el código
 anterior.
 
