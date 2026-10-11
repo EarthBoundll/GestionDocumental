@@ -16,6 +16,7 @@ import { useSesion } from '../../sesion/SesionContext';
 import { abrirArchivo } from '../../utilidades/archivos';
 import { formatearFecha, formatearFechaHora, formatearPeso, nombreDeTipo } from '../../utilidades/formato';
 import { ActividadDelDocumento } from './ActividadDelDocumento';
+import { ContenidoDelArchivo } from './ContenidoDelArchivo';
 import { VersionesDelDocumento } from './VersionesDelDocumento';
 import { sePuedePrevisualizar, VistaPrevia } from './VistaPrevia';
 
@@ -116,6 +117,8 @@ export function DetalleDocumento() {
               <span className="block text-slate-500">{nombreDeTipo(documento.archivo.tipoMime)} · {formatearPeso(documento.archivo.pesoBytes)}</span>
             </Dato>
             {documento.descripcion && <Dato termino="Descripción" ancho>{documento.descripcion}</Dato>}
+            {/* Vercel publica antes de que se despliegue la API: con la API anterior, la ficha no lo muestra. */}
+            {documento.contenido && <Dato termino="Lo que dice el archivo" ancho><ContenidoDelArchivo contenido={documento.contenido} /></Dato>}
           </dl>
         </Tarjeta>
 

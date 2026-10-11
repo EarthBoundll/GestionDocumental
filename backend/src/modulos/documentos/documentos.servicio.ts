@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
 import type { Almacenamiento } from '../../almacenamiento/almacenamiento.js';
 import { calcularCambios, valoresNuevos } from '../../compartido/cambios.js';
+import { leerContenido, type Lectura } from '../../compartido/contenido/leer.js';
 import { aCsv } from '../../compartido/csv.js';
 import { ErrorAplicacion, noEncontrado } from '../../compartido/errores.js';
 import { nombreDeLaEmpresa, type Exportacion, type Formato } from '../../compartido/exportacion.js';
@@ -14,6 +15,7 @@ import { actividadDeDocumento, type ActividadDeDocumento } from '../historial/hi
 import { autorDe, denegarAcceso, registrarAccion } from '../historial/historial.registro.js';
 import { admiteParecidos, terminosDeBusqueda } from './busqueda.js';
 import type { CambiosDocumento, FiltrosBusqueda, FiltrosDelListado, NuevoDocumento, SugerenciaElegida } from './documentos.esquemas.js';
+import { contenidoParaGuardar, guardarContenido } from './contenido.js';
 import { listadoEnExcel } from './listado-en-excel.js';
 import {
   actualizarDocumento, bloquearEnPapelera, buscarDocumento, buscarDocumentos, categoriaDeLaEmpresa, insertarDocumento,
@@ -154,6 +156,8 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
     documentoId: string,
     ruta: string,
     datos: Pick<NuevaVersion, 'archivoNombreOriginal' | 'archivoTipoMime' | 'archivoPesoBytes' | 'comentario' | 'restauradaDe'>,
+    /** Lo leído en el archivo de la versión (D45); null si no se pudo leer ahora, y queda pendiente. */
+    lectura: Lectura | null,
   ): Promise<void> {
     const { usuario } = actor.autenticacion;
     const empresaId = empresaDe(actor);
@@ -165,6 +169,8 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
         const version: NuevaVersion = { empresaId, documentoId, numero: vigente.version + 1, archivoRuta: ruta, subidaPor: usuario.id, ...datos };
         await insertarVersion(cliente, version);
         await hacerVigente(cliente, version);
+        // El contenido es el del archivo vigente: el de la versión nueva reemplaza al anterior.
+        await guardarContenido(cliente, empresaId, documentoId, await contenidoParaGuardar(cliente, empresaId, lectura));
         await registrarAccion(cliente, {
           accion: datos.restauradaDe ? 'VERSION_RESTAURADA' : 'VERSION_SUBIDA',
           autor: autorDe(usuario),
@@ -252,6 +258,8 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
       const categoria = await exigirCategoriaUsable(actor, datos.categoriaId);
       const id = randomUUID();
       const ruta = `${empresaId}/${id}.${tipo.extension}`;
+      // El texto del archivo se lee antes de la transacción: es trabajo de CPU, y no debe tener filas bloqueadas (D45).
+      const lectura = await leerContenido(archivo.contenido, tipo.mime);
 
       // El archivo sube antes que la fila: un fallo después deja, como mucho, un archivo huérfano que se
       // intenta borrar; al revés, dejaría un documento que apunta a un archivo inexistente (§4.2).
@@ -270,6 +278,7 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
             archivoRuta: ruta,
             archivoTipoMime: tipo.mime,
             archivoPesoBytes: archivo.contenido.length,
+            contenido: await contenidoParaGuardar(cliente, empresaId, lectura),
           });
           // Todo documento nace con su versión 1 (D30): las siguientes se suman, nunca la reemplazan.
           await insertarVersion(cliente, {
@@ -378,11 +387,12 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
       const tipo = identificarTipo(nombreOriginal, archivo.contenido);
       const empresaId = empresaDe(actor);
       const ruta = `${empresaId}/${randomUUID()}.${tipo.extension}`;
+      const lectura = await leerContenido(archivo.contenido, tipo.mime);
       await almacenamiento.subir(ruta, archivo.contenido, tipo.mime);
       await guardarVersion(actor, id, ruta, {
         archivoNombreOriginal: nombreOriginal, archivoTipoMime: tipo.mime, archivoPesoBytes: archivo.contenido.length,
         comentario, restauradaDe: null,
-      });
+      }, lectura);
       return publico(await documentoVigente(actor, id));
     },
 
@@ -403,10 +413,17 @@ export function crearServicioDocumentos({ almacenamiento }: { almacenamiento: Al
       const extension = anterior.archivoRuta.split('.').pop();
       const ruta = `${empresaId}/${randomUUID()}.${extension}`;
       await almacenamiento.copiar(anterior.archivoRuta, ruta);
+      // La copia no pasó por la API: para leer su texto hay que traerla. Si no se puede ahora, queda pendiente.
+      const lectura = await almacenamiento.descargar(ruta)
+        .then((contenido) => leerContenido(contenido, anterior.archivo.tipoMime))
+        .catch((error: unknown) => {
+          console.error(`[contenido] no se pudo leer la versión restaurada ${ruta}:`, error);
+          return null;
+        });
       await guardarVersion(actor, id, ruta, {
         archivoNombreOriginal: anterior.archivo.nombreOriginal, archivoTipoMime: anterior.archivo.tipoMime,
         archivoPesoBytes: anterior.archivo.pesoBytes, comentario: null, restauradaDe: numero,
-      });
+      }, lectura);
       return publico(await documentoVigente(actor, id));
     },
 

@@ -118,6 +118,10 @@ erDiagram
         text busqueda_nombre "generada: nombre normalizado"
         text busqueda_texto "generada: nombre, archivo y descripción"
         tsvector busqueda "generada: raíces en español"
+        text contenido "el texto del archivo vigente (D45)"
+        text contenido_estado "pendiente, leido, sin_texto, no_admitido o ilegible"
+        jsonb palabras_clave "datos reconocidos y palabras propias"
+        tsvector busqueda_contenido "generada: raíces del contenido"
     }
     solicitudes {
         uuid id PK
@@ -283,9 +287,14 @@ cambio queda en el historial (`CATEGORIA_EDITADA`).
 | busqueda_nombre | text | no | generada | El nombre en minúsculas, sin tildes y con los signos convertidos en espacios: para la coincidencia exacta, el comienzo, el orden por nombre y la pasada por parecido (D42) |
 | busqueda_texto | text | no | generada | Lo mismo con el nombre del archivo y la descripción: para encontrar parte de una palabra |
 | busqueda | tsvector | no | generada | Las raíces en español: nombre y archivo con peso A, descripción con B |
+| contenido | text | sí | como mucho 20.000 caracteres | El texto del archivo vigente, leído por la API al subirlo (D45): un PDF con capa de texto, un Word o un Excel. Nulo si no se leyó; se borra con la purga |
+| contenido_estado | text | no | `pendiente`, `leido`, `sin_texto`, `no_admitido` o `ilegible`; por omisión `pendiente` | Qué pasó al leerlo. `pendiente`: lo subido antes de la migración 015, que una tarea de la API lee en segundo plano |
+| palabras_clave | jsonb | sí | | `{"datos": [{"tipo": "ruc", "valor": "20…"}], "palabras": ["casaca", …]}`: RUC, comprobantes, montos y fechas reconocidos, y las palabras propias del documento frente al resto de la empresa. Se borra con la purga |
+| busqueda_contenido | tsvector | no | generada | Las raíces del contenido, sin posiciones: en su propia columna para que buscar por el nombre no lea el contenido (D45) |
 
-Además, único (`id`, `empresa_id`). Las tres columnas de búsqueda (014) las calcula la base al insertar o actualizar, también
-cuando una versión nueva cambia el archivo; nadie las escribe (error 428C9) y los respaldos no las guardan.
+Además, único (`id`, `empresa_id`). Las columnas de búsqueda (014 y 015) las calcula la base al insertar o actualizar,
+también cuando una versión nueva cambia el archivo; nadie las escribe (error 428C9) y los respaldos no las guardan. El
+contenido sí va en los respaldos, y se elimina con lo demás al cierre del estudio.
 
 ### solicitudes
 
@@ -472,6 +481,7 @@ Además de los únicos de la sección anterior.
 | categoria_accesos | usuario | Qué categorías restringidas ve alguien |
 | documentos | empresa + `eliminado_en`, solo en la papelera (no purgados) | La papelera y la purga a los 30 días |
 | historial | correo del detalle + `creado_en`, solo `SESION_FALLIDA` | Contar los fallos recientes de un correo (RN27) |
+| documentos | empresa, solo con `contenido_estado` = `pendiente` | La tarea que lee lo pendiente, sin recorrer todos los documentos (D45) |
 
 ## 5. Decisiones de modelado
 

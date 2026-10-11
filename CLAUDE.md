@@ -190,6 +190,7 @@ permisos dentro de una empresa.
 - Verificación obligatoria del correo: la cuenta nace sin contraseña y se activa con la invitación que le llega (hecho)
 - Buscador avanzado: palabras en cualquier orden, raíz, errores de escritura, filtros combinables y sugerencias (hecho)
 - Exportaciones en Excel con resumen y tabla para Power BI, además del CSV (hecho)
+- Búsqueda en lo que dice el archivo (PDF, Word y Excel) y palabras clave en la ficha, sin IA ni OCR (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -377,6 +378,14 @@ Excel en español, el CSV salía en una sola columna. El listado y el historial 
 colores del sistema, tarjetas y conteos con barras, y los datos en una tabla de Excel que Power BI abre por su nombre; un
 ZIP de XML hecho con zlib, misma consulta, RLS y asiento, y ningún texto como fórmula (D44, corrige D32). Se descartaron
 el CSV con «;», la línea `sep=`, una librería como ExcelJS, gráficos dentro del Excel y una plantilla de Power BI.
+
+**La búsqueda también en lo que dice el archivo, sin IA ni OCR; el texto, en su propia columna.** La API lee al subir
+el texto que ya trae un PDF, Word o Excel (unpdf, con límites de 20.000 caracteres, 50 páginas y 10 s), lo guarda en la
+fila del documento con la misma RLS y saca palabras clave: RUC, comprobantes, montos y fechas por su forma, y las
+palabras propias del documento frente al resto de la empresa (TF-IDF). La búsqueda lo mira solo donde lo demás no
+coincidió y muestra dónde dice lo buscado; nada sale del servidor (D45, corrige a D43 en leer los archivos). Se
+descartaron el OCR, los embeddings, leer en el navegador, una API externa, guardar el texto de cada versión y el texto
+en la misma columna de búsqueda, que con 50.000 documentos casi triplicaba la búsqueda por nombre.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

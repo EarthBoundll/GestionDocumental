@@ -213,6 +213,13 @@ describe('Reglas que impone la propia base (docs/03-modelo-datos.md §3)', () =>
     // Nadie las escribe: ni la aplicación ni un error de código.
     await expect(db.query("UPDATE documentos SET busqueda_texto = 'otra cosa' WHERE id = $1", [id]))
       .rejects.toMatchObject({ code: '428C9' });
+
+    // D45: lo que dice el archivo va en su propia columna, sin posiciones; la de siempre no cambia.
+    await db.query("UPDATE documentos SET contenido = 'Entrega de casacas polares en Gamarra', contenido_estado = 'leido' WHERE id = $1", [id]);
+    const { rows: [conContenido] } = await db.query(
+      'SELECT busqueda::text AS busqueda, busqueda_contenido::text AS busqueda_contenido FROM documentos WHERE id = $1', [id]);
+    expect(conContenido.busqueda).toBe(fila.busqueda);
+    expect(conContenido.busqueda_contenido).toBe("'casac' 'entreg' 'gamarr' 'polar'");
   });
 
   it('actualizado_en se renueva en cada UPDATE sin que la aplicación lo pida', async () => {

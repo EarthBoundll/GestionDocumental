@@ -163,7 +163,7 @@ fuera, que sirve como evidencia de disponibilidad.
 
 ### Tareas de la propia API
 
-Al estar despierta, la API hace dos tareas programadas sin ninguna pieza más:
+Al estar despierta, la API hace tres tareas programadas sin ninguna pieza más:
 
 - **Purga de la papelera** (D23): un minuto después de arrancar y cada seis horas, borra el archivo de
   lo que lleva más de 30 días eliminado. En el historial de cada empresa queda `DOCUMENTO_PURGADO` con
@@ -171,6 +171,10 @@ Al estar despierta, la API hace dos tareas programadas sin ninguna pieza más:
 - **Respaldo nocturno** (D25): a las 03:00 de Lima guarda la base comprimida en el bucket `respaldos` y
   borra los de más de 30 días. Queda `RESPALDO_GENERADO` en la auditoría del Master, que puede pedir uno
   en el momento desde *Respaldos*.
+- **Lectura del contenido** (D45): dos minutos después de arrancar y cada diez, lee el texto de los
+  documentos que quedaron pendientes, de a 20 por empresa: tras desplegar la migración 015, todo lo que ya
+  estaba subido. Lo nuevo se lee al subirlo. En los registros de Render queda `[contenido] N documento(s)
+  leído(s)`; en la base, `select contenido_estado, count(*) from documentos group by 1` dice cuánto falta.
 
 ## 7.1 Restaurar un respaldo
 
@@ -196,7 +200,7 @@ correcto» y las filas de cada tabla, o con el motivo por el que no se restaurar
 Un respaldo solo se restaura con las mismas migraciones con que se hizo. Por eso, después de desplegar
 una versión que trae una migración nueva (la 008 añadió la identidad y el tema; la 009, las versiones; la 010,
 la visibilidad por consulta y el listado documental; la 011, la constancia del cierre del estudio; la 012, el
-fondo de cada empresa; la 013, la verificación del correo; la 014, la búsqueda), pide un
+fondo de cada empresa; la 013, la verificación del correo; la 014, la búsqueda; la 015, el contenido), pide un
 respaldo en el momento desde *Respaldos*: el de la noche anterior solo se restauraría con el código
 anterior.
 
@@ -239,6 +243,9 @@ Después, a mano, la prueba de humo (unos diez minutos):
       un nombre con una letra cambiada y elige una sugerencia mientras escribes: los tres encuentran el documento y el
       historial muestra las búsquedas (D42). *(10 de octubre: una búsqueda escrita desde un iPhone encontró el
       documento; faltan la letra cambiada y la sugerencia.)*
+- [ ] Sube un PDF de texto (por ejemplo, uno de `npm run documentos-de-prueba`) con un nombre que no diga lo que
+      contiene, y busca desde el celular una palabra que solo dice el PDF: sale con «Dentro del archivo» y la frase
+      donde aparece, y su ficha muestra las palabras clave. Una foto dice que su texto no se lee (D45).
 - [x] El administrador crea una cuenta con un correo al que tienes acceso: la lista dice «Pendiente de activar»,
       la invitación llega (revisa también *Spam*), el enlace lleva a *Activa tu cuenta*, y con la contraseña
       elegida se entra desde el celular. Un segundo uso del mismo enlace dice que ya no sirve (D41). *(10 de

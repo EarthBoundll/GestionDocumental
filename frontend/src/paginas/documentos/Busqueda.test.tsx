@@ -18,7 +18,7 @@ const CONTRATO = {
   creadoEn: '2026-10-02T14:35:16Z',
 };
 
-function abrir(ruta: string, rol: 'usuario' | 'administrador' = 'usuario', listado: Partial<{ aproximada: boolean; coincidencia: string }> = {}) {
+function abrir(ruta: string, rol: 'usuario' | 'administrador' = 'usuario', listado: Partial<{ aproximada: boolean; coincidencia: string; fragmento: unknown }> = {}) {
   guardarSesion(sesionDe(rol));
   const api = simularApi({
     'GET /auth/yo': { cuerpo: { usuario: sesionDe(rol).usuario, empresa: sesionDe(rol).empresa } },
@@ -27,7 +27,7 @@ function abrir(ruta: string, rol: 'usuario' | 'administrador' = 'usuario', lista
     'GET /usuarios': { cuerpo: { datos: [{ id: 'id-ana', nombre: 'Ana Torres' }, { id: 'id-luis', nombre: 'Luis Quispe' }], paginacion: { pagina: 1, porPagina: 100, total: 2 } } },
     'GET /documentos': ({ consulta }: PeticionRecibida) => ({
       cuerpo: {
-        datos: [{ ...CONTRATO, ...(consulta.get('q') && { coincidencia: listado.coincidencia ?? 'nombre_inicio' }) }],
+        datos: [{ ...CONTRATO, ...(consulta.get('q') && { coincidencia: listado.coincidencia ?? 'nombre_inicio' }), ...(listado.fragmento ? { fragmento: listado.fragmento } : {}) }],
         paginacion: { pagina: 1, porPagina: 20, total: 1 },
         aproximada: listado.aproximada ?? false,
         tiempoRespuestaId: null,
@@ -139,6 +139,23 @@ describe('Buscador de documentos (D42)', () => {
     expect(await screen.findByText('No hay documentos con «contarto» tal cual. Estos se parecen: revisa si alguna palabra está mal escrita.')).toBeInTheDocument();
     expect(screen.getByText('Se parece')).toBeInTheDocument();
     expect(screen.getByLabelText('Ordenar por')).toHaveValue('relevancia');
+  });
+
+  it('si coincidió dentro del archivo, muestra dónde con lo buscado resaltado, como texto y nunca como HTML (D45)', async () => {
+    abrir('/documentos?q=garantia', 'usuario', {
+      coincidencia: 'contenido',
+      fragmento: [
+        { texto: '… el arrendatario entrega una ', resaltado: false },
+        { texto: 'garantía', resaltado: true },
+        { texto: ' de <b>dos</b> meses …', resaltado: false },
+      ],
+    });
+
+    const fragmento = await screen.findByTestId('fragmento');
+    expect(fragmento).toHaveTextContent('… el arrendatario entrega una garantía de <b>dos</b> meses …');
+    expect(within(fragmento).getByText('garantía').tagName).toBe('MARK');
+    expect(fragmento.querySelector('b')).toBeNull();
+    expect(screen.getByText('Dentro del archivo')).toBeInTheDocument();
   });
 
   it('un usuario filtra «los que subí yo» sin ver la lista de sus colegas; el administrador elige a la persona', async () => {

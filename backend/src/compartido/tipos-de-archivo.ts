@@ -7,7 +7,7 @@ const OFFICE_ANTIGUO = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
  * Los tipos admitidos (RN09). La extensión dice qué dice ser el archivo; los primeros bytes, qué es.
  * Se exigen ambos, para que un ejecutable renombrado como «factura.pdf» no entre en el sistema.
  */
-const TIPOS = {
+export const TIPOS = {
   pdf: { mime: 'application/pdf', firma: [0x25, 0x50, 0x44, 0x46] },
   jpg: { mime: 'image/jpeg', firma: [0xff, 0xd8, 0xff] },
   jpeg: { mime: 'image/jpeg', firma: [0xff, 0xd8, 0xff] },

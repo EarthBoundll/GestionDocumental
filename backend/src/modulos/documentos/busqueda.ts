@@ -50,10 +50,10 @@ export function terminosDeBusqueda(q: string): TerminosDeBusqueda {
 export const admiteParecidos = (terminos: TerminosDeBusqueda) => terminos.palabras.some(admiteParecido);
 
 /**
- * Dónde coincidió cada resultado, de lo más a lo menos útil (D42). El orden de relevancia es este: la
- * persona puede ver por qué un documento salió primero.
+ * Dónde coincidió cada resultado, de lo más a lo menos útil (D42), también en lo que dice el archivo (D45). El
+ * orden de relevancia es este: la persona puede ver por qué un documento salió primero.
  */
 export const COINCIDENCIAS = [
-  'nombre_exacto', 'nombre_inicio', 'nombre', 'nombre_o_archivo', 'descripcion', 'categoria', 'parecido',
+  'nombre_exacto', 'nombre_inicio', 'nombre', 'nombre_o_archivo', 'descripcion', 'contenido', 'categoria', 'parecido',
 ] as const;
 export type Coincidencia = (typeof COINCIDENCIAS)[number];

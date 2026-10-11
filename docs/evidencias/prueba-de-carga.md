@@ -1,11 +1,11 @@
 # Prueba de carga: 50.000 documentos
 
-Generado por `npm run informe:carga` (backend) el 11 de octubre de 2026, 2:35 a. m., hora de Lima.
+Generado por `npm run informe:carga` (backend) el 11 de octubre de 2026, 8:54 a. m., hora de Lima.
 
 **Pregunta.** ¿El listado y la búsqueda siguen por debajo de 1 s (RNF05, indicador 7) cuando una empresa
 tiene 50,000 documentos, con categorías restringidas y otra empresa en las mismas tablas?
 
-**Resultado: 24 de 24 escenarios con el percentil 95 dentro de su umbral:** 1 s para listar
+**Resultado: 26 de 26 escenarios con el percentil 95 dentro de su umbral:** 1 s para listar
 y buscar (RNF05) y 5 s para las exportaciones (la hoja para imprimir, el CSV y el Excel), que descargan de una vez todo lo filtrado.
 
 ## Los datos
@@ -13,16 +13,18 @@ y buscar (RNF05) y 5 s para las exportaciones (la hoja para imprimir, el CSV y e
 - Empresa medida: 50,000 documentos de un taller textil (facturas, guías, órdenes de compra,
   planillas…) repartidos en 8 categorías, dos de ellas restringidas, con fechas de tres años y medio, su
   versión 1, uno de cada 7 como foto, uno de cada 10 con su solicitud de aprobación y uno de cada 50 en la papelera; 200,000 asientos de historial; 11 personas.
+- El texto de cada archivo que no es una foto (D45): unos 1.700 caracteres con el cliente, su RUC, dos prendas y
+  cláusulas de entrega, pago y garantía, como lo dejaría la lectura al subirlo.
 - Otra empresa con 10,000 documentos en las mismas tablas.
 - Quien mide: la **usuaria** ve una de las dos categorías restringidas, así que la RLS evalúa las dos
-  ramas (D22); la **administradora** las ve todas. Carga de los datos: 19 s.
+  ramas (D22); la **administradora** las ve todas. Carga de los datos: 28 s.
 
 ## Cómo se mide
 
 Cada escenario es una petición real a la API (autenticación, sesión comprobada en la base, RLS,
 consulta, registro en el historial de la búsqueda y JSON), 3 veces para calentar y 30
 medidas. No incluye la red ni el navegador: es el tiempo del servidor, la parte que crece con los datos.
-Equipo: 4 núcleos (Intel(R) Xeon(R) Processor @ 2.80GHz), 16 GB, Node v22.22.0,
+Equipo: 4 núcleos (Intel(R) Xeon(R) Processor @ 2.10GHz), 16 GB, Node v22.22.0,
 PostgreSQL 17 local.
 
 En producción el servidor es más lento (Render gratuito comparte CPU) y se suma la red hasta Supabase y
@@ -34,30 +36,32 @@ solo, pone en riesgo el umbral.
 
 | Escenario | Quién | Resultados | Mediana | Percentil 95 | Máximo | Umbral | Cumple |
 |---|---|---:|---:|---:|---:|---:|---|
-| Listado inicial: los 20 más recientes | usuaria | 42,750 | 17 ms | 25 ms | 36 ms | 1 s | Sí |
-| Listado inicial: los 20 más recientes | administradora | 49,000 | 17 ms | 22 ms | 27 ms | 1 s | Sí |
-| Búsqueda por nombre, sin tildes («guia de remision») | usuaria | 6,000 | 100 ms | 131 ms | 147 ms | 1 s | Sí |
-| Búsqueda de un documento concreto («N° 031416») | usuaria | 1 | 79 ms | 114 ms | 117 ms | 1 s | Sí |
-| El mismo, de una categoría restringida sin acceso («N° 031415») | usuaria | 0 | 81 ms | 120 ms | 121 ms | 1 s | Sí |
-| Filtro por categoría (Facturas) | usuaria | 6,000 | 12 ms | 15 ms | 26 ms | 1 s | Sí |
-| Filtro por categoría restringida con acceso (Planillas) | usuaria | 6,000 | 12 ms | 14 ms | 14 ms | 1 s | Sí |
-| Filtro por fechas (un trimestre) | usuaria | 2,808 | 16 ms | 23 ms | 27 ms | 1 s | Sí |
-| Nombre, categoría y fechas a la vez | usuaria | 534 | 30 ms | 43 ms | 72 ms | 1 s | Sí |
-| Ordenado por nombre | usuaria | 42,750 | 58 ms | 80 ms | 96 ms | 1 s | Sí |
-| Por palabras y su raíz, por relevancia («facturas textiles») | usuaria | 2,000 | 91 ms | 114 ms | 120 ms | 1 s | Sí |
-| Solo en la descripción («medicion carga») | usuaria | 14,250 | 135 ms | 217 ms | 220 ms | 1 s | Sí |
-| Con errores de escritura: segunda pasada por parecido («factrua textiles») | usuaria | 2,000 | 533 ms | 606 ms | 626 ms | 1 s | Sí |
-| Sugerencias mientras se escribe («guia rem») | usuaria | 5 | 50 ms | 78 ms | 80 ms | 1 s | Sí |
-| Sugerencias de un documento concreto («031416») | usuaria | 1 | 41 ms | 54 ms | 57 ms | 1 s | Sí |
-| Filtro por estado de aprobación (pendientes) | usuaria | 1,250 | 55 ms | 85 ms | 87 ms | 1 s | Sí |
-| Filtro por tipo (fotos) | usuaria | 6,107 | 32 ms | 45 ms | 45 ms | 1 s | Sí |
-| Texto, tipo, estado y fecha de subida a la vez | usuaria | 0 | 339 ms | 371 ms | 376 ms | 1 s | Sí |
-| Página 500 del listado | usuaria | 42,750 | 70 ms | 99 ms | 109 ms | 1 s | Sí |
-| Historial: primera página | administradora | 200,435 | 33 ms | 40 ms | 40 ms | 1 s | Sí |
-| Historial filtrado por una semana | administradora | 2,016 | 13 ms | 16 ms | 17 ms | 1 s | Sí |
-| Historial imprimible: seis días enteros | administradora | 1,728 | 44 ms | 62 ms | 62 ms | 5 s | Sí |
-| Listado documental completo en CSV | administradora | 49,000 | 567 ms | 580 ms | 580 ms | 5 s | Sí |
-| Listado documental completo en Excel | administradora | — | 1584 ms | 1654 ms | 1654 ms | 5 s | Sí |
+| Listado inicial: los 20 más recientes | usuaria | 42,750 | 14 ms | 16 ms | 17 ms | 1 s | Sí |
+| Listado inicial: los 20 más recientes | administradora | 49,000 | 13 ms | 16 ms | 17 ms | 1 s | Sí |
+| Búsqueda por nombre, sin tildes («guia de remision») | usuaria | 6,000 | 131 ms | 153 ms | 182 ms | 1 s | Sí |
+| Búsqueda de un documento concreto («N° 031416») | usuaria | 1 | 112 ms | 120 ms | 191 ms | 1 s | Sí |
+| El mismo, de una categoría restringida sin acceso («N° 031415») | usuaria | 0 | 111 ms | 136 ms | 138 ms | 1 s | Sí |
+| Filtro por categoría (Facturas) | usuaria | 6,000 | 9 ms | 14 ms | 18 ms | 1 s | Sí |
+| Filtro por categoría restringida con acceso (Planillas) | usuaria | 6,000 | 10 ms | 12 ms | 14 ms | 1 s | Sí |
+| Filtro por fechas (un trimestre) | usuaria | 2,808 | 15 ms | 18 ms | 20 ms | 1 s | Sí |
+| Nombre, categoría y fechas a la vez | usuaria | 534 | 39 ms | 44 ms | 45 ms | 1 s | Sí |
+| Ordenado por nombre | usuaria | 42,750 | 68 ms | 79 ms | 83 ms | 1 s | Sí |
+| Por palabras y su raíz, por relevancia («facturas textiles») | usuaria | 2,000 | 120 ms | 146 ms | 155 ms | 1 s | Sí |
+| Solo en la descripción («medicion carga») | usuaria | 14,250 | 163 ms | 185 ms | 209 ms | 1 s | Sí |
+| Con errores de escritura: segunda pasada por parecido («factrua textiles») | usuaria | 2,000 | 535 ms | 570 ms | 603 ms | 1 s | Sí |
+| Dentro del archivo, muchas coincidencias («chompa alpaca») | usuaria | 9,267 | 156 ms | 170 ms | 173 ms | 1 s | Sí |
+| Dentro del archivo, un RUC que está en uno solo («20248791223») | usuaria | 1 | 110 ms | 130 ms | 146 ms | 1 s | Sí |
+| Sugerencias mientras se escribe («guia rem») | usuaria | 5 | 63 ms | 75 ms | 75 ms | 1 s | Sí |
+| Sugerencias de un documento concreto («031416») | usuaria | 1 | 58 ms | 69 ms | 75 ms | 1 s | Sí |
+| Filtro por estado de aprobación (pendientes) | usuaria | 1,250 | 66 ms | 74 ms | 76 ms | 1 s | Sí |
+| Filtro por tipo (fotos) | usuaria | 6,107 | 44 ms | 53 ms | 55 ms | 1 s | Sí |
+| Texto, tipo, estado y fecha de subida a la vez | usuaria | 0 | 370 ms | 404 ms | 405 ms | 1 s | Sí |
+| Página 500 del listado | usuaria | 42,750 | 79 ms | 98 ms | 102 ms | 1 s | Sí |
+| Historial: primera página | administradora | 200,501 | 27 ms | 34 ms | 35 ms | 1 s | Sí |
+| Historial filtrado por una semana | administradora | 2,016 | 10 ms | 12 ms | 12 ms | 1 s | Sí |
+| Historial imprimible: seis días enteros | administradora | 1,728 | 39 ms | 48 ms | 48 ms | 5 s | Sí |
+| Listado documental completo en CSV | administradora | 49,000 | 431 ms | 463 ms | 463 ms | 5 s | Sí |
+| Listado documental completo en Excel | administradora | — | 1299 ms | 1399 ms | 1399 ms | 5 s | Sí |
 
 ## Lo que encontró
 
@@ -67,9 +71,9 @@ y cada página la evaluaba dos veces por documento (para el total y para la pág
 
 | Escenario | Con la política de la 004 (mediana) | Con la de la 010 (mediana) |
 |---|---:|---:|
-| Listado inicial de la usuaria | 1948 ms | 17 ms |
-| Listado inicial de la administradora | 925 ms | 17 ms |
-| Búsqueda por nombre de la usuaria | 3846 ms (`guia remision`) | 100 ms |
+| Listado inicial de la usuaria | 1948 ms | 14 ms |
+| Listado inicial de la administradora | 925 ms | 13 ms |
+| Búsqueda por nombre de la usuaria | 3846 ms (`guia remision`) | 131 ms |
 
 La migración 010 calcula una sola vez por consulta qué categorías ve quien pregunta (`categorias_visibles()`, un
 InitPlan) y cada fila solo se compara con esa lista; decide lo mismo que antes (D31).
@@ -84,10 +88,10 @@ de cada palabra, y aun así:
 
 | Escenario | Antes de la 014 (7 de octubre, mediana) | Con la 014 (mediana) |
 |---|---:|---:|
-| Búsqueda por nombre, sin tildes («guia de remision») | 282 ms | 100 ms |
-| Búsqueda de un documento concreto («N° 031416») | 285 ms | 79 ms |
-| Ordenado por nombre | 159 ms | 58 ms |
-| Listado documental completo en CSV | 791 ms | 567 ms |
+| Búsqueda por nombre, sin tildes («guia de remision») | 282 ms | 131 ms |
+| Búsqueda de un documento concreto («N° 031416») | 285 ms | 112 ms |
+| Ordenado por nombre | 159 ms | 68 ms |
+| Listado documental completo en CSV | 791 ms | 431 ms |
 
 Sigue sin usar índices con la RLS (`@@` y `LIKE` tampoco son *leakproof*): recorre los documentos visibles de la
 empresa. Por eso no se añadió ninguno; la segunda pasada, por similitud de trigramas, es la más cara y solo corre cuando
@@ -102,527 +106,670 @@ La primera medición de la 014, el 10 de octubre de 2026, encontró dos cosas qu
 - La búsqueda por parecido sobre el nombre, el archivo y la descripción tardaba más de 1 s. Ahora compara solo con el
   nombre, que es lo que se escribe de memoria, y tarda la mitad.
 
+### El texto de los archivos (D45)
+
+Desde la migración 015 la búsqueda mira también lo que dice cada archivo. La primera versión lo puso, con el peso más
+bajo, en la misma columna `busqueda` que ya se recorría: cada documento pasó de unas diez palabras a unas trescientas,
+y PostgreSQL las descomprimía varias veces por fila (al filtrar, al calcular el nivel y al ordenar), también para
+encontrar un documento por su nombre. Con 50.000 documentos, la búsqueda por nombre se triplicó (de 100 a 293 ms) y la
+segunda pasada por parecido llegó a pasar de 1 s. Antes de publicarla, el texto pasó a su propia columna (`busqueda_contenido`, sin
+posiciones), que solo se mira en las filas donde el nombre, la descripción y la categoría no coincidieron. Medianas,
+con los mismos datos y los mismos resultados en las dos versiones (11 de octubre de 2026):
+
+| Escenario | Sin el texto | Texto en la misma columna | Texto en su columna (ahora) |
+|---|---:|---:|---:|
+| Búsqueda por nombre, sin tildes («guia de remision») | 100 ms | 293 ms | 131 ms |
+| Búsqueda de un documento concreto («N° 031416») | 79 ms | 276 ms | 112 ms |
+| Por palabras y su raíz, por relevancia («facturas textiles») | 91 ms | 323 ms | 120 ms |
+| Solo en la descripción («medicion carga») | 135 ms | 344 ms | 163 ms |
+| Con errores de escritura: segunda pasada por parecido («factrua textiles») | 533 ms | 905 ms (máximo 1018 ms) | 535 ms |
+| Dentro del archivo, muchas coincidencias («chompa alpaca») | — | 438 ms | 156 ms |
+| Dentro del archivo, un RUC que está en uno solo | — | 288 ms | 110 ms |
+| Sugerencias mientras se escribe («guia rem») | 50 ms | 154 ms | 63 ms |
+
+«Sin el texto» es la ejecución anterior de este informe, con los mismos documentos sin su contenido. Lo que cuesta
+todavía el contenido es leer su columna en los documentos donde lo demás no coincidió; dentro de él, las coincidencias
+empatan y va primero lo más reciente, así que no hay que leerlo de nuevo para ordenar.
+
 ## Planes de ejecución
 
 Las mismas consultas que ejecuta la API, con el rol `app_empresa` y la identidad de la usuaria: es decir,
 con la RLS aplicada.
 
 <details>
-<summary>Listado inicial de la usuaria (total): Execution Time: 9.003 ms</summary>
+<summary>Listado inicial de la usuaria (total): Execution Time: 9.529 ms</summary>
 
 ```
-Aggregate (actual time=8.969..8.970 rows=1 loops=1)
-  Buffers: shared hit=42
+Aggregate (actual time=9.493..9.495 rows=1 loops=1)
+  Buffers: shared hit=41
   InitPlan 1
-    ->  Result (actual time=0.341..0.342 rows=1 loops=1)
+    ->  Result (actual time=0.330..0.330 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Result (actual time=0.408..6.954 rows=42750 loops=1)
-        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-        Buffers: shared hit=42
-        ->  Index Only Scan using documentos_por_categoria on documentos d (actual time=0.361..3.819 rows=42750 loops=1)
-              Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)))
+  ->  Result (actual time=0.412..7.426 rows=42750 loops=1)
+        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+        Buffers: shared hit=41
+        ->  Index Only Scan using documentos_por_categoria on documentos d (actual time=0.352..3.736 rows=42750 loops=1)
+              Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)))
               Heap Fetches: 0
-              Buffers: shared hit=42
-Planning Time: 0.125 ms
-Execution Time: 9.003 ms
+              Buffers: shared hit=41
+Planning:
+  Buffers: shared hit=1
+Planning Time: 0.208 ms
+Execution Time: 9.529 ms
 ```
 
 </details>
 
 <details>
-<summary>Listado inicial de la usuaria (página): Execution Time: 1.119 ms</summary>
+<summary>Listado inicial de la usuaria (página): Execution Time: 0.980 ms</summary>
 
 ```
-Limit (actual time=1.069..1.073 rows=20 loops=1)
-  Buffers: shared hit=48
+Limit (actual time=0.927..0.932 rows=20 loops=1)
+  Buffers: shared hit=53
   InitPlan 1
-    ->  Result (actual time=0.327..0.328 rows=1 loops=1)
+    ->  Result (actual time=0.310..0.310 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Incremental Sort (actual time=1.068..1.070 rows=20 loops=1)
+  ->  Incremental Sort (actual time=0.925..0.927 rows=20 loops=1)
         Sort Key: d.creado_en DESC, d.id
         Presorted Key: d.creado_en
         Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 30kB  Peak Memory: 30kB
-        Buffers: shared hit=48
-        ->  Result (actual time=0.997..1.052 rows=21 loops=1)
-              One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-              Buffers: shared hit=48
-              ->  Nested Loop (actual time=0.952..1.004 rows=21 loops=1)
+        Buffers: shared hit=53
+        ->  Result (actual time=0.832..0.908 rows=21 loops=1)
+              One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+              Buffers: shared hit=53
+              ->  Nested Loop (actual time=0.783..0.858 rows=21 loops=1)
                     Join Filter: (c.id = d.categoria_id)
                     Rows Removed by Join Filter: 105
-                    Buffers: shared hit=48
-                    ->  Nested Loop (actual time=0.357..0.392 rows=21 loops=1)
-                          Buffers: shared hit=28
-                          ->  Index Scan using documentos_recientes on documentos d (actual time=0.348..0.356 rows=21 loops=1)
-                                Index Cond: (empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                    Buffers: shared hit=53
+                    ->  Nested Loop (actual time=0.341..0.398 rows=21 loops=1)
+                          Buffers: shared hit=33
+                          ->  Index Scan using documentos_recientes on documentos d (actual time=0.331..0.361 rows=21 loops=1)
+                                Index Cond: (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                 Filter: (categoria_id = ANY ((InitPlan 1).col1))
                                 Rows Removed by Filter: 3
-                                Buffers: shared hit=8
+                                Buffers: shared hit=13
                           ->  Memoize (actual time=0.001..0.001 rows=1 loops=21)
                                 Cache Key: d.subido_por
                                 Cache Mode: logical
                                 Hits: 11  Misses: 10  Evictions: 0  Overflows: 0  Memory Usage: 2kB
                                 Buffers: shared hit=20
                                 ->  Index Scan using usuarios_id_empresa on usuarios u (actual time=0.001..0.001 rows=1 loops=10)
-                                      Index Cond: ((id = d.subido_por) AND (empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid))
+                                      Index Cond: ((id = d.subido_por) AND (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid))
                                       Buffers: shared hit=20
-                    ->  Materialize (actual time=0.012..0.028 rows=6 loops=21)
+                    ->  Materialize (actual time=0.008..0.021 rows=6 loops=21)
                           Buffers: shared hit=20
-                          ->  Seq Scan on categorias c (actual time=0.244..0.586 rows=9 loops=1)
-                                Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id))
+                          ->  Seq Scan on categorias c (actual time=0.170..0.436 rows=9 loops=1)
+                                Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id))
                                 Buffers: shared hit=20
 Planning:
-  Buffers: shared hit=8
-Planning Time: 0.386 ms
-Execution Time: 1.119 ms
+  Buffers: shared hit=9
+Planning Time: 0.466 ms
+Execution Time: 0.980 ms
 ```
 
 </details>
 
 <details>
-<summary>Búsqueda por nombre de la usuaria (total): Execution Time: 33.545 ms</summary>
+<summary>Búsqueda por nombre de la usuaria (total): Execution Time: 48.529 ms</summary>
 
 ```
-Aggregate (actual time=33.473..33.479 rows=1 loops=1)
-  Buffers: shared hit=3563
+Aggregate (actual time=48.452..48.458 rows=1 loops=1)
+  Buffers: shared hit=7801
   InitPlan 3
-    ->  Result (actual time=0.288..0.289 rows=1 loops=1)
+    ->  Result (actual time=0.405..0.406 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Result (actual time=3.857..33.161 rows=6000 loops=1)
-        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-        Buffers: shared hit=3563
-        ->  Bitmap Heap Scan on documentos d (actual time=3.817..32.613 rows=6000 loops=1)
-              Recheck Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
-              Filter: (((busqueda_texto ~~ '%guia%'::text) OR (busqueda @@ '''gui'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%remision%'::text) OR (busqueda @@ '''remision'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
+  ->  Result (actual time=5.557..48.098 rows=6000 loops=1)
+        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+        Buffers: shared hit=7801
+        ->  Bitmap Heap Scan on documentos d (actual time=5.513..47.445 rows=6000 loops=1)
+              Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
+              Filter: (((busqueda_texto ~~ '%guia%'::text) OR (busqueda @@ '''gui'':*'::tsquery) OR (busqueda_contenido @@ '''gui'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%remision%'::text) OR (busqueda @@ '''remision'':*'::tsquery) OR (busqueda_contenido @@ '''remision'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
               Rows Removed by Filter: 36750
-              Heap Blocks: exact=3499
-              Buffers: shared hit=3563
-              ->  Bitmap Index Scan on documentos_por_categoria (actual time=2.533..2.533 rows=42750 loops=1)
-                    Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
-                    Buffers: shared hit=41
+              Heap Blocks: exact=7738
+              Buffers: shared hit=7801
+              ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.475..3.475 rows=42750 loops=1)
+                    Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
+                    Buffers: shared hit=40
               SubPlan 1
-                ->  Result (actual time=0.531..0.849 rows=1 loops=1)
-                      One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                ->  Result (actual time=0.675..0.912 rows=1 loops=1)
+                      One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                       Buffers: shared hit=23
-                      ->  Seq Scan on categorias ca (actual time=0.499..0.817 rows=1 loops=1)
-                            Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%guia%'::text))
+                      ->  Seq Scan on categorias ca (actual time=0.615..0.852 rows=1 loops=1)
+                            Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%guia%'::text))
                             Rows Removed by Filter: 17
                             Buffers: shared hit=23
               SubPlan 2
                 ->  Result (never executed)
-                      One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                      One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                       ->  Seq Scan on categorias ca_1 (never executed)
-                            Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%remision%'::text))
-Planning Time: 0.333 ms
-Execution Time: 33.545 ms
+                            Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%remision%'::text))
+Planning:
+  Buffers: shared hit=1
+Planning Time: 0.247 ms
+Execution Time: 48.529 ms
 ```
 
 </details>
 
 <details>
-<summary>Búsqueda por nombre de la usuaria (página): Execution Time: 53.086 ms</summary>
+<summary>Búsqueda por nombre de la usuaria (página): Execution Time: 65.171 ms</summary>
 
 ```
-Limit (actual time=52.975..52.985 rows=20 loops=1)
-  Buffers: shared hit=3587
+Limit (actual time=65.061..65.075 rows=20 loops=1)
+  Buffers: shared hit=7825
   InitPlan 3
-    ->  Result (actual time=0.264..0.264 rows=1 loops=1)
+    ->  Result (actual time=0.253..0.254 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Sort (actual time=52.973..52.979 rows=20 loops=1)
-        Sort Key: (CASE WHEN (d.busqueda_nombre = 'guia de remision'::text) THEN 1 WHEN (d.busqueda_nombre ~~ 'guia de remision%'::text) THEN 2 WHEN ((d.busqueda_nombre ~~ '%guia%'::text) AND (d.busqueda_nombre ~~ '%remision%'::text)) THEN 3 WHEN (((d.busqueda_nombre ~~ '%guia%'::text) OR (d.busqueda @@ '''gui'':*A'::tsquery)) AND ((d.busqueda_nombre ~~ '%remision%'::text) OR (d.busqueda @@ '''remision'':*A'::tsquery))) THEN 4 WHEN (((d.busqueda_texto ~~ '%guia%'::text) OR (d.busqueda @@ '''gui'':*'::tsquery)) AND ((d.busqueda_texto ~~ '%remision%'::text) OR (d.busqueda @@ '''remision'':*'::tsquery))) THEN 5 ELSE 6 END), (ts_rank(d.busqueda, '''gui'':* | ''remision'':*'::tsquery)) DESC, d.creado_en DESC, d.id
+  ->  Sort (actual time=65.059..65.068 rows=20 loops=1)
+        Sort Key: (CASE WHEN (d.busqueda_nombre = 'guia de remision'::text) THEN 1 WHEN (d.busqueda_nombre ~~ 'guia de remision%'::text) THEN 2 WHEN ((d.busqueda_nombre ~~ '%guia%'::text) AND (d.busqueda_nombre ~~ '%remision%'::text)) THEN 3 WHEN (((d.busqueda_nombre ~~ '%guia%'::text) OR (d.busqueda @@ '''gui'':*A'::tsquery)) AND ((d.busqueda_nombre ~~ '%remision%'::text) OR (d.busqueda @@ '''remision'':*A'::tsquery))) THEN 4 WHEN (((d.busqueda_texto ~~ '%guia%'::text) OR (d.busqueda @@ '''gui'':*'::tsquery)) AND ((d.busqueda_texto ~~ '%remision%'::text) OR (d.busqueda @@ '''remision'':*'::tsquery))) THEN 5 WHEN (((d.busqueda_texto ~~ '%guia%'::text) OR (d.busqueda @@ '''gui'':*'::tsquery) OR (d.busqueda_contenido @@ '''gui'':*'::tsquery)) AND ((d.busqueda_texto ~~ '%remision%'::text) OR (d.busqueda @@ '''remision'':*'::tsquery) OR (d.busqueda_contenido @@ '''remision'':*'::tsquery))) THEN 6 ELSE 7 END), (ts_rank(d.busqueda, '''gui'':* | ''remision'':*'::tsquery)) DESC, d.creado_en DESC, d.id
         Sort Method: top-N heapsort  Memory: 35kB
-        Buffers: shared hit=3587
-        ->  Result (actual time=4.697..40.510 rows=6000 loops=1)
-              One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-              Buffers: shared hit=3587
-              ->  Hash Join (actual time=4.645..37.846 rows=6000 loops=1)
+        Buffers: shared hit=7825
+        ->  Result (actual time=5.895..53.539 rows=6000 loops=1)
+              One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+              Buffers: shared hit=7825
+              ->  Hash Join (actual time=5.838..51.218 rows=6000 loops=1)
                     Hash Cond: (d.subido_por = u.id)
-                    Buffers: shared hit=3587
-                    ->  Hash Join (actual time=4.628..36.575 rows=6000 loops=1)
+                    Buffers: shared hit=7825
+                    ->  Hash Join (actual time=5.819..49.979 rows=6000 loops=1)
                           Hash Cond: (d.categoria_id = c.id)
-                          Buffers: shared hit=3586
-                          ->  Bitmap Heap Scan on documentos d (actual time=3.962..34.514 rows=6000 loops=1)
-                                Recheck Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
-                                Filter: (((busqueda_texto ~~ '%guia%'::text) OR (busqueda @@ '''gui'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%remision%'::text) OR (busqueda @@ '''remision'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
+                          Buffers: shared hit=7824
+                          ->  Bitmap Heap Scan on documentos d (actual time=5.246..48.059 rows=6000 loops=1)
+                                Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
+                                Filter: (((busqueda_texto ~~ '%guia%'::text) OR (busqueda @@ '''gui'':*'::tsquery) OR (busqueda_contenido @@ '''gui'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%remision%'::text) OR (busqueda @@ '''remision'':*'::tsquery) OR (busqueda_contenido @@ '''remision'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
                                 Rows Removed by Filter: 36750
-                                Heap Blocks: exact=3499
-                                Buffers: shared hit=3563
-                                ->  Bitmap Index Scan on documentos_por_categoria (actual time=2.493..2.493 rows=42750 loops=1)
-                                      Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
-                                      Buffers: shared hit=41
+                                Heap Blocks: exact=7738
+                                Buffers: shared hit=7801
+                                ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.242..3.243 rows=42750 loops=1)
+                                      Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
+                                      Buffers: shared hit=40
                                 SubPlan 1
-                                  ->  Result (actual time=0.649..0.950 rows=1 loops=1)
-                                        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                  ->  Result (actual time=0.657..0.898 rows=1 loops=1)
+                                        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                         Buffers: shared hit=23
-                                        ->  Seq Scan on categorias ca (actual time=0.589..0.889 rows=1 loops=1)
-                                              Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%guia%'::text))
+                                        ->  Seq Scan on categorias ca (actual time=0.581..0.821 rows=1 loops=1)
+                                              Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%guia%'::text))
                                               Rows Removed by Filter: 17
                                               Buffers: shared hit=23
                                 SubPlan 2
                                   ->  Result (never executed)
-                                        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                         ->  Seq Scan on categorias ca_1 (never executed)
-                                              Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%remision%'::text))
-                          ->  Hash (actual time=0.660..0.661 rows=9 loops=1)
+                                              Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%remision%'::text))
+                          ->  Hash (actual time=0.566..0.567 rows=9 loops=1)
                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
                                 Buffers: shared hit=23
-                                ->  Seq Scan on categorias c (actual time=0.250..0.656 rows=9 loops=1)
-                                      Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id))
+                                ->  Seq Scan on categorias c (actual time=0.249..0.564 rows=9 loops=1)
+                                      Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id))
                                       Rows Removed by Filter: 9
                                       Buffers: shared hit=23
-                    ->  Hash (actual time=0.012..0.013 rows=11 loops=1)
+                    ->  Hash (actual time=0.013..0.015 rows=11 loops=1)
                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
                           Buffers: shared hit=1
-                          ->  Seq Scan on usuarios u (actual time=0.007..0.009 rows=11 loops=1)
-                                Filter: (empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                          ->  Seq Scan on usuarios u (actual time=0.008..0.011 rows=11 loops=1)
+                                Filter: (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                 Rows Removed by Filter: 2
                                 Buffers: shared hit=1
 Planning:
-  Buffers: shared hit=8
-Planning Time: 0.622 ms
-Execution Time: 53.086 ms
+  Buffers: shared hit=9
+Planning Time: 0.645 ms
+Execution Time: 65.171 ms
 ```
 
 </details>
 
 <details>
-<summary>Búsqueda por relevancia de la usuaria (total): Execution Time: 45.390 ms</summary>
+<summary>Búsqueda por relevancia de la usuaria (total): Execution Time: 50.750 ms</summary>
 
 ```
-Aggregate (actual time=45.307..45.313 rows=1 loops=1)
-  Buffers: shared hit=3586
+Aggregate (actual time=50.649..50.656 rows=1 loops=1)
+  Buffers: shared hit=7824
   InitPlan 3
-    ->  Result (actual time=0.441..0.442 rows=1 loops=1)
+    ->  Result (actual time=0.502..0.503 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Result (actual time=5.591..45.035 rows=2000 loops=1)
-        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-        Buffers: shared hit=3586
-        ->  Bitmap Heap Scan on documentos d (actual time=5.530..44.787 rows=2000 loops=1)
-              Recheck Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
-              Filter: (((busqueda_texto ~~ '%facturas%'::text) OR (busqueda @@ '''factur'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%textiles%'::text) OR (busqueda @@ '''textil'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
+  ->  Result (actual time=6.053..50.496 rows=2000 loops=1)
+        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+        Buffers: shared hit=7824
+        ->  Bitmap Heap Scan on documentos d (actual time=5.985..50.208 rows=2000 loops=1)
+              Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
+              Filter: (((busqueda_texto ~~ '%facturas%'::text) OR (busqueda @@ '''factur'':*'::tsquery) OR (busqueda_contenido @@ '''factur'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%textiles%'::text) OR (busqueda @@ '''textil'':*'::tsquery) OR (busqueda_contenido @@ '''textil'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
               Rows Removed by Filter: 40750
-              Heap Blocks: exact=3499
-              Buffers: shared hit=3586
-              ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.027..3.027 rows=42750 loops=1)
-                    Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
-                    Buffers: shared hit=41
+              Heap Blocks: exact=7738
+              Buffers: shared hit=7824
+              ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.587..3.587 rows=42750 loops=1)
+                    Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
+                    Buffers: shared hit=40
               SubPlan 1
-                ->  Result (actual time=0.887..1.358 rows=2 loops=1)
-                      One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                ->  Result (actual time=0.393..0.788 rows=2 loops=1)
+                      One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                       Buffers: shared hit=23
-                      ->  Seq Scan on categorias ca (actual time=0.671..1.141 rows=2 loops=1)
-                            Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%facturas%'::text))
+                      ->  Seq Scan on categorias ca (actual time=0.331..0.725 rows=2 loops=1)
+                            Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%facturas%'::text))
                             Rows Removed by Filter: 16
                             Buffers: shared hit=23
               SubPlan 2
-                ->  Result (actual time=0.624..0.624 rows=0 loops=1)
-                      One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                ->  Result (actual time=0.495..0.496 rows=0 loops=1)
+                      One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                       Buffers: shared hit=23
-                      ->  Seq Scan on categorias ca_1 (actual time=0.608..0.608 rows=0 loops=1)
-                            Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%textiles%'::text))
+                      ->  Seq Scan on categorias ca_1 (actual time=0.484..0.484 rows=0 loops=1)
+                            Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%textiles%'::text))
                             Rows Removed by Filter: 18
                             Buffers: shared hit=23
-Planning Time: 0.262 ms
-Execution Time: 45.390 ms
+Planning:
+  Buffers: shared hit=1
+Planning Time: 0.360 ms
+Execution Time: 50.750 ms
 ```
 
 </details>
 
 <details>
-<summary>Búsqueda por relevancia de la usuaria (página): Execution Time: 42.443 ms</summary>
+<summary>Búsqueda por relevancia de la usuaria (página): Execution Time: 56.928 ms</summary>
 
 ```
-Limit (actual time=42.326..42.338 rows=20 loops=1)
-  Buffers: shared hit=3610
+Limit (actual time=56.726..56.739 rows=20 loops=1)
+  Buffers: shared hit=7848
   InitPlan 3
-    ->  Result (actual time=0.295..0.296 rows=1 loops=1)
+    ->  Result (actual time=0.267..0.267 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Sort (actual time=42.324..42.332 rows=20 loops=1)
-        Sort Key: (CASE WHEN (d.busqueda_nombre = 'facturas textiles'::text) THEN 1 WHEN (d.busqueda_nombre ~~ 'facturas textiles%'::text) THEN 2 WHEN ((d.busqueda_nombre ~~ '%facturas%'::text) AND (d.busqueda_nombre ~~ '%textiles%'::text)) THEN 3 WHEN (((d.busqueda_nombre ~~ '%facturas%'::text) OR (d.busqueda @@ '''factur'':*A'::tsquery)) AND ((d.busqueda_nombre ~~ '%textiles%'::text) OR (d.busqueda @@ '''textil'':*A'::tsquery))) THEN 4 WHEN (((d.busqueda_texto ~~ '%facturas%'::text) OR (d.busqueda @@ '''factur'':*'::tsquery)) AND ((d.busqueda_texto ~~ '%textiles%'::text) OR (d.busqueda @@ '''textil'':*'::tsquery))) THEN 5 ELSE 6 END), (ts_rank(d.busqueda, '''factur'':* | ''textil'':*'::tsquery)) DESC, d.creado_en DESC, d.id
+  ->  Sort (actual time=56.722..56.731 rows=20 loops=1)
+        Sort Key: (CASE WHEN (d.busqueda_nombre = 'facturas textiles'::text) THEN 1 WHEN (d.busqueda_nombre ~~ 'facturas textiles%'::text) THEN 2 WHEN ((d.busqueda_nombre ~~ '%facturas%'::text) AND (d.busqueda_nombre ~~ '%textiles%'::text)) THEN 3 WHEN (((d.busqueda_nombre ~~ '%facturas%'::text) OR (d.busqueda @@ '''factur'':*A'::tsquery)) AND ((d.busqueda_nombre ~~ '%textiles%'::text) OR (d.busqueda @@ '''textil'':*A'::tsquery))) THEN 4 WHEN (((d.busqueda_texto ~~ '%facturas%'::text) OR (d.busqueda @@ '''factur'':*'::tsquery)) AND ((d.busqueda_texto ~~ '%textiles%'::text) OR (d.busqueda @@ '''textil'':*'::tsquery))) THEN 5 WHEN (((d.busqueda_texto ~~ '%facturas%'::text) OR (d.busqueda @@ '''factur'':*'::tsquery) OR (d.busqueda_contenido @@ '''factur'':*'::tsquery)) AND ((d.busqueda_texto ~~ '%textiles%'::text) OR (d.busqueda @@ '''textil'':*'::tsquery) OR (d.busqueda_contenido @@ '''textil'':*'::tsquery))) THEN 6 ELSE 7 END), (ts_rank(d.busqueda, '''factur'':* | ''textil'':*'::tsquery)) DESC, d.creado_en DESC, d.id
         Sort Method: top-N heapsort  Memory: 35kB
-        Buffers: shared hit=3610
-        ->  Result (actual time=5.092..37.956 rows=2000 loops=1)
-              One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-              Buffers: shared hit=3610
-              ->  Hash Join (actual time=5.041..36.349 rows=2000 loops=1)
+        Buffers: shared hit=7848
+        ->  Result (actual time=6.270..52.885 rows=2000 loops=1)
+              One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+              Buffers: shared hit=7848
+              ->  Hash Join (actual time=6.199..51.338 rows=2000 loops=1)
                     Hash Cond: (d.subido_por = u.id)
-                    Buffers: shared hit=3610
-                    ->  Hash Join (actual time=5.024..35.895 rows=2000 loops=1)
+                    Buffers: shared hit=7848
+                    ->  Hash Join (actual time=6.176..50.876 rows=2000 loops=1)
                           Hash Cond: (d.categoria_id = c.id)
-                          Buffers: shared hit=3609
-                          ->  Bitmap Heap Scan on documentos d (actual time=4.369..34.745 rows=2000 loops=1)
-                                Recheck Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
-                                Filter: (((busqueda_texto ~~ '%facturas%'::text) OR (busqueda @@ '''factur'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%textiles%'::text) OR (busqueda @@ '''textil'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
+                          Buffers: shared hit=7847
+                          ->  Bitmap Heap Scan on documentos d (actual time=5.618..49.770 rows=2000 loops=1)
+                                Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
+                                Filter: (((busqueda_texto ~~ '%facturas%'::text) OR (busqueda @@ '''factur'':*'::tsquery) OR (busqueda_contenido @@ '''factur'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%textiles%'::text) OR (busqueda @@ '''textil'':*'::tsquery) OR (busqueda_contenido @@ '''textil'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
                                 Rows Removed by Filter: 40750
-                                Heap Blocks: exact=3499
-                                Buffers: shared hit=3586
-                                ->  Bitmap Index Scan on documentos_por_categoria (actual time=2.551..2.552 rows=42750 loops=1)
-                                      Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
-                                      Buffers: shared hit=41
+                                Heap Blocks: exact=7738
+                                Buffers: shared hit=7824
+                                ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.256..3.256 rows=42750 loops=1)
+                                      Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
+                                      Buffers: shared hit=40
                                 SubPlan 1
-                                  ->  Result (actual time=0.301..0.668 rows=2 loops=1)
-                                        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                  ->  Result (actual time=0.381..0.736 rows=2 loops=1)
+                                        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                         Buffers: shared hit=23
-                                        ->  Seq Scan on categorias ca (actual time=0.265..0.631 rows=2 loops=1)
-                                              Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%facturas%'::text))
+                                        ->  Seq Scan on categorias ca (actual time=0.316..0.670 rows=2 loops=1)
+                                              Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%facturas%'::text))
                                               Rows Removed by Filter: 16
                                               Buffers: shared hit=23
                                 SubPlan 2
-                                  ->  Result (actual time=0.662..0.663 rows=0 loops=1)
-                                        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                  ->  Result (actual time=0.522..0.523 rows=0 loops=1)
+                                        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                         Buffers: shared hit=23
-                                        ->  Seq Scan on categorias ca_1 (actual time=0.648..0.648 rows=0 loops=1)
-                                              Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%textiles%'::text))
+                                        ->  Seq Scan on categorias ca_1 (actual time=0.511..0.511 rows=0 loops=1)
+                                              Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%textiles%'::text))
                                               Rows Removed by Filter: 18
                                               Buffers: shared hit=23
-                          ->  Hash (actual time=0.649..0.651 rows=9 loops=1)
+                          ->  Hash (actual time=0.551..0.553 rows=9 loops=1)
                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
                                 Buffers: shared hit=23
-                                ->  Seq Scan on categorias c (actual time=0.252..0.646 rows=9 loops=1)
-                                      Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id))
+                                ->  Seq Scan on categorias c (actual time=0.269..0.548 rows=9 loops=1)
+                                      Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id))
                                       Rows Removed by Filter: 9
                                       Buffers: shared hit=23
-                    ->  Hash (actual time=0.012..0.013 rows=11 loops=1)
+                    ->  Hash (actual time=0.017..0.018 rows=11 loops=1)
                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
                           Buffers: shared hit=1
-                          ->  Seq Scan on usuarios u (actual time=0.007..0.008 rows=11 loops=1)
-                                Filter: (empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                          ->  Seq Scan on usuarios u (actual time=0.012..0.014 rows=11 loops=1)
+                                Filter: (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                 Rows Removed by Filter: 2
                                 Buffers: shared hit=1
 Planning:
-  Buffers: shared hit=8
-Planning Time: 0.576 ms
-Execution Time: 42.443 ms
+  Buffers: shared hit=9
+Planning Time: 0.610 ms
+Execution Time: 56.928 ms
 ```
 
 </details>
 
 <details>
-<summary>Segunda pasada por parecido de la usuaria (total): Execution Time: 203.053 ms</summary>
+<summary>Segunda pasada por parecido de la usuaria (total): Execution Time: 207.127 ms</summary>
 
 ```
-Aggregate (actual time=202.974..202.979 rows=1 loops=1)
-  Buffers: shared hit=3586
+Aggregate (actual time=207.049..207.056 rows=1 loops=1)
+  Buffers: shared hit=7824
   InitPlan 3
-    ->  Result (actual time=0.298..0.298 rows=1 loops=1)
+    ->  Result (actual time=0.287..0.288 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Result (actual time=4.572..202.787 rows=2000 loops=1)
-        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-        Buffers: shared hit=3586
-        ->  Bitmap Heap Scan on documentos d (actual time=4.528..202.510 rows=2000 loops=1)
-              Recheck Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
-              Filter: (((busqueda_texto ~~ '%factrua%'::text) OR (busqueda @@ '''factru'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1)) OR (extensions.word_similarity('factrua'::text, busqueda_nombre) >= '0.5'::double precision)) AND ((busqueda_texto ~~ '%textiles%'::text) OR (busqueda @@ '''textil'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1)) OR (extensions.word_similarity('textiles'::text, busqueda_nombre) >= '0.5'::double precision)))
+  ->  Result (actual time=5.800..206.827 rows=2000 loops=1)
+        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+        Buffers: shared hit=7824
+        ->  Bitmap Heap Scan on documentos d (actual time=5.757..206.482 rows=2000 loops=1)
+              Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
+              Filter: (((busqueda_texto ~~ '%factrua%'::text) OR (busqueda @@ '''factru'':*'::tsquery) OR (busqueda_contenido @@ '''factru'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1)) OR (extensions.word_similarity('factrua'::text, busqueda_nombre) >= '0.5'::double precision)) AND ((busqueda_texto ~~ '%textiles%'::text) OR (busqueda @@ '''textil'':*'::tsquery) OR (busqueda_contenido @@ '''textil'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1)) OR (extensions.word_similarity('textiles'::text, busqueda_nombre) >= '0.5'::double precision)))
               Rows Removed by Filter: 40750
-              Heap Blocks: exact=3499
-              Buffers: shared hit=3586
-              ->  Bitmap Index Scan on documentos_por_categoria (actual time=2.597..2.597 rows=42750 loops=1)
-                    Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
-                    Buffers: shared hit=41
+              Heap Blocks: exact=7738
+              Buffers: shared hit=7824
+              ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.290..3.290 rows=42750 loops=1)
+                    Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
+                    Buffers: shared hit=40
               SubPlan 1
-                ->  Result (actual time=0.753..0.754 rows=0 loops=1)
-                      One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                ->  Result (actual time=0.696..0.697 rows=0 loops=1)
+                      One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                       Buffers: shared hit=23
-                      ->  Seq Scan on categorias ca (actual time=0.717..0.717 rows=0 loops=1)
-                            Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%factrua%'::text))
+                      ->  Seq Scan on categorias ca (actual time=0.633..0.633 rows=0 loops=1)
+                            Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%factrua%'::text))
                             Rows Removed by Filter: 18
                             Buffers: shared hit=23
               SubPlan 2
-                ->  Result (actual time=0.635..0.636 rows=0 loops=1)
-                      One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                ->  Result (actual time=0.515..0.516 rows=0 loops=1)
+                      One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                       Buffers: shared hit=23
-                      ->  Seq Scan on categorias ca_1 (actual time=0.620..0.620 rows=0 loops=1)
-                            Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%textiles%'::text))
+                      ->  Seq Scan on categorias ca_1 (actual time=0.503..0.503 rows=0 loops=1)
+                            Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%textiles%'::text))
                             Rows Removed by Filter: 18
                             Buffers: shared hit=23
-Planning Time: 0.265 ms
-Execution Time: 203.053 ms
+Planning:
+  Buffers: shared hit=1
+Planning Time: 0.285 ms
+Execution Time: 207.127 ms
 ```
 
 </details>
 
 <details>
-<summary>Segunda pasada por parecido de la usuaria (página): Execution Time: 230.667 ms</summary>
+<summary>Segunda pasada por parecido de la usuaria (página): Execution Time: 225.322 ms</summary>
 
 ```
-Limit (actual time=230.552..230.564 rows=20 loops=1)
-  Buffers: shared hit=3610
+Limit (actual time=225.206..225.220 rows=20 loops=1)
+  Buffers: shared hit=7848
   InitPlan 3
-    ->  Result (actual time=0.262..0.263 rows=1 loops=1)
+    ->  Result (actual time=0.255..0.256 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Sort (actual time=230.550..230.558 rows=20 loops=1)
+  ->  Sort (actual time=225.202..225.212 rows=20 loops=1)
         Sort Key: ((extensions.word_similarity('factrua'::text, d.busqueda_nombre) + extensions.word_similarity('textiles'::text, d.busqueda_nombre))) DESC, d.creado_en DESC, d.id
         Sort Method: top-N heapsort  Memory: 35kB
-        Buffers: shared hit=3610
-        ->  Result (actual time=5.330..227.851 rows=2000 loops=1)
-              One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-              Buffers: shared hit=3610
-              ->  Hash Join (actual time=5.275..212.821 rows=2000 loops=1)
+        Buffers: shared hit=7848
+        ->  Result (actual time=6.708..222.566 rows=2000 loops=1)
+              One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+              Buffers: shared hit=7848
+              ->  Hash Join (actual time=6.648..208.821 rows=2000 loops=1)
                     Hash Cond: (d.subido_por = u.id)
-                    Buffers: shared hit=3610
-                    ->  Hash Join (actual time=5.257..212.216 rows=2000 loops=1)
+                    Buffers: shared hit=7848
+                    ->  Hash Join (actual time=6.630..208.194 rows=2000 loops=1)
                           Hash Cond: (d.categoria_id = c.id)
-                          Buffers: shared hit=3609
-                          ->  Bitmap Heap Scan on documentos d (actual time=4.529..210.695 rows=2000 loops=1)
-                                Recheck Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
-                                Filter: (((busqueda_texto ~~ '%factrua%'::text) OR (busqueda @@ '''factru'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1)) OR (extensions.word_similarity('factrua'::text, busqueda_nombre) >= '0.5'::double precision)) AND ((busqueda_texto ~~ '%textiles%'::text) OR (busqueda @@ '''textil'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1)) OR (extensions.word_similarity('textiles'::text, busqueda_nombre) >= '0.5'::double precision)))
+                          Buffers: shared hit=7847
+                          ->  Bitmap Heap Scan on documentos d (actual time=5.912..206.708 rows=2000 loops=1)
+                                Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
+                                Filter: (((busqueda_texto ~~ '%factrua%'::text) OR (busqueda @@ '''factru'':*'::tsquery) OR (busqueda_contenido @@ '''factru'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1)) OR (extensions.word_similarity('factrua'::text, busqueda_nombre) >= '0.5'::double precision)) AND ((busqueda_texto ~~ '%textiles%'::text) OR (busqueda @@ '''textil'':*'::tsquery) OR (busqueda_contenido @@ '''textil'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1)) OR (extensions.word_similarity('textiles'::text, busqueda_nombre) >= '0.5'::double precision)))
                                 Rows Removed by Filter: 40750
-                                Heap Blocks: exact=3499
-                                Buffers: shared hit=3586
-                                ->  Bitmap Index Scan on documentos_por_categoria (actual time=2.596..2.597 rows=42750 loops=1)
-                                      Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
-                                      Buffers: shared hit=41
+                                Heap Blocks: exact=7738
+                                Buffers: shared hit=7824
+                                ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.204..3.205 rows=42750 loops=1)
+                                      Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
+                                      Buffers: shared hit=40
                                 SubPlan 1
-                                  ->  Result (actual time=0.678..0.679 rows=0 loops=1)
-                                        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                  ->  Result (actual time=0.737..0.738 rows=0 loops=1)
+                                        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                         Buffers: shared hit=23
-                                        ->  Seq Scan on categorias ca (actual time=0.638..0.638 rows=0 loops=1)
-                                              Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%factrua%'::text))
+                                        ->  Seq Scan on categorias ca (actual time=0.674..0.675 rows=0 loops=1)
+                                              Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%factrua%'::text))
                                               Rows Removed by Filter: 18
                                               Buffers: shared hit=23
                                 SubPlan 2
-                                  ->  Result (actual time=0.647..0.647 rows=0 loops=1)
-                                        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                  ->  Result (actual time=0.550..0.551 rows=0 loops=1)
+                                        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                         Buffers: shared hit=23
-                                        ->  Seq Scan on categorias ca_1 (actual time=0.624..0.624 rows=0 loops=1)
-                                              Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%textiles%'::text))
+                                        ->  Seq Scan on categorias ca_1 (actual time=0.537..0.538 rows=0 loops=1)
+                                              Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%textiles%'::text))
                                               Rows Removed by Filter: 18
                                               Buffers: shared hit=23
-                          ->  Hash (actual time=0.722..0.723 rows=9 loops=1)
+                          ->  Hash (actual time=0.710..0.712 rows=9 loops=1)
                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
                                 Buffers: shared hit=23
-                                ->  Seq Scan on categorias c (actual time=0.260..0.718 rows=9 loops=1)
-                                      Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id))
+                                ->  Seq Scan on categorias c (actual time=0.352..0.706 rows=9 loops=1)
+                                      Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id))
                                       Rows Removed by Filter: 9
                                       Buffers: shared hit=23
-                    ->  Hash (actual time=0.012..0.013 rows=11 loops=1)
+                    ->  Hash (actual time=0.013..0.014 rows=11 loops=1)
                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
                           Buffers: shared hit=1
-                          ->  Seq Scan on usuarios u (actual time=0.007..0.010 rows=11 loops=1)
-                                Filter: (empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                          ->  Seq Scan on usuarios u (actual time=0.008..0.010 rows=11 loops=1)
+                                Filter: (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                 Rows Removed by Filter: 2
                                 Buffers: shared hit=1
 Planning:
-  Buffers: shared hit=8
-Planning Time: 0.530 ms
-Execution Time: 230.667 ms
+  Buffers: shared hit=9
+Planning Time: 0.573 ms
+Execution Time: 225.322 ms
 ```
 
 </details>
 
 <details>
-<summary>Filtro por estado de la usuaria (total): Execution Time: 24.874 ms</summary>
+<summary>Búsqueda dentro del archivo de la usuaria (total): Execution Time: 53.052 ms</summary>
 
 ```
-Aggregate (actual time=24.795..24.803 rows=1 loops=1)
-  Buffers: shared hit=3625
-  InitPlan 1
-    ->  Result (actual time=0.400..0.401 rows=1 loops=1)
+Aggregate (actual time=52.977..52.983 rows=1 loops=1)
+  Buffers: shared hit=7801
+  InitPlan 3
+    ->  Result (actual time=0.282..0.283 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Result (actual time=7.547..24.720 rows=1250 loops=1)
-        One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-        Buffers: shared hit=3625
-        ->  Hash Left Join (actual time=7.500..24.569 rows=1250 loops=1)
+  ->  Result (actual time=5.356..52.449 rows=9267 loops=1)
+        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+        Buffers: shared hit=7801
+        ->  Bitmap Heap Scan on documentos d (actual time=5.305..51.524 rows=9267 loops=1)
+              Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
+              Filter: (((busqueda_texto ~~ '%chompa%'::text) OR (busqueda @@ '''chomp'':*'::tsquery) OR (busqueda_contenido @@ '''chomp'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%alpaca%'::text) OR (busqueda @@ '''alpac'':*'::tsquery) OR (busqueda_contenido @@ '''alpac'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
+              Rows Removed by Filter: 33483
+              Heap Blocks: exact=7738
+              Buffers: shared hit=7801
+              ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.427..3.427 rows=42750 loops=1)
+                    Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
+                    Buffers: shared hit=40
+              SubPlan 1
+                ->  Result (actual time=0.723..0.724 rows=0 loops=1)
+                      One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+                      Buffers: shared hit=23
+                      ->  Seq Scan on categorias ca (actual time=0.657..0.658 rows=0 loops=1)
+                            Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%chompa%'::text))
+                            Rows Removed by Filter: 18
+                            Buffers: shared hit=23
+              SubPlan 2
+                ->  Result (never executed)
+                      One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+                      ->  Seq Scan on categorias ca_1 (never executed)
+                            Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%alpaca%'::text))
+Planning:
+  Buffers: shared hit=1
+Planning Time: 0.309 ms
+Execution Time: 53.052 ms
+```
+
+</details>
+
+<details>
+<summary>Búsqueda dentro del archivo de la usuaria (página): Execution Time: 86.742 ms</summary>
+
+```
+Limit (actual time=86.604..86.617 rows=20 loops=1)
+  Buffers: shared hit=7825
+  InitPlan 3
+    ->  Result (actual time=0.248..0.249 rows=1 loops=1)
+          Buffers: shared hit=3
+  ->  Sort (actual time=86.600..86.609 rows=20 loops=1)
+        Sort Key: (CASE WHEN (d.busqueda_nombre = 'chompa alpaca'::text) THEN 1 WHEN (d.busqueda_nombre ~~ 'chompa alpaca%'::text) THEN 2 WHEN ((d.busqueda_nombre ~~ '%chompa%'::text) AND (d.busqueda_nombre ~~ '%alpaca%'::text)) THEN 3 WHEN (((d.busqueda_nombre ~~ '%chompa%'::text) OR (d.busqueda @@ '''chomp'':*A'::tsquery)) AND ((d.busqueda_nombre ~~ '%alpaca%'::text) OR (d.busqueda @@ '''alpac'':*A'::tsquery))) THEN 4 WHEN (((d.busqueda_texto ~~ '%chompa%'::text) OR (d.busqueda @@ '''chomp'':*'::tsquery)) AND ((d.busqueda_texto ~~ '%alpaca%'::text) OR (d.busqueda @@ '''alpac'':*'::tsquery))) THEN 5 WHEN (((d.busqueda_texto ~~ '%chompa%'::text) OR (d.busqueda @@ '''chomp'':*'::tsquery) OR (d.busqueda_contenido @@ '''chomp'':*'::tsquery)) AND ((d.busqueda_texto ~~ '%alpaca%'::text) OR (d.busqueda @@ '''alpac'':*'::tsquery) OR (d.busqueda_contenido @@ '''alpac'':*'::tsquery))) THEN 6 ELSE 7 END), (ts_rank(d.busqueda, '''chomp'':* | ''alpac'':*'::tsquery)) DESC, d.creado_en DESC, d.id
+        Sort Method: top-N heapsort  Memory: 35kB
+        Buffers: shared hit=7825
+        ->  Result (actual time=5.846..69.322 rows=9267 loops=1)
+              One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+              Buffers: shared hit=7825
+              ->  Hash Join (actual time=5.788..56.653 rows=9267 loops=1)
+                    Hash Cond: (d.subido_por = u.id)
+                    Buffers: shared hit=7825
+                    ->  Hash Join (actual time=5.770..54.795 rows=9267 loops=1)
+                          Hash Cond: (d.categoria_id = c.id)
+                          Buffers: shared hit=7824
+                          ->  Bitmap Heap Scan on documentos d (actual time=5.239..52.264 rows=9267 loops=1)
+                                Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)) AND (eliminado_en IS NULL))
+                                Filter: (((busqueda_texto ~~ '%chompa%'::text) OR (busqueda @@ '''chomp'':*'::tsquery) OR (busqueda_contenido @@ '''chomp'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 1).col1))) AND ((busqueda_texto ~~ '%alpaca%'::text) OR (busqueda @@ '''alpac'':*'::tsquery) OR (busqueda_contenido @@ '''alpac'':*'::tsquery) OR (ANY (categoria_id = (hashed SubPlan 2).col1))))
+                                Rows Removed by Filter: 33483
+                                Heap Blocks: exact=7738
+                                Buffers: shared hit=7801
+                                ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.360..3.360 rows=42750 loops=1)
+                                      Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 3).col1)))
+                                      Buffers: shared hit=40
+                                SubPlan 1
+                                  ->  Result (actual time=0.797..0.798 rows=0 loops=1)
+                                        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+                                        Buffers: shared hit=23
+                                        ->  Seq Scan on categorias ca (actual time=0.721..0.721 rows=0 loops=1)
+                                              Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%chompa%'::text))
+                                              Rows Removed by Filter: 18
+                                              Buffers: shared hit=23
+                                SubPlan 2
+                                  ->  Result (never executed)
+                                        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+                                        ->  Seq Scan on categorias ca_1 (never executed)
+                                              Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id) AND (normalizar((nombre)::text) ~~ '%alpaca%'::text))
+                          ->  Hash (actual time=0.524..0.525 rows=9 loops=1)
+                                Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                Buffers: shared hit=23
+                                ->  Seq Scan on categorias c (actual time=0.247..0.521 rows=9 loops=1)
+                                      Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id))
+                                      Rows Removed by Filter: 9
+                                      Buffers: shared hit=23
+                    ->  Hash (actual time=0.014..0.014 rows=11 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                          Buffers: shared hit=1
+                          ->  Seq Scan on usuarios u (actual time=0.009..0.011 rows=11 loops=1)
+                                Filter: (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+                                Rows Removed by Filter: 2
+                                Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=9
+Planning Time: 0.615 ms
+Execution Time: 86.742 ms
+```
+
+</details>
+
+<details>
+<summary>Filtro por estado de la usuaria (total): Execution Time: 32.890 ms</summary>
+
+```
+Aggregate (actual time=32.805..32.813 rows=1 loops=1)
+  Buffers: shared hit=7863
+  InitPlan 1
+    ->  Result (actual time=0.393..0.394 rows=1 loops=1)
+          Buffers: shared hit=3
+  ->  Result (actual time=8.941..32.722 rows=1250 loops=1)
+        One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+        Buffers: shared hit=7863
+        ->  Hash Left Join (actual time=8.885..32.534 rows=1250 loops=1)
               Hash Cond: (d.id = ultima.documento_id)
               Filter: ((COALESCE(ultima.estado, 'sin_solicitud'::character varying))::text = 'pendiente'::text)
               Rows Removed by Filter: 41500
-              Buffers: shared hit=3625
-              ->  Bitmap Heap Scan on documentos d (actual time=3.227..13.813 rows=42750 loops=1)
-                    Recheck Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)) AND (eliminado_en IS NULL))
-                    Heap Blocks: exact=3499
-                    Buffers: shared hit=3540
-                    ->  Bitmap Index Scan on documentos_por_categoria (actual time=2.745..2.745 rows=42750 loops=1)
-                          Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)))
-                          Buffers: shared hit=41
-              ->  Hash (actual time=4.239..4.243 rows=4500 loops=1)
+              Buffers: shared hit=7863
+              ->  Bitmap Heap Scan on documentos d (actual time=4.529..20.757 rows=42750 loops=1)
+                    Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)) AND (eliminado_en IS NULL))
+                    Heap Blocks: exact=7738
+                    Buffers: shared hit=7778
+                    ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.461..3.462 rows=42750 loops=1)
+                          Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)))
+                          Buffers: shared hit=40
+              ->  Hash (actual time=4.317..4.320 rows=4500 loops=1)
                     Buckets: 8192  Batches: 1  Memory Usage: 318kB
                     Buffers: shared hit=85
-                    ->  Subquery Scan on ultima (actual time=2.250..3.567 rows=4500 loops=1)
+                    ->  Subquery Scan on ultima (actual time=2.313..3.740 rows=4500 loops=1)
                           Buffers: shared hit=85
-                          ->  Unique (actual time=2.246..3.130 rows=4500 loops=1)
+                          ->  Unique (actual time=2.310..3.304 rows=4500 loops=1)
                                 Buffers: shared hit=85
-                                ->  Sort (actual time=2.244..2.516 rows=4500 loops=1)
+                                ->  Sort (actual time=2.308..2.640 rows=4500 loops=1)
                                       Sort Key: s.documento_id, s.creada_en DESC
                                       Sort Method: quicksort  Memory: 439kB
                                       Buffers: shared hit=85
-                                      ->  Result (actual time=0.075..1.258 rows=4500 loops=1)
-                                            One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                      ->  Result (actual time=0.100..1.327 rows=4500 loops=1)
+                                            One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                             Buffers: shared hit=85
-                                            ->  Seq Scan on solicitudes s (actual time=0.012..0.840 rows=4500 loops=1)
-                                                  Filter: (empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                            ->  Seq Scan on solicitudes s (actual time=0.018..0.811 rows=4500 loops=1)
+                                                  Filter: (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                                   Buffers: shared hit=85
-Planning Time: 0.263 ms
-Execution Time: 24.874 ms
+Planning:
+  Buffers: shared hit=1
+Planning Time: 0.266 ms
+Execution Time: 32.890 ms
 ```
 
 </details>
 
 <details>
-<summary>Filtro por estado de la usuaria (página): Execution Time: 32.288 ms</summary>
+<summary>Filtro por estado de la usuaria (página): Execution Time: 36.644 ms</summary>
 
 ```
-Limit (actual time=32.197..32.208 rows=20 loops=1)
-  Buffers: shared hit=3646
+Limit (actual time=36.530..36.545 rows=20 loops=1)
+  Buffers: shared hit=7884
   InitPlan 1
-    ->  Result (actual time=0.357..0.358 rows=1 loops=1)
+    ->  Result (actual time=0.327..0.328 rows=1 loops=1)
           Buffers: shared hit=3
-  ->  Sort (actual time=32.194..32.203 rows=20 loops=1)
+  ->  Sort (actual time=36.527..36.537 rows=20 loops=1)
         Sort Key: d.creado_en DESC, d.id
         Sort Method: top-N heapsort  Memory: 35kB
-        Buffers: shared hit=3646
-        ->  Result (actual time=8.729..31.583 rows=1250 loops=1)
-              One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
-              Buffers: shared hit=3646
-              ->  Nested Loop (actual time=8.682..31.370 rows=1250 loops=1)
+        Buffers: shared hit=7884
+        ->  Result (actual time=9.554..36.012 rows=1250 loops=1)
+              One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
+              Buffers: shared hit=7884
+              ->  Nested Loop (actual time=9.501..35.724 rows=1250 loops=1)
                     Join Filter: (u.id = d.subido_por)
                     Rows Removed by Join Filter: 6250
-                    Buffers: shared hit=3646
-                    ->  Nested Loop (actual time=8.671..30.143 rows=1250 loops=1)
+                    Buffers: shared hit=7884
+                    ->  Nested Loop (actual time=9.489..34.560 rows=1250 loops=1)
                           Join Filter: (c.id = d.categoria_id)
                           Rows Removed by Join Filter: 6250
-                          Buffers: shared hit=3645
-                          ->  Hash Left Join (actual time=7.946..28.230 rows=1250 loops=1)
+                          Buffers: shared hit=7883
+                          ->  Hash Left Join (actual time=8.814..32.710 rows=1250 loops=1)
                                 Hash Cond: (d.id = ultima.documento_id)
                                 Filter: ((COALESCE(ultima.estado, 'sin_solicitud'::character varying))::text = 'pendiente'::text)
                                 Rows Removed by Filter: 41500
-                                Buffers: shared hit=3625
-                                ->  Bitmap Heap Scan on documentos d (actual time=3.185..14.957 rows=42750 loops=1)
-                                      Recheck Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)) AND (eliminado_en IS NULL))
-                                      Heap Blocks: exact=3499
-                                      Buffers: shared hit=3540
-                                      ->  Bitmap Index Scan on documentos_por_categoria (actual time=2.753..2.753 rows=42750 loops=1)
-                                            Index Cond: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)))
-                                            Buffers: shared hit=41
-                                ->  Hash (actual time=4.726..4.730 rows=4500 loops=1)
+                                Buffers: shared hit=7863
+                                ->  Bitmap Heap Scan on documentos d (actual time=4.663..20.584 rows=42750 loops=1)
+                                      Recheck Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)) AND (eliminado_en IS NULL))
+                                      Heap Blocks: exact=7738
+                                      Buffers: shared hit=7778
+                                      ->  Bitmap Index Scan on documentos_por_categoria (actual time=3.494..3.494 rows=42750 loops=1)
+                                            Index Cond: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND (categoria_id = ANY ((InitPlan 1).col1)))
+                                            Buffers: shared hit=40
+                                ->  Hash (actual time=4.094..4.098 rows=4500 loops=1)
                                       Buckets: 8192  Batches: 1  Memory Usage: 318kB
                                       Buffers: shared hit=85
-                                      ->  Subquery Scan on ultima (actual time=2.430..4.001 rows=4500 loops=1)
+                                      ->  Subquery Scan on ultima (actual time=2.152..3.536 rows=4500 loops=1)
                                             Buffers: shared hit=85
-                                            ->  Unique (actual time=2.428..3.546 rows=4500 loops=1)
+                                            ->  Unique (actual time=2.149..3.084 rows=4500 loops=1)
                                                   Buffers: shared hit=85
-                                                  ->  Sort (actual time=2.427..2.825 rows=4500 loops=1)
+                                                  ->  Sort (actual time=2.148..2.467 rows=4500 loops=1)
                                                         Sort Key: s.documento_id, s.creada_en DESC
                                                         Sort Method: quicksort  Memory: 439kB
                                                         Buffers: shared hit=85
-                                                        ->  Result (actual time=0.086..1.379 rows=4500 loops=1)
-                                                              One-Time Filter: (empresa_actual() = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                                        ->  Result (actual time=0.091..1.229 rows=4500 loops=1)
+                                                              One-Time Filter: (empresa_actual() = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                                               Buffers: shared hit=85
-                                                              ->  Seq Scan on solicitudes s (actual time=0.034..0.937 rows=4500 loops=1)
-                                                                    Filter: (empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                                                              ->  Seq Scan on solicitudes s (actual time=0.013..0.760 rows=4500 loops=1)
+                                                                    Filter: (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                                                     Buffers: shared hit=85
                           ->  Materialize (actual time=0.000..0.001 rows=6 loops=1250)
                                 Buffers: shared hit=20
-                                ->  Seq Scan on categorias c (actual time=0.406..0.715 rows=9 loops=1)
-                                      Filter: ((empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid) AND puede_ver_categoria(id))
+                                ->  Seq Scan on categorias c (actual time=0.429..0.663 rows=9 loops=1)
+                                      Filter: ((empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid) AND puede_ver_categoria(id))
                                       Buffers: shared hit=20
                     ->  Materialize (actual time=0.000..0.000 rows=6 loops=1250)
                           Buffers: shared hit=1
-                          ->  Seq Scan on usuarios u (actual time=0.006..0.007 rows=9 loops=1)
-                                Filter: (empresa_id = '938c82f4-78ec-4d23-850e-bef6c582a95e'::uuid)
+                          ->  Seq Scan on usuarios u (actual time=0.006..0.008 rows=9 loops=1)
+                                Filter: (empresa_id = '932da999-6cf9-40d6-9b3c-7840ed59e591'::uuid)
                                 Rows Removed by Filter: 1
                                 Buffers: shared hit=1
 Planning:
-  Buffers: shared hit=8
-Planning Time: 0.568 ms
-Execution Time: 32.288 ms
+  Buffers: shared hit=9
+Planning Time: 0.597 ms
+Execution Time: 36.644 ms
 ```
 
 </details>

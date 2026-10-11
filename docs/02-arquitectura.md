@@ -751,6 +751,52 @@ tardaría más, pero una MYPE tiene cientos de documentos, no decenas de miles.
   que hace Power BI.
 - **Una plantilla de Power BI (.pbit):** se arma con Power BI Desktop y no se puede revisar como texto.
 
+**D45 · La búsqueda también en lo que dice el archivo, con palabras clave, sin IA ni OCR.** El autor pidió que el
+sistema «lea el documento y detecte palabras clave». D43 lo dejaba para después de la evaluación; la prueba aislada
+(`experimentos/lectura-de-contenido/`, `docs/evidencias/lectura-de-contenido.md`) lo midió antes de tocar el sistema:
+56 de 56 archivos ficticios respondieron lo esperado, también los hostiles, la lectura más lenta gastó 56 ms de CPU
+(unos 0,6 s estimados en Render) y el lector suma 16 MB de memoria. Cómo quedó:
+- **Qué se lee:** el texto que ya trae el archivo vigente: un PDF con capa de texto (unpdf 1.8.1, que es pdf.js de
+  Mozilla sin dependencias), un Word (.docx: cuerpo, encabezados y pies) o un Excel (.xlsx: textos y números). Una foto,
+  un escaneo o un .doc o .xls antiguos no tienen texto que leer así, y la ficha lo dice.
+- **Con límites:** como mucho 20.000 caracteres (6 a 8 páginas; una restricción de la base impide guardar más), 50
+  páginas, 10 s y 16 MB de XML descomprimido, que frena una bomba de compresión. La lectura nunca lanza un error: si el
+  archivo no se deja leer, el documento se sube igual, «ilegible».
+- **Dónde se guarda:** en la fila del documento (`contenido`, `contenido_estado`, `palabras_clave`, migración 015), así
+  que la misma RLS decide quién lo ve, también la de las categorías restringidas (D22). Solo del archivo vigente: subir
+  una versión lo reemplaza y restaurar una anterior vuelve a leer la copia; las versiones siguen siendo de solo inserción
+  (D30). La purga de la papelera borra el texto con el archivo (D23). Lo subido antes de la 015 queda «pendiente» y una
+  tarea de la API lo lee en segundo plano, de a 20 por empresa cada 10 minutos.
+- **Cómo se busca:** cada palabra, por su raíz y como comienzo de palabra, en su propia columna (`busqueda_contenido`,
+  un `tsvector` sin posiciones) que solo se mira donde el nombre, la descripción y la categoría no coincidieron. Lo que
+  coincide así sale después, con la etiqueta «Dentro del archivo» y unas palabras alrededor con lo buscado resaltado,
+  armadas en la API y mostradas como texto (`<mark>`), nunca como HTML.
+- **Las palabras clave:** los datos que se reconocen por su forma (RUC, número de comprobante, montos y fechas, con
+  expresiones regulares) y las ocho palabras más propias del documento: las que más repite y menos aparecen en los 500
+  documentos más recientes de la empresa (TF-IDF). Así «factura» no sale en todas las facturas, y sí «casaca polar» o
+  el cliente. En la ficha, cada una lleva a buscarla.
+
+La primera versión puso el texto en la misma columna de búsqueda de D42, con el peso más bajo. La prueba de carga con
+50.000 documentos de unos 1.700 caracteres mostró el costo: PostgreSQL descomprimía ese texto varias veces por fila,
+también para buscar por nombre, que pasó de 100 a 293 ms, y la búsqueda por parecido llegó a pasar de 1 s. Con el texto
+en su propia columna, la búsqueda por nombre tarda 131 ms y buscar dentro de los archivos, 156 ms; los 26 escenarios
+siguen por debajo de su umbral (`docs/evidencias/prueba-de-carga.md`). La batería de aislamiento suma dos intentos de A
+de encontrar una palabra que solo dice un archivo de B, con su control: B sí lo encuentra (73 de 73).
+
+Privacidad: nada sale del servidor ni va a un tercero; el texto queda en la base y en sus respaldos, y se elimina con lo
+demás al cierre del estudio (D33). La política de privacidad y el consentimiento (`docs/10`) lo dicen. Corrige a D43 en
+lo de no leer los archivos; lo demás de D43 sigue: nada de IA.
+*Descartado:*
+- **OCR para fotos y escaneos:** fuera del alcance; con 0,1 CPU, cada página tardaría decenas de segundos.
+- **La búsqueda semántica con embeddings:** la prueba de D43 mostró que siempre devuelve algo y suma unos 350 MB a una
+  API de 512 MB.
+- **Leer el archivo en el navegador:** el texto que se guarda dependería de lo que mande el cliente.
+- **Mandar el archivo a una API externa:** saca documentos de la empresa a un tercero, y cuesta.
+- **Guardar el texto de cada versión:** multiplica lo guardado sin que nadie busque en versiones anteriores.
+- **El texto en la misma columna de búsqueda:** medido arriba, frenaba también la búsqueda por nombre.
+- **Ordenar dentro del contenido por cuántas veces dice la palabra:** obligaría a leer el texto de todas las
+  coincidencias; ahí empatan y va primero lo más reciente.
+
 ## 8. Riesgos
 
 | # | Riesgo | Mitigación |

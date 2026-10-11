@@ -5,7 +5,11 @@ primero una búsqueda avanzada convencional, después una comparación objetiva 
 búsqueda semántica. Este documento es esa comparación, y su §6 trae el resultado de la prueba aislada que la
 midió. El sistema no tiene IA.
 
-**Recomendación:**
+> **Actualización del 11 de octubre de 2026 (D45):** a pedido del autor, C ya está en el sistema, sin OCR y sin IA:
+> la API lee el texto de los PDF, Word y Excel al subirlos, la búsqueda lo mira y la ficha muestra sus palabras
+> clave. Ver §7. Lo que este documento dice de la semántica no cambia.
+
+**Recomendación (10 de octubre, antes de D45):**
 
 - Durante la tesis, la búsqueda se queda como está (A, D42): sin IA y sin leer el contenido de los archivos.
 - La prueba aislada (§6) confirmó que la semántica encuentra lo que se busca con otra palabra, donde la actual
@@ -389,3 +393,32 @@ haría falta según lo que muestren las búsquedas fallidas:
     y midiendo antes la memoria en Render.
   - Si la memoria no alcanza, hay dos salidas: un plan de pago o un servicio externo. El servicio externo exige
     cambiar el consentimiento (§2.6).
+
+## 7. C en el sistema (11 de octubre de 2026, D45)
+
+El autor pidió que el sistema «lea el documento y detecte palabras clave». Se hizo en dos pasos:
+
+1. **Medir, fuera del sistema** (`experimentos/lectura-de-contenido/`, `docs/evidencias/lectura-de-contenido.md`):
+   56 archivos ficticios, entre ellos comprobantes como los de un sistema de facturación, un contrato de 41 páginas,
+   un escaneo sin texto, un Word y un Excel, una bomba de compresión, un PDF con contraseña y uno falso. Los 56
+   respondieron lo esperado; la lectura más lenta gastó 56 ms de CPU y el lector suma 16 MB de memoria.
+2. **Integrarlo** con los mismos límites y el mismo lector. Lo que hace y lo que se descartó está en D45
+   (`docs/02-arquitectura.md`).
+
+**Qué ve quien busca:**
+
+- Una búsqueda encuentra también lo que dice el archivo, por la raíz de cada palabra y sin tildes: «casacas lucero»
+  encuentra la factura escaneada como «Escaneo 0045» si su PDF dice «Casaca polar» y «Boutique Lucero».
+- Lo que coincide así sale después de lo que coincide en el nombre, la descripción o la categoría, con la etiqueta
+  «Dentro del archivo» y unas palabras alrededor, con lo buscado resaltado.
+- La ficha muestra los datos que se reconocen (RUC, comprobante, montos, fechas) y las palabras propias del documento;
+  cada RUC, comprobante y palabra lleva a buscarlo.
+- Una foto o un escaneo siguen encontrándose solo por su nombre, su descripción y su categoría, y la ficha lo dice.
+
+**Qué no cambia:** sigue sin IA, sin OCR y sin mandar nada a terceros; la RLS decide quién ve el texto, igual que el
+documento; las sugerencias y la búsqueda usan la misma consulta. La consulta de búsquedas fallidas (§5) sigue
+sirviendo, ahora para ver si las que fallan son fotos o palabras distintas.
+
+**Evidencia:** las pruebas de integración `tests/integracion/contenido.test.ts`, los dos intentos nuevos de la
+batería de aislamiento (73 de 73), la prueba funcional «RF10 · Encuentra un documento por lo que dice su archivo» y la
+prueba de carga con texto en los 43.000 documentos que no son fotos (búsqueda dentro del archivo en 156 ms).

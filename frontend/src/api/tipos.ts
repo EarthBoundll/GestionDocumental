@@ -60,8 +60,8 @@ export interface Categoria {
   documentos: number;
 }
 
-/** D42: dónde coincidió un resultado con lo buscado, de lo más a lo menos útil. */
-export type Coincidencia = 'nombre_exacto' | 'nombre_inicio' | 'nombre' | 'nombre_o_archivo' | 'descripcion' | 'categoria' | 'parecido';
+/** D42: dónde coincidió un resultado con lo buscado, de lo más a lo menos útil; «contenido», en lo que dice el archivo (D45). */
+export type Coincidencia = 'nombre_exacto' | 'nombre_inicio' | 'nombre' | 'nombre_o_archivo' | 'descripcion' | 'contenido' | 'categoria' | 'parecido';
 export type TipoDeArchivo = 'pdf' | 'imagen' | 'word' | 'excel';
 /** Según su última solicitud de aprobación; «sin_solicitud» si nunca se pidió. */
 export type EstadoDeAprobacion = 'sin_solicitud' | EstadoSolicitud;
@@ -76,6 +76,22 @@ export interface DocumentoResumen {
   creadoEn: string;
   /** Solo si se buscó un texto. */
   coincidencia?: Coincidencia;
+  /** Solo si coincidió por lo que dice el archivo: unas palabras alrededor, con lo buscado resaltado (D45). */
+  fragmento?: TrozoDeFragmento[];
+}
+
+export interface TrozoDeFragmento {
+  texto: string;
+  resaltado: boolean;
+}
+
+/** Qué se pudo leer del archivo vigente (D45). «pendiente»: se lee en segundo plano en unos minutos. */
+export type EstadoDelContenido = 'pendiente' | 'leido' | 'sin_texto' | 'no_admitido' | 'ilegible';
+
+/** Lo que se reconoce en el texto del archivo, sin IA: datos por su forma y las palabras propias del documento. */
+export interface PalabrasClave {
+  datos: { tipo: 'ruc' | 'comprobante' | 'monto' | 'fecha'; valor: string }[];
+  palabras: string[];
 }
 
 /** Una sugerencia mientras se escribe: lo justo para reconocer el documento. */
@@ -107,6 +123,7 @@ export interface Documento extends Omit<DocumentoResumen, 'archivo'> {
   actualizadoEn: string;
   ultimaSolicitud: UltimaSolicitud | null;
   permisos: { editar: boolean; eliminar: boolean; solicitarAprobacion: boolean; resolverSolicitud: boolean; versionar: boolean };
+  contenido: { estado: EstadoDelContenido; palabrasClave: PalabrasClave | null };
 }
 
 /** Una versión de un documento (RF34). Ninguna se borra; restaurar crea otra. */

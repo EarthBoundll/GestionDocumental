@@ -1,8 +1,12 @@
+import type { TrozoDeFragmento } from '../../compartido/contenido/fragmento.js';
+import type { EstadoDelContenido } from '../../compartido/contenido/leer.js';
+import type { PalabrasClave } from '../../compartido/contenido/palabras-clave.js';
 import { desplazamiento } from '../../compartido/paginacion.js';
 import { clausulaSet } from '../../db/actualizacion.js';
 import type { Consultor } from '../../db/pool.js';
 import { GRUPOS_DE_TIPO } from '../../compartido/tipos-de-archivo.js';
 import { admiteParecido, COINCIDENCIAS, terminosDeBusqueda, UMBRAL_DE_PARECIDO, type Coincidencia } from './busqueda.js';
+import { fragmentosDe, type ContenidoDelDocumento } from './contenido.js';
 import type { FiltrosBusqueda, FiltrosDelListado } from './documentos.esquemas.js';
 
 export interface DocumentoResumen {
@@ -15,6 +19,8 @@ export interface DocumentoResumen {
   creadoEn: Date;
   /** Con texto en la búsqueda: dónde coincidió (D42). */
   coincidencia?: Coincidencia;
+  /** Si coincidió solo por lo que dice el archivo: unas palabras alrededor, con lo buscado resaltado (D45). */
+  fragmento?: TrozoDeFragmento[];
 }
 
 export interface UltimaSolicitud {
@@ -37,6 +43,11 @@ export interface Documento extends Omit<DocumentoResumen, 'archivo'> {
   version: number;
   actualizadoEn: Date;
   ultimaSolicitud: UltimaSolicitud | null;
+  /**
+   * Lo que el sistema leyó del archivo vigente (D45): si se leyó y sus palabras clave. El texto no sale: se
+   * busca en él, y el archivo está a un clic.
+   */
+  contenido: { estado: EstadoDelContenido | 'pendiente'; palabrasClave: PalabrasClave | null };
 }
 
 /** Lo que solo el servidor necesita y nunca sale en una respuesta. */
@@ -104,7 +115,10 @@ export function condicionesDeBusqueda(
       const porPalabra = palabras.map((palabra) => {
         const p = parametro(palabra);
         const enNombre = `d.busqueda_nombre LIKE '%' || ${p} || '%'`;
-        const enTexto = `(d.busqueda_texto LIKE '%' || ${p} || '%' OR d.busqueda @@ to_tsquery('spanish', ${p} || ':*'))`;
+        // En el texto propio del documento (nombre, archivo y descripción) o, si no, en lo que dice su archivo (D45).
+        // El contenido va último: solo se mira en las filas donde lo demás no coincidió.
+        const enTextoPropio = `(d.busqueda_texto LIKE '%' || ${p} || '%' OR d.busqueda @@ to_tsquery('spanish', ${p} || ':*'))`;
+        const enTexto = `(${enTextoPropio} OR d.busqueda_contenido @@ to_tsquery('spanish', ${p} || ':*'))`;
         const enCategoria = `d.categoria_id IN (SELECT ca.id FROM categorias ca WHERE ca.empresa_id = $1 AND normalizar(ca.nombre) LIKE '%' || ${p} || '%')`;
         const coincide = `(${enTexto} OR ${enCategoria})`;
         // Por parecido, solo en el nombre: es donde se busca de memoria, y recorrerlo cuesta un tercio que el texto entero.
@@ -114,13 +128,14 @@ export function condicionesDeBusqueda(
           enNombre,
           // La raíz con peso A: en el nombre o en el nombre del archivo, no en la descripción.
           enNombreOArchivo: `(${enNombre} OR d.busqueda @@ to_tsquery('spanish', ${p} || ':*A'))`,
+          enTextoPropio,
           enTexto,
           condicion: parecidos && parecida ? `(${coincide} OR ${parecida})` : coincide,
           similitud: `extensions.word_similarity(${p}, d.busqueda_nombre)`,
         };
       });
       condiciones.push(...porPalabra.map((palabra) => palabra.condicion));
-      const todas = (clave: 'enNombre' | 'enNombreOArchivo' | 'enTexto') => porPalabra.map((palabra) => palabra[clave]).join(' AND ');
+      const todas = (clave: 'enNombre' | 'enNombreOArchivo' | 'enTextoPropio' | 'enTexto') => porPalabra.map((palabra) => palabra[clave]).join(' AND ');
       relevancia = parecidos
         ? {
           nivel: () => String(COINCIDENCIAS.indexOf('parecido') + 1),
@@ -130,8 +145,12 @@ export function condicionesDeBusqueda(
           nivel: (agregar) => {
             const f = agregar(frase);
             return `CASE WHEN d.busqueda_nombre = ${f} THEN 1 WHEN d.busqueda_nombre LIKE ${f} || '%' THEN 2
-              WHEN ${todas('enNombre')} THEN 3 WHEN ${todas('enNombreOArchivo')} THEN 4 WHEN ${todas('enTexto')} THEN 5 ELSE 6 END`;
+              WHEN ${todas('enNombre')} THEN 3 WHEN ${todas('enNombreOArchivo')} THEN 4 WHEN ${todas('enTextoPropio')} THEN 5
+              WHEN ${todas('enTexto')} THEN 6 ELSE 7 END`;
           },
+          // Dentro de un nivel, pesa más lo que está en el nombre que en la descripción. Lo que coincidió solo en el
+          // contenido empata, y va primero lo más reciente: ordenarlo por cuántas veces lo dice obligaría a leer el
+          // contenido de todas las coincidencias, y una mención más no hace a un documento más buscado.
           puntaje: (agregar) => `ts_rank(d.busqueda, to_tsquery('spanish', ${agregar(palabras.map((palabra) => `${palabra}:*`).join(' | '))}))`,
         };
     }
@@ -288,7 +307,17 @@ export async function buscarDocumentos(
   const { conteo, pagina } = consultasDeBusqueda(empresaId, filtros, opciones);
   const { rows: [total] } = await db.query<{ total: number }>(conteo.texto, conteo.parametros);
   const { rows } = await db.query<FilaResumen>(pagina.texto, pagina.parametros);
-  return { filas: rows.map(aResumen), total: total?.total ?? 0 };
+  const filas = rows.map(aResumen);
+  // Lo que coincidió solo por su contenido muestra dónde: el texto de esas filas de la página, no de toda la búsqueda.
+  const porContenido = filas.filter((fila) => fila.coincidencia === 'contenido').map((fila) => fila.id);
+  if (porContenido.length > 0 && filtros.q) {
+    const fragmentos = await fragmentosDe(db, empresaId, porContenido, terminosDeBusqueda(filtros.q).palabras);
+    for (const fila of filas) {
+      const fragmento = fragmentos.get(fila.id);
+      if (fragmento) fila.fragmento = fragmento;
+    }
+  }
+  return { filas, total: total?.total ?? 0 };
 }
 
 /** Una sugerencia mientras se escribe: lo justo para reconocer el documento y abrirlo. */
@@ -332,6 +361,8 @@ interface FilaDocumento extends FilaResumen {
   s_comentario_resolucion: string | null;
   s_creada_en: Date | null;
   s_resuelta_en: Date | null;
+  contenido_estado: EstadoDelContenido | 'pendiente';
+  palabras_clave: PalabrasClave | null;
 }
 
 /** Un documento vigente de la empresa, con su última solicitud de aprobación (M6). */
@@ -339,7 +370,7 @@ export async function buscarDocumento(db: Consultor, empresaId: string, id: stri
   const { rows } = await db.query<FilaDocumento>(
     `SELECT d.id, d.nombre, d.fecha_documento, d.categoria_id, c.nombre AS categoria_nombre, d.subido_por,
             u.nombre AS subido_por_nombre, d.archivo_tipo_mime, d.archivo_peso_bytes, d.creado_en,
-            d.descripcion, d.archivo_nombre_original, d.archivo_ruta, d.actualizado_en, d.version,
+            d.descripcion, d.archivo_nombre_original, d.archivo_ruta, d.actualizado_en, d.version, d.contenido_estado, d.palabras_clave,
             s.id AS s_id, s.version AS s_version, s.estado AS s_estado, s.solicitante_id AS s_solicitante_id, sol.nombre AS s_solicitante_nombre,
             s.revisor_id AS s_revisor_id, rev.nombre AS s_revisor_nombre, s.comentario_solicitud AS s_comentario_solicitud,
             s.comentario_resolucion AS s_comentario_resolucion, s.creada_en AS s_creada_en, s.resuelta_en AS s_resuelta_en
@@ -374,6 +405,7 @@ export async function buscarDocumento(db: Consultor, empresaId: string, id: stri
       resueltaEn: fila.s_resuelta_en,
       version: fila.s_version!,
     },
+    contenido: { estado: fila.contenido_estado, palabrasClave: fila.palabras_clave },
   };
 }
 
@@ -399,13 +431,15 @@ export async function insertarDocumento(db: Consultor, datos: {
   archivoRuta: string;
   archivoTipoMime: string;
   archivoPesoBytes: number;
+  contenido: ContenidoDelDocumento;
 }): Promise<void> {
   await db.query(
     `INSERT INTO documentos (id, empresa_id, categoria_id, subido_por, nombre, descripcion, fecha_documento,
-       archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+       archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes, contenido, contenido_estado, palabras_clave)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
     [datos.id, datos.empresaId, datos.categoriaId, datos.subidoPor, datos.nombre, datos.descripcion,
-      datos.fechaDocumento, datos.archivoNombreOriginal, datos.archivoRuta, datos.archivoTipoMime, datos.archivoPesoBytes],
+      datos.fechaDocumento, datos.archivoNombreOriginal, datos.archivoRuta, datos.archivoTipoMime, datos.archivoPesoBytes,
+      datos.contenido.texto, datos.contenido.estado, datos.contenido.palabrasClave],
   );
 }
 
@@ -534,7 +568,9 @@ export async function restaurarDocumento(db: Consultor, empresaId: string, id: s
 
 export async function marcarPurgado(db: Consultor, empresaId: string, id: string): Promise<void> {
   await db.query(
-    'UPDATE documentos SET purgado_en = now() WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NOT NULL',
+    // Con los archivos se va también lo que se leyó de ellos (D45): de un documento purgado solo queda su nombre.
+    `UPDATE documentos SET purgado_en = now(), contenido = NULL, palabras_clave = NULL
+     WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NOT NULL`,
     [empresaId, id],
   );
 }

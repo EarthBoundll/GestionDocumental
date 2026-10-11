@@ -7,7 +7,8 @@ export const TEXTO_DE_COINCIDENCIA: Record<Coincidencia, string> = {
   nombre_inicio: 'Empieza así',
   nombre: 'En el nombre',
   nombre_o_archivo: 'En el nombre o el archivo',
-  descripcion: 'En la descripción o el archivo',
+  descripcion: 'En la descripción',
+  contenido: 'Dentro del archivo',
   categoria: 'Por su categoría',
   parecido: 'Se parece',
 };

@@ -129,6 +129,7 @@ describe('Documentos (RF07–RF12)', () => {
         firmarEnlace: (ruta, opciones) => disco.firmarEnlace(ruta, opciones),
         eliminar: vi.fn((ruta: string) => disco.eliminar(ruta)),
         copiar: (origen, destino) => disco.copiar(origen, destino),
+        descargar: (ruta) => disco.descargar(ruta),
         vaciarCarpeta: (empresaId) => disco.vaciarCarpeta(empresaId),
       };
       app = crearAppDePruebas(pool, {}, espia);
