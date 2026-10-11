@@ -104,7 +104,7 @@ function Despedida({ nombre }: { nombre: string }) {
 /** Al pie del menú: la cuenta y, con la sesión iniciada, los términos y la privacidad (D38). */
 function PieDelMenu() {
   return (
-    <div className="mt-auto">
+    <div className={`${DIVISION} border-t px-4 py-3`}>
       <Link to="/cuenta" className={`block px-3 py-2 text-sm text-zona-texto ${EN_LA_ZONA}`}>Mi cuenta</Link>
       <nav aria-label="Información legal" className="mt-1 flex gap-3 px-3 text-xs text-zona-suave">
         <Link to="/terminos" className="rounded py-1 hover:text-zona-fuerte hover:underline focus-visible:outline-zona-foco">Términos</Link>
@@ -132,6 +132,13 @@ function ImagenDeFondo({ url }: { url: string }) {
 const PANEL_SOBRE_LA_IMAGEN = 'lg:my-6 lg:w-[calc(100%-3rem)] lg:rounded-2xl lg:bg-pagina lg:shadow-sm lg:ring-1 lg:ring-slate-900/5 ' +
   'print:my-0 print:w-full print:rounded-none print:bg-transparent print:shadow-none print:ring-0';
 
+/**
+ * Las líneas que separan el menú, la barra y el contenido (D47): grises en el estilo claro y un tono más claro de la
+ * marca en el de la empresa. La de debajo del logo mide lo mismo que la barra, así que forma una sola línea con la suya.
+ */
+const DIVISION = 'shrink-0 border-zona-borde';
+const CABEZA_DEL_MENU = `${DIVISION} flex h-16 items-center border-b px-4`;
+
 /** El marco de todas las pantallas con sesión: barra lateral en escritorio, menú desplegable en el celular. */
 export function Layout() {
   const { sesion, esMaster } = useSesion();
@@ -150,23 +157,29 @@ export function Layout() {
       </a>
 
       {/* Al imprimir (el historial, RF36) sale solo el contenido: sin menú ni barra. */}
-      <aside className="zona-menu fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 overflow-y-auto border-r border-zona-borde bg-zona px-4 py-5 lg:flex print:hidden">
-        <Marca />
-        <Navegacion />
+      <aside className="zona-menu fixed inset-y-0 left-0 hidden w-64 flex-col overflow-y-auto border-r border-zona-borde bg-zona lg:flex print:hidden">
+        <div className={CABEZA_DEL_MENU}>
+          <Marca />
+        </div>
+        <div className="flex-1 px-4 py-5">
+          <Navegacion />
+        </div>
         <PieDelMenu />
       </aside>
 
       {menuAbierto && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menú">
           <button type="button" aria-label="Cerrar el menú" className="absolute inset-0 bg-black/40" onClick={() => setMenuAbierto(false)} />
-          <div className="zona-menu absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-6 overflow-y-auto bg-zona px-4 py-5 shadow-xl">
-            <div className="flex items-center justify-between">
+          <div className="zona-menu absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-zona shadow-xl">
+            <div className={`${CABEZA_DEL_MENU} justify-between gap-2`}>
               <Marca />
               <button type="button" onClick={() => setMenuAbierto(false)} aria-label="Cerrar el menú" className={`p-2 text-zona-texto ${EN_LA_ZONA}`}>
                 <X aria-hidden className="size-5" />
               </button>
             </div>
-            <Navegacion alNavegar={() => setMenuAbierto(false)} />
+            <div className="flex-1 px-4 py-5">
+              <Navegacion alNavegar={() => setMenuAbierto(false)} />
+            </div>
             <PieDelMenu />
           </div>
         </div>

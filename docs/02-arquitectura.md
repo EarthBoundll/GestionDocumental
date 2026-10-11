@@ -858,7 +858,9 @@ contraste comprobado (4,5:1 con el texto blanco) y de un tono de fondo con la cl
   (nunca el nombre ni el logo), y guarda solo lo que cambió, así que el historial nombra exactamente lo que se tocó.
 - **Cómo se aplica:** el menú y la barra usan colores «de zona» (`--color-zona-*`) que una regla redefine solo dentro de
   esas dos zonas; los paneles que se abren dentro (la campana, el diálogo de salir) siguen con los de siempre, y el foco
-  del teclado se ve blanco sobre la marca. Ningún componente del contenido cambió de clases.
+  del teclado se ve blanco sobre la marca. Ningún componente del contenido cambió de clases. Las zonas se separan con
+  líneas, grises o de un tono más claro de la marca: la de debajo del logo mide lo mismo que la barra y forma una sola
+  línea con la suya, y otra separa «Mi cuenta» del menú (pedido del autor tras verlo en producción).
 
 *Descartado:*
 - **Un color libre por elemento:** con diez colores serían unas veinte combinaciones de texto y fondo que validar en

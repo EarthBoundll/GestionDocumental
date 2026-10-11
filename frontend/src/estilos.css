@@ -164,7 +164,8 @@
   --color-zona-activa: color-mix(in srgb, var(--zona-marca) 68%, black);
   --color-zona-activa-texto: #fff;
   --color-zona-acento: #fff;
-  --color-zona-borde: transparent;
+  /* Las divisiones, en un tono más claro de la marca: se ven sin competir con el texto. */
+  --color-zona-borde: color-mix(in srgb, var(--zona-marca), white 28%);
   --color-zona-foco: #fff;
 }
 
