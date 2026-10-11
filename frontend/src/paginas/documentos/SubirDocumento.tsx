@@ -161,7 +161,7 @@ export function SubirDocumento() {
               etiqueta="Nombre del documento"
               name="nombre"
               required
-              ayuda="Es lo que se busca después: mejor «Contrato de alquiler del local» que «scan0012»."
+              ayuda="Es lo primero que se busca: mejor «Contrato de alquiler del local» que «scan0012». De un PDF, Word o Excel también se lee lo que dice; de una foto, no."
               value={nombre}
               onChange={(e) => { setNombre(e.target.value); setNombreTocado(true); }}
               error={errores.nombre}

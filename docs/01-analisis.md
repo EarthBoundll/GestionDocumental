@@ -54,7 +54,7 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 | RF07 | Subir un documento con nombre, categoría, fecha y una descripción opcional | Todos | 3 |
 | RF08 | Editar los datos y la categoría de un documento | Quien lo subió, administrador | 3 |
 | RF09 | Eliminar un documento (eliminación lógica) | Quien lo subió, administrador | 3 |
-| RF10 | Buscar documentos por palabras en cualquier orden —en el nombre, el archivo, la descripción o la categoría, sin distinguir mayúsculas ni tildes, por su raíz y con tolerancia a errores de escritura—, filtrar por categoría, tipo, estado de aprobación, quién lo subió y fechas del documento o de subida, con paginación, orden por relevancia y sugerencias mientras se escribe | Todos | 3 y C |
+| RF10 | Buscar documentos por palabras en cualquier orden —en el nombre, el archivo, la descripción, la categoría o lo que dice el archivo (PDF, Word y Excel, D45), sin distinguir mayúsculas ni tildes, por su raíz y con tolerancia a errores de escritura—, filtrar por categoría, tipo, estado de aprobación, quién lo subió y fechas del documento o de subida, con paginación, orden por relevancia y sugerencias mientras se escribe | Todos | 3 y C |
 | RF11 | Ver un documento en el navegador o descargarlo | Todos | 3 |
 | RF12 | Registrar el tiempo de respuesta del listado de documentos, medido en el servidor y en el navegador | Sistema | 3 y 6 |
 | RF13 | Crear, listar y editar usuarios (nombre, rol, contraseña); al crearlos, sin contraseña: les llega una invitación (RN35) | Administrador | 4 y C |
@@ -83,6 +83,7 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 | RF36 | Imprimir o guardar como PDF el historial filtrado, entero y con espacio para firmar, como anexo de una sesión de evaluación | Administrador | B |
 | RF37 | Activar la cuenta con la invitación que llega por correo, eligiendo la propia contraseña, y confirmar el correo con un enlace | Visitante | C |
 | RF38 | Ver si cada cuenta activó su invitación o confirmó su correo, y reenviarle el enlace | Administrador, Master | C |
+| RF39 | Ver en la ficha de un documento lo que se reconoce en su archivo (RUC, comprobante, montos, fechas y sus palabras propias) y buscar cada uno con un toque; de una foto, saber que no se lee (D45) | Todos | C |
 
 ## 4. Requisitos no funcionales
 
@@ -244,13 +245,18 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 **Búsqueda (C)**
 
 - **RN39** Cada palabra buscada tiene que aparecer en el documento: en parte de una palabra de su nombre, archivo o
-  descripción, por su raíz o en el nombre de su categoría. Los artículos y preposiciones («de», «la») no cuentan. Solo
+  descripción, por su raíz, en el nombre de su categoría o, por su raíz, en lo que dice su archivo (RN41). Los
+  artículos y preposiciones («de», «la») no cuentan. Solo
   si nada coincide se buscan palabras parecidas (errores de escritura de 4 letras o más), nunca números, y esos
   resultados se presentan como parecidos.
 - **RN40** Las sugerencias mientras se escribe ven lo mismo que la búsqueda (empresa, categorías restringidas,
   papelera) y no se registran; elegir una sí se registra como búsqueda, con el documento elegido. El filtro por quién
   subió un documento no amplía lo visible: un usuario filtra «los que subí yo» y no recibe la lista de sus colegas, que
   es del administrador (GESTIONAR_USUARIOS).
+- **RN41** Del archivo vigente de un documento se lee el texto que ya trae (PDF con capa de texto, Word o Excel), sin
+  IA, sin OCR y sin enviarlo a nadie, como mucho 20.000 caracteres (D45). Lo ve quien ve el documento; lo que coincide
+  solo ahí va después de lo demás y muestra dónde. Una versión nueva o restaurada cambia el texto, y la purga lo borra.
+  Si el archivo no se deja leer, el documento se sube igual.
 
 ## 6. Matriz de permisos
 

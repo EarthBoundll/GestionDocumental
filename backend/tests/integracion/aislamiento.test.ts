@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   CLAVE, crearAppDePruebas, crearUsuarioEn, iniciarSesion, registrarEmpresa, SECRETO_DE_PRUEBAS, tokenDelMaster,
 } from '../apoyo/api.js';
+import { pdfDeTexto } from '../../scripts/pdf-de-texto.js';
 import { PDF } from '../apoyo/archivos.js';
 import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas.js';
 
@@ -67,8 +68,12 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
     b.documentoNombre = 'Contrato secreto de la empresa B';
     const subido = await request(app).post('/api/v1/documentos').set('Authorization', `Bearer ${b.adminToken}`)
       .field('nombre', b.documentoNombre).field('categoriaId', b.categoriaId).field('fechaDocumento', '2026-09-15')
-      .attach('archivo', PDF, 'contrato-b.pdf');
+      // Su archivo dice algo que su nombre no: «zafiro» solo se encuentra leyendo el contenido (D45).
+      .attach('archivo', pdfDeTexto([{ texto: 'Cláusula de confidencialidad del proyecto Zafiro (ficticio)' }]), 'contrato-b.pdf');
     b.documentoId = subido.body.id;
+    // El control: B sí lo encuentra así. Si no, que A no lo encuentre no probaría nada.
+    const propia = await comoB(b.adminToken).get('/api/v1/documentos?q=zafiro');
+    if (propia.body.datos?.[0]?.id !== b.documentoId) throw new Error('B no encuentra su documento por lo que dice su archivo');
     b.solicitudId = (await comoB(b.adminToken).post(`/api/v1/documentos/${b.documentoId}/solicitudes`).send({})).body.id;
     const avisos = await comoB(segundoAdminToken).get('/api/v1/notificaciones');
     b.notificacionId = avisos.body.datos[0].id;
@@ -204,6 +209,8 @@ describe('Aislamiento entre empresas: A no alcanza nada de B (indicador 6)', () 
       ['buscar documentos por el nombre exacto de uno de B', `/api/v1/documentos?q=${encodeURIComponent('Contrato secreto de la empresa B')}`, (c) => ids(c.datos)],
       ['buscar documentos por una categoría de B', `/api/v1/documentos?categoriaId=${b.categoriaId}`, (c) => ids(c.datos)],
       ['buscar con errores de escritura un documento de B', `/api/v1/documentos?q=${encodeURIComponent('Contarto secretto')}`, (c) => ids(c.datos)],
+      ['buscar una palabra que solo dice el archivo de un documento de B', '/api/v1/documentos?q=zafiro', (c) => ids(c.datos)],
+      ['pedir sugerencias con una palabra del archivo de un documento de B', '/api/v1/documentos/sugerencias?q=zafiro', (c) => ids(c.datos)],
       ['pedir sugerencias con el nombre de un documento de B', `/api/v1/documentos/sugerencias?q=${encodeURIComponent('Contrato secreto')}`, (c) => ids(c.datos)],
       ['pedir sugerencias con el nombre de una categoría de B', `/api/v1/documentos/sugerencias?q=${encodeURIComponent('Confidencial')}`, (c) => ids(c.datos)],
       ['listar categorías, también las inactivas', '/api/v1/categorias?incluirInactivas=true', (c) => ids(c.datos)],

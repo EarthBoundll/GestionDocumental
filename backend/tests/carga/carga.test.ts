@@ -21,6 +21,8 @@ import { crearBaseDePruebas, type BaseDePruebas } from '../apoyo/base-de-pruebas
 const DOCUMENTOS = 50_000;
 const DOCUMENTOS_DE_OTRA_EMPRESA = 10_000;
 const ASIENTOS = 200_000;
+/** Cuántos documentos se insertan por consulta. */
+const TANDA = 5_000;
 const CALENTAMIENTO = 3;
 const REPETICIONES = 30;
 /** RNF05: el listado, en menos de 1 s. */
@@ -33,6 +35,24 @@ const TIPOS = ['Factura', 'Boleta', 'Guía de remisión', 'Orden de compra', 'Co
 const CATEGORIAS = ['Facturas', 'Boletas', 'Guías de remisión', 'Órdenes de compra', 'Contratos', 'Cotizaciones', 'Planillas', 'Recursos humanos'];
 const RESTRINGIDAS = ['Planillas', 'Recursos humanos'];
 const CLIENTES = ['Textiles Andinos', 'Confecciones Lima', 'Hilos del Sur', 'Moda Gamarra', 'Telas Perú', 'Algodón Pima'];
+/** D45: lo que dice el archivo de cada documento (no las fotos). Dos prendas por documento y unas cláusulas. */
+const PRENDAS = ['Casaca polar', 'Polo de algodón', 'Pantalón drill', 'Chompa de alpaca', 'Camisa oxford', 'Buzo deportivo', 'Uniforme escolar', 'Mandil de cocina'];
+const CLAUSULAS = [
+  'El pago se realiza a 30 días de la entrega, por transferencia a la cuenta corriente indicada en el comprobante.',
+  'La mercadería se entrega en el almacén del jirón Gamarra, de lunes a sábado, entre las 8 y las 17 horas.',
+  'Las prendas viajan dobladas, embolsadas una por una y en cajas rotuladas con la talla y el modelo.',
+  'La garantía cubre defectos de confección durante 30 días; no cubre el desgaste por uso ni el lavado indebido.',
+  'Cualquier reclamo se presenta por escrito, con el comprobante y fotografías de las prendas observadas.',
+  'Las tallas se ajustan a la tabla de medidas aprobada por el cliente en la muestra de producción.',
+  'Los botones, cierres y etiquetas los provee el taller, salvo que el pedido indique lo contrario.',
+  'El cliente revisa la muestra en un plazo de tres días hábiles; sin observaciones, se entiende aprobada.',
+  'La tela se compra al proveedor homologado y se lava antes del corte para evitar que encoja.',
+  'Si el pedido se anula después del corte, el cliente asume el costo de la tela y de la mano de obra.',
+  'El transporte a provincias corre por cuenta del cliente, con la empresa de transportes que él elija.',
+  'Los precios incluyen el impuesto general a las ventas y se expresan en soles.',
+];
+/** El RUC del cliente en el documento g: uno distinto por documento, como para buscar uno concreto. */
+const rucDelDocumento = (g: number) => `20${String((g * 7919) % 1_000_000_000).padStart(9, '0')}`;
 
 interface Medicion {
   escenario: string;
@@ -109,10 +129,11 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
 
   /** Documentos de tres años y medio, con su versión 1; uno de cada 7 es una foto y uno de cada 50 está en la papelera. */
   async function cargarDocumentos(empresaId: string, categorias: string[], personas: string[], cantidad: number) {
-    await pool.query(
+    // En tandas: con el texto de cada archivo, una sola inserción pasa el tiempo máximo de una consulta.
+    for (let desde = 1; desde <= cantidad; desde += TANDA) await pool.query(
       `INSERT INTO documentos (empresa_id, categoria_id, subido_por, nombre, descripcion, fecha_documento,
          archivo_nombre_original, archivo_ruta, archivo_tipo_mime, archivo_peso_bytes, creado_en, actualizado_en,
-         eliminado_en, eliminado_por)
+         eliminado_en, eliminado_por, contenido, contenido_estado)
        SELECT $1::uuid, ($2::uuid[])[1 + g % cardinality($2::uuid[])], ($3::uuid[])[1 + g % cardinality($3::uuid[])],
               ($4::text[])[1 + g % cardinality($2::uuid[])] || ' ' || ($5::text[])[1 + g % cardinality($5::text[])]
                 || ' N° ' || lpad(g::text, 6, '0'),
@@ -123,9 +144,18 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
               20000 + (g::bigint * 104729) % 2000000,
               now() - ($6 - g) * interval '25 minutes', now() - ($6 - g) * interval '25 minutes',
               CASE WHEN g % 50 = 0 THEN now() - interval '1 day' END,
-              CASE WHEN g % 50 = 0 THEN ($3::uuid[])[1] END
-       FROM generate_series(1, $6) AS g`,
-      [empresaId, categorias, personas, TIPOS, CLIENTES, cantidad],
+              CASE WHEN g % 50 = 0 THEN ($3::uuid[])[1] END,
+              -- D45: unos 1.700 caracteres, de dos a tres páginas de comprobante; de una foto no se lee nada.
+              CASE WHEN g % 7 <> 0 THEN
+                upper(($4::text[])[1 + g % cardinality($2::uuid[])]) || ' N° ' || lpad(g::text, 6, '0')
+                || E'\nRUC 20' || lpad(((g::bigint * 7919) % 1000000000)::text, 9, '0')
+                || E'\nCliente: ' || ($5::text[])[1 + g % cardinality($5::text[])]
+                || E'\nDetalle: ' || ($7::text[])[1 + g % cardinality($7::text[])] || ', ' || ($7::text[])[1 + (g / 8) % cardinality($7::text[])]
+                || E'\n' || (SELECT string_agg(c, ' ' ORDER BY i) FROM unnest($8::text[]) WITH ORDINALITY AS t(c, i) WHERE (i + g) % 4 <> 0)
+              END,
+              CASE WHEN g % 7 <> 0 THEN 'leido' ELSE 'no_admitido' END
+       FROM generate_series($9::int, $10::int) AS g`,
+      [empresaId, categorias, personas, TIPOS, CLIENTES, cantidad, PRENDAS, CLAUSULAS, desde, Math.min(cantidad, desde + TANDA - 1)],
     );
     await pool.query(
       `INSERT INTO documento_versiones (empresa_id, documento_id, numero, archivo_nombre_original, archivo_ruta,
@@ -243,6 +273,10 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
     await medir('Por palabras y su raíz, por relevancia («facturas textiles»)', 'usuaria', `${docs}?q=facturas%20textiles`);
     await medir('Solo en la descripción («medicion carga»)', 'usuaria', `${docs}?q=medicion%20carga`);
     await medir('Con errores de escritura: segunda pasada por parecido («factrua textiles»)', 'usuaria', `${docs}?q=factrua%20textiles`);
+    // D45: lo que dice el archivo. Muchas coincidencias, que hay que ordenar, y un dato que está en uno solo.
+    await medir('Dentro del archivo, muchas coincidencias («chompa alpaca»)', 'usuaria', `${docs}?q=chompa%20alpaca`);
+    const ruc = await medir(`Dentro del archivo, un RUC que está en uno solo («${rucDelDocumento(31417)}»)`, 'usuaria', `${docs}?q=${rucDelDocumento(31417)}`);
+    expect(ruc.resultados).toBe(1);
     await medir('Sugerencias mientras se escribe («guia rem»)', 'usuaria', `${docs}/sugerencias?q=guia%20rem`);
     await medir('Sugerencias de un documento concreto («031416»)', 'usuaria', `${docs}/sugerencias?q=031416`);
     await medir('Filtro por estado de aprobación (pendientes)', 'usuaria', `${docs}?estado=pendiente`);
@@ -264,6 +298,7 @@ describe.runIf(process.env.INFORME_CARGA)('Prueba de carga: 50.000 documentos (i
     await explicar('Búsqueda por nombre de la usuaria', a.usuarioId, 'usuario', { q: 'guia de remision' });
     await explicar('Búsqueda por relevancia de la usuaria', a.usuarioId, 'usuario', { q: 'facturas textiles' });
     await explicar('Segunda pasada por parecido de la usuaria', a.usuarioId, 'usuario', { q: 'factrua textiles' }, { parecidos: true });
+    await explicar('Búsqueda dentro del archivo de la usuaria', a.usuarioId, 'usuario', { q: 'chompa alpaca' });
     await explicar('Filtro por estado de la usuaria', a.usuarioId, 'usuario', { estado: 'pendiente' });
 
     for (const medicion of mediciones) expect(medicion.p95, medicion.escenario).toBeLessThan(medicion.umbral);
@@ -295,6 +330,8 @@ y buscar (RNF05) y 5 s para las exportaciones (la hoja para imprimir, el CSV y e
 - Empresa medida: ${DOCUMENTOS.toLocaleString('es-PE')} documentos de un taller textil (facturas, guías, órdenes de compra,
   planillas…) repartidos en ${CATEGORIAS.length} categorías, dos de ellas restringidas, con fechas de tres años y medio, su
   versión 1, uno de cada 7 como foto, uno de cada 10 con su solicitud de aprobación y uno de cada 50 en la papelera; ${ASIENTOS.toLocaleString('es-PE')} asientos de historial; 11 personas.
+- El texto de cada archivo que no es una foto (D45): unos 1.700 caracteres con el cliente, su RUC, dos prendas y
+  cláusulas de entrega, pago y garantía, como lo dejaría la lectura al subirlo.
 - Otra empresa con ${DOCUMENTOS_DE_OTRA_EMPRESA.toLocaleString('es-PE')} documentos en las mismas tablas.
 - Quien mide: la **usuaria** ve una de las dos categorías restringidas, así que la RLS evalúa las dos
   ramas (D22); la **administradora** las ve todas. Carga de los datos: ${Math.round(duracionDeCarga / 1000)} s.
@@ -360,6 +397,31 @@ La primera medición de la 014, el 10 de octubre de 2026, encontró dos cosas qu
   solo las palabras de letras admiten errores de escritura, y esa búsqueda no devuelve nada, en unos 75 ms.
 - La búsqueda por parecido sobre el nombre, el archivo y la descripción tardaba más de 1 s. Ahora compara solo con el
   nombre, que es lo que se escribe de memoria, y tarda la mitad.
+
+### El texto de los archivos (D45)
+
+Desde la migración 015 la búsqueda mira también lo que dice cada archivo. La primera versión lo puso, con el peso más
+bajo, en la misma columna \`busqueda\` que ya se recorría: cada documento pasó de unas diez palabras a unas trescientas,
+y PostgreSQL las descomprimía varias veces por fila (al filtrar, al calcular el nivel y al ordenar), también para
+encontrar un documento por su nombre. Con 50.000 documentos, la búsqueda por nombre se triplicó (de 100 a 293 ms) y la
+segunda pasada por parecido llegó a pasar de 1 s. Antes de publicarla, el texto pasó a su propia columna (\`busqueda_contenido\`, sin
+posiciones), que solo se mira en las filas donde el nombre, la descripción y la categoría no coincidieron. Medianas,
+con los mismos datos y los mismos resultados en las dos versiones (11 de octubre de 2026):
+
+| Escenario | Sin el texto | Texto en la misma columna | Texto en su columna (ahora) |
+|---|---:|---:|---:|
+| Búsqueda por nombre, sin tildes («guia de remision») | 100 ms | 293 ms | ${ms(medianaDe('Búsqueda por nombre, sin tildes («guia de remision»)'))} |
+| Búsqueda de un documento concreto («N° 031416») | 79 ms | 276 ms | ${ms(medianaDe('Búsqueda de un documento concreto («N° 031416»)'))} |
+| Por palabras y su raíz, por relevancia («facturas textiles») | 91 ms | 323 ms | ${ms(medianaDe('Por palabras y su raíz, por relevancia («facturas textiles»)'))} |
+| Solo en la descripción («medicion carga») | 135 ms | 344 ms | ${ms(medianaDe('Solo en la descripción («medicion carga»)'))} |
+| Con errores de escritura: segunda pasada por parecido («factrua textiles») | 533 ms | 905 ms (máximo 1018 ms) | ${ms(medianaDe('Con errores de escritura: segunda pasada por parecido («factrua textiles»)'))} |
+| Dentro del archivo, muchas coincidencias («chompa alpaca») | — | 438 ms | ${ms(medianaDe('Dentro del archivo, muchas coincidencias («chompa alpaca»)'))} |
+| Dentro del archivo, un RUC que está en uno solo | — | 288 ms | ${ms(medianaDe(`Dentro del archivo, un RUC que está en uno solo («${rucDelDocumento(31417)}»)`))} |
+| Sugerencias mientras se escribe («guia rem») | 50 ms | 154 ms | ${ms(medianaDe('Sugerencias mientras se escribe («guia rem»)'))} |
+
+«Sin el texto» es la ejecución anterior de este informe, con los mismos documentos sin su contenido. Lo que cuesta
+todavía el contenido es leer su columna en los documentos donde lo demás no coincidió; dentro de él, las coincidencias
+empatan y va primero lo más reciente, así que no hay que leerlo de nuevo para ordenar.
 
 ## Planes de ejecución
 

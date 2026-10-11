@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { archivoPdf, entrar, irDesdeElMenu, nuevaCuenta, nuevaEmpresa, PDF, PNG, salir, subirDocumento } from './apoyo';
+import { pdfDeTexto } from '../../backend/scripts/pdf-de-texto';
 import { URL_API } from './entorno';
 
 test.describe('Documentos y categorías', () => {
@@ -149,7 +150,7 @@ test.describe('Documentos y categorías', () => {
     await buscador.fill('renovar');
     await buscador.press('Enter');
     await expect(resultados).toHaveText(['Acta de reunión']);
-    await expect(page.getByText('En la descripción o el archivo')).toBeVisible();
+    await expect(page.getByText('En la descripción', { exact: true })).toBeVisible();
     // Con un error de escritura, avisa que son parecidos.
     await buscador.fill('factrua');
     await buscador.press('Enter');
@@ -195,6 +196,40 @@ test.describe('Documentos y categorías', () => {
     // En una pantalla táctil el teclado se cierra; con ratón el foco se queda para afinar la búsqueda.
     if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) await expect(buscador).not.toBeFocused();
     else await expect(buscador).toBeFocused();
+  });
+
+  test('RF10, RF39 · Encuentra un documento por lo que dice su archivo, muestra dónde y sus palabras clave (D45) @movil', async ({ page, request }) => {
+    const empresa = await nuevaEmpresa(request);
+    const factura = pdfDeTexto(['FACTURA ELECTRÓNICA F001-00000045', 'RUC 20600000014', 'Cliente: Boutique Lucero (ficticia)',
+      'Fecha de emisión: 05/03/2026', '12 Casaca polar con capucha S/ 744.00', 'Importe total: S/ 877.92'].map((texto) => ({ texto })));
+    await subirDocumento(request, empresa.administrador, {
+      nombre: 'Escaneo 0045', categoria: 'Facturas y boletas', archivo: 'scan-0045.pdf', contenido: { mimeType: 'application/pdf', buffer: factura },
+    });
+    await subirDocumento(request, empresa.administrador, { nombre: 'Foto del recibo', archivo: 'recibo.png', contenido: { mimeType: 'image/png', buffer: PNG } });
+    await entrar(page, empresa.administrador);
+    const buscador = page.getByRole('combobox', { name: 'Buscar documentos' });
+
+    // Ni el nombre ni la descripción dicen «casacas» ni «Lucero»: lo dice el PDF.
+    await buscador.fill('casacas lucero');
+    await buscador.press('Enter');
+    await expect(page.locator('main ul > li a')).toHaveText(['Escaneo 0045']);
+    await expect(page.getByText('Dentro del archivo')).toBeVisible();
+    const fragmento = page.getByTestId('fragmento');
+    await expect(fragmento).toContainText('Cliente: Boutique Lucero (ficticia)');
+    await expect(fragmento.locator('mark')).toHaveText(['Lucero']);
+
+    // En la ficha, lo que se reconoció en el archivo; cada palabra busca los documentos que la mencionan.
+    await page.getByRole('link', { name: 'Escaneo 0045' }).click();
+    await expect(page.getByRole('list', { name: 'Datos reconocidos en el archivo' })).toContainText('RUC 20600000014');
+    await expect(page.getByRole('list', { name: 'Datos reconocidos en el archivo' })).toContainText('Comprobante F001-00000045');
+    await page.getByRole('list', { name: 'Palabras clave del archivo' }).getByRole('link', { name: 'boutique' }).click();
+    await expect(page).toHaveURL(/\/documentos\?q=boutique$/);
+    await expect(page.locator('main ul > li a')).toHaveText(['Escaneo 0045']);
+
+    // De una foto no se lee texto, y la ficha lo dice.
+    await page.goto('/documentos?q=recibo');
+    await page.getByRole('link', { name: 'Foto del recibo' }).click();
+    await expect(page.getByText('El sistema lee el texto de los PDF, Word y Excel')).toBeVisible();
   });
 
   test('RF07 · En el celular, un papel se sube con «Tomar foto», que abre la cámara @movil', async ({ page, request }) => {

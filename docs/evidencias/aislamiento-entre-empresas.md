@@ -1,13 +1,13 @@
 # Informe de aislamiento entre empresas
 
-Generado el 9/10/2026, 8:43:04 p. m. (hora de Lima) por `npm run informe:aislamiento`,
+Generado el 11/10/2026, 8:55:36 a. m. (hora de Lima) por `npm run informe:aislamiento`,
 a partir de la batería `tests/integracion/aislamiento.test.ts`, contra un PostgreSQL 17 real con las migraciones del proyecto.
 
 La empresa B tiene un documento con su archivo, una categoría, usuarios, una solicitud pendiente, una notificación y una
 medición de tiempo de respuesta. Desde la empresa A se intenta leer, modificar y descargar cada cosa por su id, encontrarla
 en listados y búsquedas, y colarse enviando el `empresaId` de B o falsificando el token.
 
-**Resultado: 71 de 71 intentos con la respuesta correcta (100.0 %).**
+**Resultado: 73 de 73 intentos con la respuesta correcta (100.0 %).**
 
 | # | Quién | Intento | Petición | Esperado | Obtenido | Correcto |
 |---|---|---|---|---|---|---|
@@ -65,23 +65,25 @@ en listados y búsquedas, y colarse enviando el `empresaId` de B o falsificando 
 | 52 | administrador de A | buscar documentos por el nombre exacto de uno de B | `GET /api/v1/documentos` | 200 sin datos de B | 200 | Sí |
 | 53 | administrador de A | buscar documentos por una categoría de B | `GET /api/v1/documentos` | 200 sin datos de B | 200 | Sí |
 | 54 | administrador de A | buscar con errores de escritura un documento de B | `GET /api/v1/documentos` | 200 sin datos de B | 200 | Sí |
-| 55 | administrador de A | pedir sugerencias con el nombre de un documento de B | `GET /api/v1/documentos/sugerencias` | 200 sin datos de B | 200 | Sí |
-| 56 | administrador de A | pedir sugerencias con el nombre de una categoría de B | `GET /api/v1/documentos/sugerencias` | 200 sin datos de B | 200 | Sí |
-| 57 | administrador de A | listar categorías, también las inactivas | `GET /api/v1/categorias` | 200 sin datos de B | 200 | Sí |
-| 58 | administrador de A | listar usuarios | `GET /api/v1/usuarios` | 200 sin datos de B | 200 | Sí |
-| 59 | administrador de A | listar solicitudes | `GET /api/v1/solicitudes` | 200 sin datos de B | 200 | Sí |
-| 60 | administrador de A | listar notificaciones | `GET /api/v1/notificaciones` | 200 sin datos de B | 200 | Sí |
-| 61 | administrador de A | consultar el historial de un usuario de B | `GET /api/v1/historial` | 200 sin datos de B | 200 | Sí |
-| 62 | administrador de A | consultar el historial de un documento de B | `GET /api/v1/historial` | 200 sin datos de B | 200 | Sí |
-| 63 | administrador de A | exportar el historial en CSV | `GET /api/v1/historial/exportar` | 200, solo asientos de A | 200 | Sí |
-| 64 | administrador de A | imprimir el historial | `GET /api/v1/historial/impresion` | 200, solo asientos de A | 200 | Sí |
-| 65 | administrador de A | exportar el listado documental en CSV | `GET /api/v1/documentos/exportar` | 200, solo documentos de A | 200 | Sí |
-| 66 | administrador de A | crear y listar enviando el empresaId de B | `POST /api/v1/categorias, /usuarios, /documentos` | todo queda en A | 201 | Sí |
-| 67 | administrador de A | usar un token firmado con la empresa de B | `GET /api/v1/documentos/:id` | 401 | 401 | Sí |
-| 68 | Administrador Master | leer documentos de una empresa | `GET /api/v1/documentos/:id` | 403 | 403 | Sí |
-| 69 | Administrador Master | leer documentos de una empresa | `GET /api/v1/documentos/:id/archivo` | 403 | 403 | Sí |
-| 70 | Administrador Master | leer documentos de una empresa | `GET /api/v1/documentos/:id/actividad` | 403 | 403 | Sí |
-| 71 | Administrador Master | leer documentos de una empresa | `GET /api/v1/documentos` | 403 | 403 | Sí |
+| 55 | administrador de A | buscar una palabra que solo dice el archivo de un documento de B | `GET /api/v1/documentos` | 200 sin datos de B | 200 | Sí |
+| 56 | administrador de A | pedir sugerencias con una palabra del archivo de un documento de B | `GET /api/v1/documentos/sugerencias` | 200 sin datos de B | 200 | Sí |
+| 57 | administrador de A | pedir sugerencias con el nombre de un documento de B | `GET /api/v1/documentos/sugerencias` | 200 sin datos de B | 200 | Sí |
+| 58 | administrador de A | pedir sugerencias con el nombre de una categoría de B | `GET /api/v1/documentos/sugerencias` | 200 sin datos de B | 200 | Sí |
+| 59 | administrador de A | listar categorías, también las inactivas | `GET /api/v1/categorias` | 200 sin datos de B | 200 | Sí |
+| 60 | administrador de A | listar usuarios | `GET /api/v1/usuarios` | 200 sin datos de B | 200 | Sí |
+| 61 | administrador de A | listar solicitudes | `GET /api/v1/solicitudes` | 200 sin datos de B | 200 | Sí |
+| 62 | administrador de A | listar notificaciones | `GET /api/v1/notificaciones` | 200 sin datos de B | 200 | Sí |
+| 63 | administrador de A | consultar el historial de un usuario de B | `GET /api/v1/historial` | 200 sin datos de B | 200 | Sí |
+| 64 | administrador de A | consultar el historial de un documento de B | `GET /api/v1/historial` | 200 sin datos de B | 200 | Sí |
+| 65 | administrador de A | exportar el historial en CSV | `GET /api/v1/historial/exportar` | 200, solo asientos de A | 200 | Sí |
+| 66 | administrador de A | imprimir el historial | `GET /api/v1/historial/impresion` | 200, solo asientos de A | 200 | Sí |
+| 67 | administrador de A | exportar el listado documental en CSV | `GET /api/v1/documentos/exportar` | 200, solo documentos de A | 200 | Sí |
+| 68 | administrador de A | crear y listar enviando el empresaId de B | `POST /api/v1/categorias, /usuarios, /documentos` | todo queda en A | 201 | Sí |
+| 69 | administrador de A | usar un token firmado con la empresa de B | `GET /api/v1/documentos/:id` | 401 | 401 | Sí |
+| 70 | Administrador Master | leer documentos de una empresa | `GET /api/v1/documentos/:id` | 403 | 403 | Sí |
+| 71 | Administrador Master | leer documentos de una empresa | `GET /api/v1/documentos/:id/archivo` | 403 | 403 | Sí |
+| 72 | Administrador Master | leer documentos de una empresa | `GET /api/v1/documentos/:id/actividad` | 403 | 403 | Sí |
+| 73 | Administrador Master | leer documentos de una empresa | `GET /api/v1/documentos` | 403 | 403 | Sí |
 
 Un recurso de otra empresa responde 404, igual que uno inexistente: un 403 confirmaría que existe. Las rutas de
 administración responden 403 a un usuario sin ese permiso antes de mirar ningún recurso.

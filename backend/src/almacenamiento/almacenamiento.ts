@@ -10,6 +10,11 @@ export interface Almacenamiento {
    */
   firmarEnlace(ruta: string, opciones: { segundos: number; tipoMime: string; descargarComo?: string }): Promise<string>;
   eliminar(ruta: string): Promise<void>;
+  /**
+   * El archivo entero, para leer su texto (D45): al restaurar una versión, que se copia sin pasar por la API, y
+   * para lo que se subió antes de que el sistema leyera el contenido.
+   */
+  descargar(ruta: string): Promise<Buffer>;
   /** Una copia del archivo en otra ruta, sin pasarlo por la API: así se restaura una versión (D30). */
   copiar(origen: string, destino: string): Promise<void>;
   /**

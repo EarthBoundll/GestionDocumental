@@ -4,6 +4,7 @@ import { leerEntorno } from './config/entorno.js';
 import { crearCorreo } from './correo/crear.js';
 import { crearPool } from './db/pool.js';
 import { crearDeposito } from './respaldos/deposito.js';
+import { programarLectura } from './tareas/leer-contenido.js';
 import { programarPurga } from './tareas/purgar-papelera.js';
 import { programarRespaldos } from './tareas/respaldo-nocturno.js';
 
@@ -15,6 +16,7 @@ function arrancar(): void {
   const app = crearApp({ pool, entorno, almacenamiento, correo: crearCorreo(entorno), respaldos });
   const detenerPurga = programarPurga(pool, almacenamiento);
   const detenerRespaldos = programarRespaldos(pool, respaldos);
+  const detenerLectura = programarLectura(pool, almacenamiento);
   const servidor = app.listen(entorno.PORT, (error) => {
     if (error) {
       console.error(`No se pudo escuchar en el puerto ${entorno.PORT}: ${error.message}`);
@@ -28,6 +30,7 @@ function arrancar(): void {
   process.once('SIGTERM', () => {
     detenerPurga();
     detenerRespaldos();
+    detenerLectura();
     servidor.close(() => void pool.end());
   });
 }

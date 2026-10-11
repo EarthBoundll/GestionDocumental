@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { constants, copyFile, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { constants, copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { Router } from 'express';
 import { ErrorAplicacion } from '../compartido/errores.js';
@@ -42,6 +42,10 @@ export class AlmacenamientoEnDisco implements Almacenamiento {
 
   async eliminar(ruta: string): Promise<void> {
     await rm(this.#ubicar(ruta), { force: true });
+  }
+
+  async descargar(ruta: string): Promise<Buffer> {
+    return readFile(this.#ubicar(ruta));
   }
 
   async copiar(origen: string, destino: string): Promise<void> {

@@ -30,6 +30,12 @@ export class AlmacenamientoSupabase implements Almacenamiento {
     if (error) throw new Error(`Supabase no eliminó ${ruta}`, { cause: error });
   }
 
+  async descargar(ruta: string): Promise<Buffer> {
+    const { data, error } = await this.#bucket.download(ruta);
+    if (error) throw new Error(`Supabase no entregó ${ruta}`, { cause: error });
+    return Buffer.from(await data.arrayBuffer());
+  }
+
   async copiar(origen: string, destino: string): Promise<void> {
     const { error } = await this.#bucket.copy(origen, destino);
     if (error) throw new Error(`Supabase no copió ${origen} en ${destino}`, { cause: error });

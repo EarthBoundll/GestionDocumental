@@ -1,4 +1,4 @@
-import { crearZip } from './zip.js';
+import { crearZip } from '../zip.js';
 
 /*
  * Un libro de Excel (.xlsx) sin librerías: un ZIP de XML (Office Open XML). Escribe solo lo que usan las

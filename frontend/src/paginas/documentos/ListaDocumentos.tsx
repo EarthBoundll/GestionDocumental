@@ -1,9 +1,9 @@
 import { ChevronDown, Download, Eye, FileText, SearchX, Upload, X } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { ErrorApi } from '../../api/cliente';
 import { categorias, documentos, usuarios, type FiltrosDocumentos, type FormatoDeExportacion } from '../../api/recursos';
-import type { DocumentoResumen, EstadoDeAprobacion, Sugerencia, TipoDeArchivo } from '../../api/tipos';
+import type { DocumentoResumen, EstadoDeAprobacion, Sugerencia, TipoDeArchivo, TrozoDeFragmento } from '../../api/tipos';
 import { Aviso, Cargando, EstadoVacio } from '../../componentes/Avisos';
 import { Boton, clasesDeBoton } from '../../componentes/Boton';
 import { BotonesDeExportacion } from '../../componentes/Exportar';
@@ -123,7 +123,7 @@ export function ListaDocumentos() {
     <>
       <EncabezadoDePagina
         titulo="Documentos"
-        descripcion="Busca por nombre, archivo, descripción o categoría, sin preocuparte por las tildes, las mayúsculas ni el orden de las palabras."
+        descripcion="Busca por nombre, descripción, categoría o lo que dice el archivo, sin preocuparte por las tildes, las mayúsculas ni el orden de las palabras."
         acciones={<>
           {esAdministrador && (
             <BotonesDeExportacion etiqueta="Exportar a Excel" exportar={exportarListado} alFallar={setErrorAlAbrir} />
@@ -330,6 +330,7 @@ function FilaDeDocumento({ documento, alAbrir }: { documento: DocumentoResumen; 
           <span aria-hidden className="hidden sm:inline">·</span>
           <span className="hidden sm:inline">{formatearPeso(documento.archivo.pesoBytes)}</span>
         </div>
+        {documento.fragmento && <FragmentoDelContenido trozos={documento.fragmento} />}
       </div>
       <div className="flex shrink-0 gap-1">
         <Boton variante="fantasma" tamano="pequeno" icono={Eye} onClick={() => alAbrir('ver')} aria-label={`Ver ${documento.nombre}`}>
@@ -340,5 +341,21 @@ function FilaDeDocumento({ documento, alAbrir }: { documento: DocumentoResumen; 
         </Boton>
       </div>
     </li>
+  );
+}
+
+/**
+ * Dónde dice lo buscado dentro del archivo (D45): el texto llega en trozos y lo buscado se marca con <mark>, sin
+ * armar HTML con lo que trae el archivo.
+ */
+function FragmentoDelContenido({ trozos }: { trozos: TrozoDeFragmento[] }) {
+  return (
+    <p data-testid="fragmento" className="mt-1.5 line-clamp-2 border-l-2 border-marca-200 pl-2 text-xs break-words text-slate-600">
+      {trozos.map((trozo, indice) =>
+        trozo.resaltado
+          ? <mark key={indice} className="rounded-sm bg-amber-200 px-0.5 font-medium text-slate-900">{trozo.texto}</mark>
+          : <Fragment key={indice}>{trozo.texto}</Fragment>,
+      )}
+    </p>
   );
 }

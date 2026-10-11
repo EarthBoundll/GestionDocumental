@@ -27,6 +27,7 @@ export function Privacidad() {
           <li><strong>El tiempo de carga de cada listado,</strong> para medir el rendimiento del sistema.</li>
           <li><strong>Tus sesiones:</strong> cuándo empezaron y cuándo vencen.</li>
           <li><strong>Los documentos de tu empresa</strong> y sus datos (nombre, categoría, fecha, descripción y versiones). Pueden contener datos personales: la empresa decide qué sube y debe tener derecho a hacerlo.</li>
+          <li><strong>El texto de esos documentos:</strong> de un PDF, Word o Excel, el sistema guarda hasta 20.000 caracteres de lo que dicen y unas palabras clave (RUC, números de comprobante, montos, fechas y las palabras propias del documento), para que se encuentren por su contenido. Se lee en el propio servidor, sin inteligencia artificial y sin enviarlo a nadie; de las fotos no se lee nada. Lo ven solo quienes pueden ver el documento.</li>
         </ul>
         <p>El sistema no guarda tu dirección IP. Los proveedores en la nube pueden registrarla en sus registros técnicos de acceso.</p>
       </section>
@@ -64,7 +65,7 @@ export function Privacidad() {
         <h2>6. Cuánto tiempo</h2>
         <ul>
           <li>Mientras exista tu cuenta o tu empresa en la plataforma.</li>
-          <li>Lo eliminado queda 30 días en la papelera, y las copias de respaldo se conservan 30 días.</li>
+          <li>Lo eliminado queda 30 días en la papelera, y las copias de respaldo se conservan 30 días. Al vaciarse la papelera se borran también el archivo y su texto.</li>
           <li>El historial no se modifica desde el sistema: es lo que garantiza la trazabilidad.</li>
           <li>Al cierre del estudio se eliminan los datos de la empresa evaluada, también de las copias de respaldo. Queda solo una constancia sin datos personales.</li>
         </ul>

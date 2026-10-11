@@ -348,6 +348,53 @@ describe('Documentos', () => {
     });
   });
 
+  describe('lo que dice el archivo (D45)', () => {
+    const ficha = (contenido?: unknown) => ({
+      ...CONTRATO,
+      descripcion: null,
+      archivo: { ...CONTRATO.archivo, nombreOriginal: 'contrato.pdf' },
+      version: 1,
+      actualizadoEn: CONTRATO.creadoEn,
+      ultimaSolicitud: null,
+      permisos: { editar: false, eliminar: false, solicitarAprobacion: false, resolverSolicitud: false, versionar: false },
+      ...(contenido !== undefined && { contenido }),
+    });
+    const conFicha = (documento: ReturnType<typeof ficha>) => ({
+      'GET /documentos/:id': { cuerpo: documento },
+      'GET /documentos/:id/actividad': { cuerpo: { datos: [], paginacion: { pagina: 1, porPagina: 10, total: 0 } } },
+      'GET /documentos/:id/versiones': { cuerpo: { datos: [] } },
+    });
+
+    it('muestra los datos reconocidos y las palabras clave; cada palabra lleva a buscarla', async () => {
+      const { enrutador } = abrir('/documentos/doc-1', conFicha(ficha({
+        estado: 'leido',
+        palabrasClave: {
+          datos: [{ tipo: 'ruc', valor: '20600000014' }, { tipo: 'monto', valor: 'S/ 1,200.00' }],
+          palabras: ['arrendamiento', 'gamarra'],
+        },
+      })));
+
+      const datos = await screen.findByRole('list', { name: 'Datos reconocidos en el archivo' });
+      // El RUC lleva a los otros documentos que lo dicen; un monto no se busca.
+      expect(within(datos).getByRole('link', { name: 'RUC 20600000014' })).toHaveAttribute('href', '/documentos?q=20600000014');
+      expect(within(datos).getByText('S/ 1,200.00').closest('a')).toBeNull();
+      const palabras = screen.getByRole('list', { name: 'Palabras clave del archivo' });
+      await userEvent.click(within(palabras).getByRole('link', { name: 'gamarra' }));
+      await waitFor(() => expect(enrutador.state.location.search).toBe('?q=gamarra'));
+    });
+
+    it('si no hay texto que leer, dice por qué y cómo se encuentra', async () => {
+      abrir('/documentos/doc-1', conFicha(ficha({ estado: 'no_admitido', palabrasClave: null })));
+      expect(await screen.findByText(/El sistema lee el texto de los PDF, Word y Excel/)).toBeInTheDocument();
+    });
+
+    it('con la API anterior, que no lo trae, la ficha se muestra igual', async () => {
+      abrir('/documentos/doc-1', conFicha(ficha()));
+      expect(await screen.findByRole('heading', { name: 'Contrato de alquiler del local' })).toBeInTheDocument();
+      expect(screen.queryByText('Lo que dice el archivo')).not.toBeInTheDocument();
+    });
+  });
+
   it('al subir, propone el nombre del archivo y lo envía con su categoría y fecha', async () => {
     let recibido: FormData | undefined;
     abrir('/documentos/nuevo', {

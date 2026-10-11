@@ -101,7 +101,9 @@ Norte, a:
 1. Observar y medir sus procesos de gestión documental, antes y después de usar el sistema, con las
    personas que acepten participar.
 2. Usar copias de sus documentos, sin datos personales de terceros ni información confidencial, como
-   material de las pruebas.
+   material de las pruebas. El sistema lee el texto de los PDF, Word y Excel que se suben para que se
+   encuentren por lo que dicen: lo hace en su propio servidor, sin inteligencia artificial y sin enviarlo
+   a terceros, y ese texto se elimina con los demás datos al cierre del estudio.
 3. Registrar a la empresa en la plataforma del estudio mientras dure, con los datos alojados en Estados
    Unidos.
 
