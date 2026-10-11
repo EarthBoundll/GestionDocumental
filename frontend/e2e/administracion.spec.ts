@@ -83,7 +83,11 @@ test.describe('Administración de la empresa', () => {
     const fila = page.getByRole('listitem').filter({ hasText: 'Pedro Salas' });
 
     await fila.getByRole('button', { name: 'Desactivar' }).click();
-    await expect(page.getByText('Pedro Salas ya no puede entrar; sus sesiones se cerraron.')).toBeVisible();
+    // D46: se confirma antes, y la cuenta pasa a «Desactivados».
+    await page.getByRole('dialog').getByRole('button', { name: 'Desactivar' }).click();
+    await expect(page.getByText(/Pedro Salas ya no puede entrar; sus sesiones se cerraron/)).toBeVisible();
+    await expect(fila).toHaveCount(0);
+    await page.getByRole('button', { name: 'Desactivados' }).click();
     await expect(fila.getByText('Desactivado')).toBeVisible();
 
     const visitante = await browser.newPage({ baseURL: test.info().project.use.baseURL, locale: 'es-PE' });
@@ -97,11 +101,45 @@ test.describe('Administración de la empresa', () => {
     await expect(page.getByRole('link', { name: 'Guía de remisión 118' })).toBeVisible();
 
     await page.goto('/admin/usuarios');
+    await page.getByRole('button', { name: 'Desactivados' }).click();
     await fila.getByRole('button', { name: 'Reactivar' }).click();
     await expect(page.getByText('Pedro Salas puede volver a entrar.')).toBeVisible();
     await visitante.getByRole('button', { name: 'Entrar' }).click();
     await expect(visitante).toHaveURL(/\/documentos$/);
     await visitante.close();
+  });
+
+  test('RF40 · Eliminar una cuenta es para siempre y se confirma; sus documentos y el historial siguen nombrándola @movil', async ({ page, request }) => {
+    const empresa = await nuevaEmpresa(request);
+    const pedro = await nuevaCuenta(request, empresa, 'usuario', 'Pedro Salas');
+    await subirDocumento(request, pedro, { nombre: 'Guía de remisión 120' });
+    await entrar(page, empresa.administrador);
+    await page.goto('/admin/usuarios');
+    const fila = page.getByRole('listitem').filter({ hasText: 'Pedro Salas' });
+
+    // Cancelar no cambia nada.
+    await fila.getByRole('button', { name: 'Eliminar a Pedro Salas' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancelar' }).click();
+    await expect(fila).toHaveCount(1);
+
+    await fila.getByRole('button', { name: 'Eliminar a Pedro Salas' }).click();
+    const dialogo = page.getByRole('dialog', { name: 'Eliminar la cuenta' });
+    await expect(dialogo).toContainText(pedro.email);
+    await expect(dialogo).toContainText('No se puede deshacer.');
+    await dialogo.getByRole('button', { name: 'Eliminar para siempre' }).click();
+    await expect(page.getByText('Se eliminó la cuenta de Pedro Salas.', { exact: false })).toBeVisible();
+    await expect(fila).toHaveCount(0);
+    await page.getByRole('button', { name: 'Desactivados' }).click();
+    await expect(fila).toHaveCount(0);
+
+    // Su documento sigue con su nombre, y el historial dice quién lo eliminó.
+    await page.goto('/documentos');
+    await expect(page.locator('main ul > li').filter({ hasText: 'Guía de remisión 120' })).toContainText('Pedro Salas');
+    await page.goto('/admin/historial');
+    await expect(page.locator('main ul > li').filter({ hasText: 'Usuario eliminado' }).first()).toContainText('«Pedro Salas»');
+    await expect(page.locator('main ul > li').filter({ hasText: 'Documento subido' }).first()).toContainText('cuenta eliminada');
+    // Que con su correo ya no se entra lo prueba la API (baja-de-usuarios.test.ts): aquí, un intento fallido más
+    // gastaría el freno de inicios de sesión que comparten todas las pruebas.
   });
 
   test('RF05, RF19 · Cada acción queda en el historial con su autor, y se filtra por persona y acción', async ({ page, request }) => {
@@ -122,16 +160,22 @@ test.describe('Administración de la empresa', () => {
     await page.goto('/admin/historial');
     await page.getByLabel('Persona').selectOption({ label: 'Ana Torres' });
     const asientos = page.locator('main ul > li');
+    // D46: a la vista, lo importante; los inicios de sesión y las búsquedas, aparte.
     for (const [accion, detalle] of [
-      ['Cierre de sesión', ''],
       ['Acceso denegado', 'exigía consultar historial en /historial'],
       ['Documento descargado', '«Contrato de alquiler»'],
-      ['Búsqueda', 'buscó «alquiler» · 1 resultado'],
-      ['Inicio de sesión', ''],
       ['Documento subido', '«Contrato de alquiler» · en Otros'],
     ]) {
       await expect(asientos.filter({ hasText: accion }).filter({ hasText: detalle }).first()).toBeVisible();
     }
+    await expect(asientos.filter({ hasText: 'Inicio de sesión' })).toHaveCount(0);
+    await page.getByLabel('Mostrar').selectOption({ label: 'Inicios de sesión, búsquedas y vistas' });
+    for (const [accion, detalle] of [['Búsqueda', 'buscó «alquiler» · 1 resultado'], ['Inicio de sesión', '']]) {
+      await expect(asientos.filter({ hasText: accion }).filter({ hasText: detalle }).first()).toBeVisible();
+    }
+    // Cerrar sesión ya no se registra: la sesión guarda cuándo se cerró.
+    await expect(asientos.filter({ hasText: 'Cierre de sesión' })).toHaveCount(0);
+    await page.getByLabel('Mostrar').selectOption({ label: 'Lo importante' });
 
     await page.getByLabel('Acción', { exact: true }).selectOption({ label: 'Documento descargado' });
     await expect(asientos).toHaveCount(1);

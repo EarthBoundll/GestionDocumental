@@ -191,6 +191,7 @@ permisos dentro de una empresa.
 - Buscador avanzado: palabras en cualquier orden, raíz, errores de escritura, filtros combinables y sugerencias (hecho)
 - Exportaciones en Excel con resumen y tabla para Power BI, además del CSV (hecho)
 - Búsqueda en lo que dice el archivo (PDF, Word y Excel) y palabras clave en la ficha, sin IA ni OCR (hecho)
+- Eliminar cuentas sin perder su traza, y un historial que muestra primero lo importante (hecho)
 
 **Postergado — solo si sobra tiempo al final:**
 
@@ -386,6 +387,13 @@ palabras propias del documento frente al resto de la empresa (TF-IDF). La búsqu
 coincidió y muestra dónde dice lo buscado; nada sale del servidor (D45, corrige a D43 en leer los archivos). Se
 descartaron el OCR, los embeddings, leer en el navegador, una API externa, guardar el texto de cada versión y el texto
 en la misma columna de búsqueda, que con 50.000 documentos casi triplicaba la búsqueda por nombre.
+
+**Eliminar una cuenta conserva su nombre; el historial muestra primero lo importante.** Eliminar es una baja para
+siempre: deja de listarse y de entrar, se borran correo (queda libre), DNI y contraseña, y su nombre sigue en sus
+documentos y en el historial; la decide la base (`dar_de_baja_usuario()`), nunca sobre uno mismo ni sobre el Master.
+Inicios de sesión, búsquedas y vistas se siguen registrando (indicadores 2 a 5, RN27) pero no ocupan la vista principal,
+una búsqueda repetida en 10 minutos cuenta una vez y el cierre de sesión ya no se registra (D46). Se descartaron borrar la
+fila, anonimizar el nombre, dejar de registrar los inicios de sesión, un registro de seguridad aparte y borrar por antigüedad.
 
 Cuando tomes una decisión técnica relevante, agrégala aquí en dos o tres líneas,
 con la alternativa descartada. El jurado va a preguntar por qué cada cosa.

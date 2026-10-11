@@ -90,7 +90,7 @@ Todas las respuestas de error tienen la misma forma:
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
 | POST | `/auth/login` | Público | `email`, `clave` | 200 `{ token, expiraEn, usuario, empresa }`: el usuario con su `tema`, y la empresa con su `marca` (nombre comercial, colores y enlaces firmados del logo y del fondo); `empresa` es nula para el Master | `SESION_INICIADA` o `SESION_FALLIDA` |
-| POST | `/auth/logout` | Sesión | — | 204 | `SESION_CERRADA` |
+| POST | `/auth/logout` | Sesión | — | 204; la sesión queda revocada con su hora | — (desde D46; antes, `SESION_CERRADA`) |
 | GET | `/auth/yo` | Sesión | — | 200 `{ usuario, empresa }`, como el inicio de sesión | — |
 | PUT | `/auth/preferencias` | Sesión | `tema`: `sistema`, `claro` u `oscuro` | 200 `{ tema }`; vale en todos sus dispositivos (RN32) | — (no es una acción sobre datos) |
 | PUT | `/auth/clave` | Sesión | `claveActual`, `claveNueva` | 204; cierra las demás sesiones. 400 si la actual no coincide o, para el Master, si la nueva no cumple sus reglas (RN23) | `CLAVE_CAMBIADA` |
@@ -112,7 +112,7 @@ Todas las respuestas de error tienen la misma forma:
 | POST | `/plataforma/empresas/:id/administradores` | Master | `nombre`, `email`, `dni?`, sin contraseña | 201 con el administrador, `estado: pendiente` e `invitacionEnviada` | `USUARIO_CREADO`, `INVITACION_ENVIADA` |
 | PATCH | `/plataforma/administradores/:id` | Master | `nombre?`, `email?`, `dni?`, `clave?` | 200; restablecer la clave cierra sus sesiones; cambiar el correo las cierra, lo deja sin verificar, le envía el enlace y avisa al anterior (RN36). 404 si no es un administrador | `USUARIO_EDITADO` (y `VERIFICACION_ENVIADA`) |
 | POST | `/plataforma/administradores/:id/invitacion` | Master | — | 200 `{ enviado: true }`: la invitación, o el enlace de verificación si ya tiene contraseña. 409 `YA_VERIFICADO`, `USUARIO_INACTIVO` o `EMPRESA_INACTIVA`; 429 `ENVIO_LIMITADO` | `INVITACION_ENVIADA` o `VERIFICACION_ENVIADA` |
-| PATCH | `/plataforma/administradores/:id/estado` | Master | `activo` | 200; desactivar revoca sus sesiones | `USUARIO_DESACTIVADO` o `USUARIO_REACTIVADO` |
+| PATCH | `/plataforma/administradores/:id/estado` | Master | `activo` | 200; desactivar revoca sus sesiones. 409 `ULTIMO_ADMINISTRADOR` si es el único activo de la empresa (D46) | `USUARIO_DESACTIVADO` o `USUARIO_REACTIVADO` |
 | PATCH | `/plataforma/empresas/:id/identidad` | Master | Como `PATCH /empresa/identidad` | 200 con la `marca` | `EMPRESA_EDITADA` |
 | PUT | `/plataforma/empresas/:id/identidad/logo` | Master | Como `PUT /empresa/identidad/logo` | 200 con la `marca` | `EMPRESA_EDITADA` |
 | DELETE | `/plataforma/empresas/:id/identidad/logo` | Master | — | 200 con la `marca` | `EMPRESA_EDITADA` |
@@ -133,6 +133,7 @@ Lo que el Master hace con una empresa queda en el historial de esa empresa, con 
 | POST | `/usuarios` | Admin | `nombre`, `email`, `dni?`, `rol` (`administrador` o `usuario`; nunca `master`), sin contraseña | 201 con el usuario, `estado: pendiente` e `invitacionEnviada`; si el correo no salió, la cuenta queda creada y se reenvía (RN35) | `USUARIO_CREADO`, `INVITACION_ENVIADA` |
 | PATCH | `/usuarios/:id` | Admin | `nombre?`, `dni?`, `rol?`, `clave?` | 200 con el usuario; restablecer la clave cierra sus sesiones | `USUARIO_EDITADO` |
 | PATCH | `/usuarios/:id/estado` | Admin | `activo` | 200 con el usuario; desactivar revoca sus sesiones | `USUARIO_DESACTIVADO` o `USUARIO_REACTIVADO` |
+| DELETE | `/usuarios/:id` | Admin | — | 204: la cuenta se elimina para siempre (RF40, D46). 409 `OPERACION_SOBRE_SI_MISMO` sobre la propia; 404 si no es de la empresa, ya se eliminó o es el Master | `USUARIO_ELIMINADO` |
 | POST | `/usuarios/:id/invitacion` | Admin | — | 200 `{ enviado: true }`: la invitación, o el enlace de verificación si ya tiene contraseña. 409 `YA_VERIFICADO` o `USUARIO_INACTIVO`; 429 `ENVIO_LIMITADO`; 404 si es de otra empresa | `INVITACION_ENVIADA` o `VERIFICACION_ENVIADA` |
 
 ### Categorías
@@ -188,7 +189,7 @@ categoría no existe». Lo decide la base (D22).
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
-| GET | `/historial` | Admin | `?usuarioId`, `accion`, `entidadTipo`, `entidadId`, `desde`, `hasta` y paginación | 200 paginado | — |
+| GET | `/historial` | Admin | `?usuarioId`, `accion`, `grupo` (`importante`: sin inicios de sesión, búsquedas ni vistas; `rutina`: solo esas; sin él, todo), `entidadTipo`, `entidadId`, `desde`, `hasta` y paginación | 200 paginado; el usuario de una cuenta eliminada sale con `email: null` | — |
 | GET | `/historial/impresion` | Admin | Los mismos filtros | 200 `{ datos, total }`: todas las acciones filtradas, como en el listado, para la hoja imprimible (RF36). 400 si pasan de 2.000: se pide acotar | `HISTORIAL_EXPORTADO` con `formato: impresion` |
 | GET | `/historial/exportar` | Admin | Los mismos filtros; `formato` = `csv` (por omisión) o `xlsx` | Con `xlsx`, un libro de Excel (D44): hoja «Resumen» y la tabla «Historial», con el nombre legible de cada acción. Si no, 200 `text/csv` en UTF-8 con BOM: id, fecha y hora de Lima, fecha UTC, acción, usuario (las del Master, «Administración de la plataforma»), correo, rol, entidad, móvil, user-agent y detalle en JSON. Las fechas del filtro son días de Lima | `HISTORIAL_EXPORTADO` |
 

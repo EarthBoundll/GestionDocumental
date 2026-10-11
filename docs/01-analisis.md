@@ -58,7 +58,7 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 | RF11 | Ver un documento en el navegador o descargarlo | Todos | 3 |
 | RF12 | Registrar el tiempo de respuesta del listado de documentos, medido en el servidor y en el navegador | Sistema | 3 y 6 |
 | RF13 | Crear, listar y editar usuarios (nombre, rol, contraseña); al crearlos, sin contraseña: les llega una invitación (RN35) | Administrador | 4 y C |
-| RF14 | Desactivar y reactivar usuarios | Administrador | 4 |
+| RF14 | Desactivar y reactivar usuarios, con confirmación; los desactivados se listan aparte (D46) | Administrador | 4 y C |
 | RF15 | Solicitar la aprobación de un documento propio | Todos | 4 |
 | RF16 | Aprobar o rechazar una solicitud, con comentario | Administrador | 4 |
 | RF17 | Notificar dentro del sistema: a los administradores cuando se crea una solicitud y al solicitante cuando se resuelve | Sistema | 4 |
@@ -84,6 +84,7 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
 | RF37 | Activar la cuenta con la invitación que llega por correo, eligiendo la propia contraseña, y confirmar el correo con un enlace | Visitante | C |
 | RF38 | Ver si cada cuenta activó su invitación o confirmó su correo, y reenviarle el enlace | Administrador, Master | C |
 | RF39 | Ver en la ficha de un documento lo que se reconoce en su archivo (RUC, comprobante, montos, fechas y sus palabras propias) y buscar cada uno con un toque; de una foto, saber que no se lee (D45) | Todos | C |
+| RF40 | Eliminar para siempre una cuenta de su empresa, con confirmación: deja de aparecer y de poder entrar, se borran su correo, su DNI y su contraseña, y su nombre sigue en sus documentos, sus solicitudes y el historial (D46) | Administrador | C |
 
 ## 4. Requisitos no funcionales
 
@@ -110,11 +111,16 @@ documental, el historial imprimible y la prueba de carga (D31, D32). «C» marca
   `empresaId` en la URL o en el cuerpo se ignora.
 - **RN02** El correo es único en todo el sistema y se guarda en minúsculas: así el inicio de sesión
   no necesita elegir empresa. El DNI es un dato del perfil, opcional, y nunca sirve para entrar.
-- **RN03** Un administrador no puede cambiar su propio rol ni desactivarse. Consecuencia: la
+- **RN03** Un administrador no puede cambiar su propio rol, ni desactivarse, ni eliminarse. Consecuencia: la
   empresa nunca se queda sin administrador activo por obra suya, porque quitar a uno exige que actúe
-  otro (o el Master).
+  otro. El Master tampoco desactiva al último administrador activo de una empresa: primero agrega o
+  reactiva otro (D46).
 - **RN04** Desactivar a un usuario revoca sus sesiones al instante y le impide volver a entrar. Sus
-  documentos y su historial se conservan.
+  documentos y su historial se conservan, y se puede reactivar.
+- **RN42** Eliminar una cuenta (D46) es para siempre: deja de listarse y de poder entrar, sus sesiones se
+  revocan y se borran su correo, su DNI y su contraseña; el correo queda libre. Su nombre se conserva para
+  que sus documentos, sus solicitudes y el historial sigan diciendo quién fue. Lo decide la base, no solo
+  la pantalla: solo un administrador, en su empresa y nunca sobre sí mismo ni sobre el Master.
 - **RN05** Un cambio de rol vale desde la petición siguiente: el rol se lee de la base de datos en
   cada petición. El token también lo lleva, pero manda la base.
 - **RN06** Cambiar la propia contraseña cierra las demás sesiones del usuario. Si es un administrador
@@ -309,7 +315,7 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 |---|---|---|---|
 | `SESION_INICIADA` | un inicio de sesión tiene éxito | sesión | — |
 | `SESION_FALLIDA` | un inicio de sesión falla | — | correo intentado y motivo (también empresa desactivada) |
-| `SESION_CERRADA` | el usuario cierra sesión | sesión | — |
+| `SESION_CERRADA` | ya no se registra (D46): la sesión guarda cuándo se cerró. Quedan los asientos anteriores | sesión | — |
 | `CLAVE_CAMBIADA` | el usuario cambia su contraseña | usuario | sesiones cerradas |
 | `RECUPERACION_SOLICITADA` | alguien pide un enlace de recuperación, exista o no la cuenta | usuario, si existe | correo, si se envió y por qué no |
 | `CLAVE_RESTABLECIDA` | se define una contraseña nueva con un enlace | usuario | sesiones cerradas y si con eso quedó verificado el correo |
@@ -322,6 +328,7 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `USUARIO_CREADO` | un administrador crea un usuario, el Master un administrador o el script al Master | usuario | nombre, correo y rol |
 | `USUARIO_EDITADO` | se cambian nombre, rol, DNI o contraseña | usuario | antes → después; del DNI y la contraseña, solo que cambiaron |
 | `USUARIO_DESACTIVADO` · `USUARIO_REACTIVADO` | se cambia el estado de un usuario | usuario | sesiones revocadas |
+| `USUARIO_ELIMINADO` | un administrador elimina una cuenta para siempre (RF40, D46) | usuario | nombre, rol y sesiones revocadas; sin correo ni DNI |
 | `CATEGORIA_CREADA` · `CATEGORIA_EDITADA` | un administrador crea o cambia una categoría | categoría | antes → después; si es restringida, a quién se dio y quitó acceso, por nombre |
 | `DOCUMENTO_SUBIDO` | se sube un documento | documento | nombre, categoría, tipo y peso |
 | `DOCUMENTO_EDITADO` | se cambian sus datos | documento | antes → después |
@@ -340,7 +347,11 @@ Master lo lee en su auditoría (RF27), junto con lo que no pertenece a ninguna e
 | `VERSION_SUBIDA` | se sube una versión nueva de un documento | documento | número, archivo y comentario |
 | `VERSION_RESTAURADA` | se restaura una versión anterior como versión nueva | documento | número nuevo y de cuál viene |
 
-Son 37 acciones. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
+Son 38 acciones; 37 se registran hoy (`SESION_CERRADA` dejó de registrarse con D46). La pantalla del historial
+muestra por defecto **lo importante**: todo menos la rutina —`SESION_INICIADA`, `BUSQUEDA_REALIZADA` y
+`DOCUMENTO_VISUALIZADO`—, que se sigue registrando porque de ella salen los indicadores 2, 3, 4 y 5 y el bloqueo
+por cuenta (RN27), y se consulta aparte. Una misma búsqueda de la misma persona en menos de 10 minutos (pasar de
+página, cambiar el orden, volver a la lista) se registra una vez. El intento rechazado por el bloqueo por cuenta (RN27) es un `SESION_FALLIDA` con
 motivo `CUENTA_BLOQUEADA`, y el de una cuenta sin el correo verificado (RN36), con motivo `CORREO_SIN_VERIFICAR`.
 Un reenvío frenado por RN38 no se registra: no salió ningún correo. **No se registra, a propósito:** abrir el listado sin filtros (es navegar, no
 buscar; su tiempo de respuesta sí se mide), ver la ficha de un documento (no entrega el archivo),
@@ -356,7 +367,7 @@ recurso de otra empresa (para quien pregunta, ese recurso no existe).
 | 1 | Tiempo de organización y categorización | `DOCUMENTO_SUBIDO` y `DOCUMENTO_EDITADO`, con su instante | Tiempo entre la primera y la última acción de la tarea, por usuario | Cuándo empezó la tarea: la persona lee la consigna antes de tocar nada. El cronómetro sigue siendo la fuente principal; el sistema lo corrobora |
 | 2 | Tiempo de búsqueda | Cada consulta del listado, con o sin filtros (usuario e instante en `tiempos_respuesta`; los filtros, en `BUSQUEDA_REALIZADA`, también la sugerencia elegida), y la obtención del documento (`DOCUMENTO_VISUALIZADO` o `DOCUMENTO_DESCARGADO`) | Tiempo entre la primera consulta del listado y la obtención del documento pedido. Cuenta también a quien lo encuentra recorriendo el listado sin filtrar | Lo mismo que en el 1 |
 | 3 | Tasa de recuperación | `DOCUMENTO_VISUALIZADO` y `DOCUMENTO_DESCARGADO` | Documentos pedidos que se obtuvieron ÷ documentos pedidos | Qué documentos se pidieron: lo fija el protocolo de prueba |
-| 4 | Acciones registradas en el historial | Las 37 acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
+| 4 | Acciones registradas en el historial | Las acciones de §7 | Acciones en el historial ÷ acciones ejecutadas | El denominador: sale del guion de acciones que el evaluador hace ejecutar |
 | 5 | Accesibilidad remota | `SESION_INICIADA` y `SESION_FALLIDA`, con `es_movil` | Inicios de sesión exitosos desde móvil ÷ intentos desde móvil | Los intentos que nunca llegan al servidor (sin cobertura, servicio caído): los anota el evaluador |
 | 6 | Accesos correctos según rol | `ACCESO_DENEGADO` y las acciones permitidas, cada una con el rol de quien actuó; el informe de aislamiento entre empresas (`npm run informe:aislamiento`) | Decisiones que coinciden con la matriz de §6 ÷ casos evaluados | Qué debía ocurrir en cada caso: lo dice la matriz, no el sistema |
 | 7 | Tiempo de respuesta | Tabla `tiempos_respuesta`: duración en el servidor y la percibida en el navegador; la prueba de carga con 50.000 documentos (`npm run informe:carga`) | Mediana y percentil 95 del listado de documentos | — |

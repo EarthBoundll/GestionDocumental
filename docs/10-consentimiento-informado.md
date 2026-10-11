@@ -66,7 +66,8 @@ uso normal del sistema.
 Hasta el [fecha de cierre del estudio], cuando el investigador elimina los datos de la evaluación del
 sistema y de sus copias de respaldo.
 Mientras tanto, el registro de acciones del sistema no se puede modificar: eso es lo que garantiza la
-trazabilidad que el estudio mide.
+trazabilidad que el estudio mide. Si su cuenta se elimina antes, se borran su correo y su contraseña, y su
+código sigue en el registro de lo que hizo hasta el cierre.
 
 ### Sus derechos
 

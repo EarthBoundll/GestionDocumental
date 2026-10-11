@@ -3,6 +3,18 @@ import type { Mensaje } from '../../correo/correo.js';
 const escapar = (texto: string) =>
   texto.replace(/[&<>"']/g, (caracter) => `&#${caracter.charCodeAt(0)};`);
 
+const HORA_DE_LIMA = new Intl.DateTimeFormat('es-PE', {
+  timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+});
+
+/**
+ * La hora del envío, para el asunto. Cada enlace nuevo anula los anteriores, y con el mismo asunto Gmail junta los
+ * correos en una conversación y deja a la vista el primero, cuyo enlace ya no sirve: así cada correo es uno aparte.
+ */
+export const enviadoEl = (fecha = new Date()) => HORA_DE_LIMA.format(fecha).replace(',', '');
+
+const USA_EL_MAS_RECIENTE = 'Cada correo nuevo anula el enlace anterior: si te llegó más de uno, usa el más reciente.';
+
 /** Un correo con un solo botón: el texto plano dice lo mismo que el HTML, para los clientes que no lo muestran. */
 function conBoton({ para, asunto, saludo, parrafos, boton, enlace, notas }: {
   para: string; asunto: string; saludo: string; parrafos: string[]; boton: string; enlace: string; notas: string[];
@@ -24,13 +36,14 @@ export function correoDeRecuperacion({ para, nombre, enlace, minutos }: {
 }): Mensaje {
   return conBoton({
     para,
-    asunto: 'Recupera tu contraseña · Gestión Documental',
+    asunto: `Recupera tu contraseña (${enviadoEl()}) · Gestión Documental`,
     saludo: `Hola, ${nombre}:`,
     parrafos: ['Alguien pidió recuperar la contraseña de tu cuenta. Si fuiste tú, abre este enlace y define una nueva:'],
     boton: 'Definir una contraseña nueva',
     enlace,
     notas: [
       `El enlace sirve una sola vez y caduca en ${minutos} minutos.`,
+      USA_EL_MAS_RECIENTE,
       'Si no lo pediste, ignora este correo: tu contraseña sigue siendo la misma.',
     ],
   });
@@ -43,7 +56,7 @@ export function correoDeInvitacion({ para, nombre, empresa, enlace, horas }: {
   const donde = empresa ? `para ${empresa}` : 'para administrar la plataforma';
   return conBoton({
     para,
-    asunto: `Activa tu cuenta${empresa ? ` de ${empresa}` : ''} · Gestión Documental`,
+    asunto: `Activa tu cuenta${empresa ? ` de ${empresa}` : ''} (${enviadoEl()}) · Gestión Documental`,
     saludo: `Hola, ${nombre}:`,
     parrafos: [
       `Te crearon una cuenta en Gestión Documental ${donde}, con este correo.`,
@@ -53,6 +66,7 @@ export function correoDeInvitacion({ para, nombre, empresa, enlace, horas }: {
     enlace,
     notas: [
       `El enlace sirve una sola vez y caduca en ${horas} horas. Si caduca, pide otro con «¿Olvidaste tu contraseña?».`,
+      USA_EL_MAS_RECIENTE,
       'Si no esperabas este correo, ignóralo: sin activarla, la cuenta no sirve para entrar.',
     ],
   });
@@ -64,13 +78,14 @@ export function correoDeVerificacion({ para, nombre, enlace, horas }: {
 }): Mensaje {
   return conBoton({
     para,
-    asunto: 'Confirma tu correo · Gestión Documental',
+    asunto: `Confirma tu correo (${enviadoEl()}) · Gestión Documental`,
     saludo: `Hola, ${nombre}:`,
     parrafos: ['Para seguir entrando a Gestión Documental, confirma que este correo es tuyo:'],
     boton: 'Confirmar mi correo',
     enlace,
     notas: [
       `El enlace sirve una sola vez y caduca en ${horas} horas.`,
+      USA_EL_MAS_RECIENTE,
       'Tu contraseña no cambia. Si no reconoces esta cuenta, ignora este correo.',
     ],
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detalleDeActividad, fraseDeActividad, NOMBRES_DE_ACCIONES, resumirDetalle } from './acciones';
+import { accionesDelGrupo, detalleDeActividad, filtrosDelHistorial, fraseDeActividad, NOMBRES_DE_ACCIONES, resumirDetalle } from './acciones';
 import { problemaConArchivo } from './archivos';
 import { contar, formatearFecha, formatearFechaHora, formatearPeso, nombreDeTipo, nombreSugerido } from './formato';
 import { destinoTrasEntrar, inicioDe } from './roles';
@@ -62,8 +62,18 @@ describe('roles', () => {
 });
 
 describe('historial', () => {
-  it('nombra las 37 acciones auditables de docs/01-analisis.md §7', () => {
-    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(37);
+  it('nombra las 38 acciones auditables de docs/01-analisis.md §7', () => {
+    expect(Object.keys(NOMBRES_DE_ACCIONES)).toHaveLength(38);
+  });
+
+  it('la vista principal del historial deja la rutina aparte; una acción elegida manda sobre el grupo (D46)', () => {
+    expect(filtrosDelHistorial(new URLSearchParams())).toMatchObject({ grupo: 'importante', pagina: 1 });
+    expect(filtrosDelHistorial(new URLSearchParams('grupo=rutina'))).toMatchObject({ grupo: 'rutina' });
+    expect(filtrosDelHistorial(new URLSearchParams('grupo=raro'))).toMatchObject({ grupo: 'importante' });
+    expect(filtrosDelHistorial(new URLSearchParams('accion=SESION_INICIADA'))).toMatchObject({ grupo: 'todo', accion: 'SESION_INICIADA' });
+    expect(accionesDelGrupo('importante').map(([accion]) => accion)).not.toContain('SESION_INICIADA');
+    expect(accionesDelGrupo('rutina').map(([accion]) => accion)).toEqual(['SESION_INICIADA', 'SESION_CERRADA', 'DOCUMENTO_VISUALIZADO', 'BUSQUEDA_REALIZADA']);
+    expect(accionesDelGrupo('todo')).toHaveLength(38);
   });
 
   it('una búsqueda dice qué filtros usó, si se eligió de las sugerencias y si solo halló parecidos (D42)', () => {

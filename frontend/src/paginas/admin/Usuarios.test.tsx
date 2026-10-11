@@ -51,7 +51,7 @@ describe('Usuarios: el estado del correo y la invitación (D41)', () => {
     expect(jorge.queryByRole('button', { name: /Reenviar/ })).not.toBeInTheDocument();
   });
 
-  it('reenviar la invitación avisa a quién salió; si hay que esperar, lo dice la API', async () => {
+  it('reenviar la invitación lo confirma en la misma fila, con la hora; si hay que esperar, lo dice la API', async () => {
     let veces = 0;
     const { peticiones } = abrirUsuarios({
       'POST /usuarios/:id/invitacion': () => (++veces === 1
@@ -61,11 +61,13 @@ describe('Usuarios: el estado del correo y la invitación (D41)', () => {
     const usuario = userEvent.setup();
 
     await usuario.click(within(await filaDe('Luis Quispe')).getByRole('button', { name: 'Reenviar invitación' }));
-    expect(await screen.findByText('Le reenviamos el enlace a luis@ejemplo.pe. El anterior ya no sirve.')).toBeInTheDocument();
+    // Donde se está mirando: en su fila, no arriba de la página.
+    expect(await within(await filaDe('Luis Quispe')).findByRole('status'))
+      .toHaveTextContent(/Enlace nuevo enviado a las \d{2}:\d{2}\. Los anteriores ya no sirven/);
     expect(peticiones.at(-1)).toMatchObject({ metodo: 'POST', ruta: '/usuarios/luis/invitacion' });
 
     await usuario.click(within(await filaDe('Luis Quispe')).getByRole('button', { name: 'Reenviar invitación' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Espera 2 minuto(s)');
+    expect(await within(await filaDe('Luis Quispe')).findByRole('alert')).toHaveTextContent('Espera 2 minuto(s)');
   });
 
   it('una cuenta nueva se crea sin contraseña: la define su dueño al aceptar la invitación', async () => {
@@ -112,5 +114,66 @@ describe('Usuarios: el estado del correo y la invitación (D41)', () => {
 
     await usuario.click(within(await filaDe('Rosa Díaz')).getByRole('button', { name: 'Editar' }));
     expect(within(screen.getByRole('dialog')).getByLabelText(/Contraseña nueva/)).toBeInTheDocument();
+  });
+});
+
+describe('Usuarios: desactivar y eliminar, siempre con confirmación (D46)', () => {
+  it('desactivar pide confirmación; cancelar no cambia nada', async () => {
+    const { peticiones } = abrirUsuarios();
+    const usuario = userEvent.setup();
+
+    await usuario.click(within(await filaDe('Ana Torres')).getByRole('button', { name: 'Desactivar' }));
+    const dialogo = within(screen.getByRole('dialog'));
+    expect(dialogo.getByText('Ana Torres')).toBeInTheDocument();
+    expect(dialogo.getByText(/se cerrarán sus sesiones abiertas/)).toBeInTheDocument();
+    await usuario.click(dialogo.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(peticiones.filter((peticion) => peticion.metodo !== 'GET')).toEqual([]);
+  });
+
+  it('eliminar nombra a la persona, explica que es para siempre y que su traza se conserva; al confirmar, la quita', async () => {
+    let eliminada = false;
+    const { peticiones } = abrirUsuarios({
+      'GET /usuarios': () => ({ cuerpo: { datos: LISTA.filter((p) => !(eliminada && p.id === 'ana')), paginacion: { pagina: 1, porPagina: 20, total: 3 } } }),
+      'DELETE /usuarios/:id': () => { eliminada = true; return { estado: 204 }; },
+    });
+    const usuario = userEvent.setup();
+
+    await usuario.click(within(await filaDe('Ana Torres')).getByRole('button', { name: 'Eliminar a Ana Torres' }));
+    const dialogo = within(screen.getByRole('dialog', { name: 'Eliminar la cuenta' }));
+    expect(dialogo.getByText('ana@ejemplo.pe', { exact: false })).toBeInTheDocument();
+    expect(dialogo.getByText('No se puede deshacer.')).toBeInTheDocument();
+    expect(dialogo.getByText(/Sus documentos, sus solicitudes y el historial se conservan con su nombre/)).toBeInTheDocument();
+    await usuario.click(dialogo.getByRole('button', { name: 'Eliminar para siempre' }));
+
+    expect(await screen.findByText(/Se eliminó la cuenta de Ana Torres/)).toBeInTheDocument();
+    expect(peticiones.find((peticion) => peticion.metodo === 'DELETE')).toMatchObject({ ruta: '/usuarios/ana' });
+    expect(screen.queryByText('Ana Torres')).not.toBeInTheDocument();
+  });
+
+  it('si la API lo rechaza, el diálogo lo dice y no se cierra', async () => {
+    abrirUsuarios({
+      'DELETE /usuarios/:id': { estado: 404, cuerpo: { error: { codigo: 'NO_ENCONTRADO', mensaje: 'El usuario no existe' } } },
+    });
+    const usuario = userEvent.setup();
+
+    await usuario.click(within(await filaDe('Ana Torres')).getByRole('button', { name: 'Eliminar a Ana Torres' }));
+    await usuario.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar para siempre' }));
+
+    expect(await within(screen.getByRole('dialog')).findByText('El usuario no existe')).toBeInTheDocument();
+  });
+
+  it('las desactivadas se ven aparte, en «Desactivados», y también se pueden eliminar', async () => {
+    const { peticiones } = abrirUsuarios();
+    const usuario = userEvent.setup();
+
+    await filaDe('Ana Torres');
+    expect(peticiones.find((peticion) => peticion.ruta === '/usuarios')!.consulta.get('activo')).toBe('true');
+    await usuario.click(screen.getByRole('button', { name: 'Desactivados' }));
+
+    expect(screen.getByRole('button', { name: 'Desactivados' })).toHaveAttribute('aria-pressed', 'true');
+    expect(peticiones.findLast((peticion) => peticion.ruta === '/usuarios')!.consulta.get('activo')).toBe('false');
+    expect(within(await filaDe('Jorge Ramos')).getByRole('button', { name: 'Eliminar a Jorge Ramos' })).toBeInTheDocument();
   });
 });

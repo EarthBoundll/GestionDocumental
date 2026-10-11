@@ -13,7 +13,7 @@ import type {
 } from './plataforma.esquemas.js';
 import {
   actualizarAdministrador, actualizarEmpresa, buscarAdministrador, buscarEmpresa, insertarAdministrador,
-  insertarCategoriasIniciales, insertarEmpresa, listarAdministradores, listarEmpresas, metricasGlobales,
+  insertarCategoriasIniciales, insertarEmpresa, listarAdministradores, listarEmpresas, metricasGlobales, otrosAdministradoresActivos,
   revocarSesionesDeEmpresa, type Administrador, type Empresa, type EmpresaConMetricas,
 } from './plataforma.repositorio.js';
 
@@ -203,6 +203,11 @@ export function crearServicioPlataforma({ enlaces }: { enlaces: EnlacesDeCuenta 
       const actual = await administradorExistente(actor, id);
       if (actual.activo === activo) return actual;
       return actor.datos.ejecutar(async (cliente) => {
+        // D46: una empresa no se queda sin administrador activo; primero se agrega o se reactiva otro.
+        if (!activo && await otrosAdministradoresActivos(cliente, actual.empresaId, id) === 0) {
+          throw new ErrorAplicacion(409, 'ULTIMO_ADMINISTRADOR',
+            'Es el único administrador activo de la empresa: agrega o reactiva otro antes de desactivarlo');
+        }
         await actualizarAdministrador(cliente, id, { activo });
         const sesionesCerradas = activo ? 0 : await revocarSesionesDe(cliente, id);
         await registrarAccion(cliente, {

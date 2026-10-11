@@ -9,7 +9,7 @@ import type { EnlacesDeCuenta, ResultadoDeEnvio } from '../auth/enlaces.js';
 import { autorDe, registrarAccion, type Autor } from '../historial/historial.registro.js';
 import type { CambiosUsuario, FiltroUsuarios, NuevoUsuario } from './usuarios.esquemas.js';
 import {
-  actualizarUsuario, buscarUsuario, correoEnLaEmpresa, insertarUsuario, listarUsuarios, type Usuario,
+  actualizarUsuario, buscarUsuario, correoEnLaEmpresa, darDeBaja, insertarUsuario, listarUsuarios, type Usuario,
 } from './usuarios.repositorio.js';
 
 export type ServicioUsuarios = ReturnType<typeof crearServicioUsuarios>;
@@ -151,6 +151,28 @@ export function crearServicioUsuarios({ enlaces }: { enlaces: EnlacesDeCuenta })
           detalle: { nombre: actual.nombre, sesionesCerradas },
         });
         return { ...actual, activo };
+      });
+    },
+
+    /**
+     * D46: dar de baja una cuenta, para siempre. Deja de listarse, sus sesiones se cierran ahora y su correo
+     * queda libre para otra invitación; su nombre sigue en sus documentos, sus solicitudes y el historial. La
+     * base exige lo mismo que esto (dar_de_baja_usuario, migración 016); aquí se dice con mensajes claros.
+     */
+    async eliminar(actor: Actor, id: string): Promise<void> {
+      exigirQueNoSeaElMismo(actor, id, 'eliminar');
+      const actual = await usuarioDeLaEmpresa(actor, id);
+      await actor.datos.ejecutar(async (cliente) => {
+        const nombre = await darDeBaja(cliente, id);
+        if (nombre === null) throw noEncontrado('El usuario no existe');
+        const sesionesCerradas = await revocarSesionesDe(cliente, id);
+        await registrarAccion(cliente, {
+          accion: 'USUARIO_ELIMINADO',
+          autor: autorDe(actor.autenticacion.usuario),
+          contexto: actor.contexto,
+          entidad: { tipo: 'usuario', id },
+          detalle: { nombre, rol: actual.rol, sesionesCerradas },
+        });
       });
     },
   };

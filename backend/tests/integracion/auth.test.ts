@@ -164,16 +164,21 @@ describe('Autenticación (RF01–RF04)', () => {
     expect(respuesta.body).toEqual({ usuario, empresa });
   });
 
-  it('POST /auth/logout cierra solo esa sesión y lo registra (RF03)', async () => {
+  it('POST /auth/logout cierra solo esa sesión; queda en la sesión, no en el historial (RF03, D46)', async () => {
     const { token, usuario, empresa } = await registrarEmpresa(app);
     const otraSesion = await iniciarSesion(app, usuario.email, { userAgent: UA_IPHONE });
+    const asientosAntes = (await historialDe(pool, empresa.id)).length;
 
     const respuesta = await request(app).post('/api/v1/auth/logout').set('Authorization', `Bearer ${token}`);
 
     expect(respuesta.status).toBe(204);
     expect((await yo(token)).status).toBe(401);
     expect((await yo(otraSesion)).status).toBe(200);
-    expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({ accion: 'SESION_CERRADA', usuario_id: usuario.id, entidad_tipo: 'sesion' });
+    // La revocación vive en la sesión, con su hora; el historial no se llena de cierres de sesión.
+    const { rows: [revocadas] } = await pool.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM sesiones WHERE usuario_id = $1 AND revocada_en IS NOT NULL', [usuario.id]);
+    expect(revocadas!.n).toBe(1);
+    expect(await historialDe(pool, empresa.id)).toHaveLength(asientosAntes);
   });
 
   describe('PUT /auth/clave (RF04)', () => {

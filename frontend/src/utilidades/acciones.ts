@@ -1,3 +1,4 @@
+import type { FiltrosHistorial, GrupoDelHistorial } from '../api/recursos';
 import { ESTADOS_DE_APROBACION, TIPOS_DE_ARCHIVO } from './busqueda';
 import { contar, formatearFecha, formatearPeso } from './formato';
 
@@ -40,7 +41,48 @@ export const NOMBRES_DE_ACCIONES: Record<string, string> = {
   INVITACION_ENVIADA: 'Invitación enviada',
   VERIFICACION_ENVIADA: 'Enlace para confirmar el correo enviado',
   CORREO_VERIFICADO: 'Correo verificado',
+  USUARIO_ELIMINADO: 'Usuario eliminado',
 };
+
+/**
+ * La rutina de cada día (D46): se sigue registrando —de ella salen los indicadores 2 a 5— pero no ocupa la vista
+ * principal del historial. La misma lista que ACCIONES_DE_RUTINA en el backend.
+ */
+export const ACCIONES_DE_RUTINA: readonly string[] = ['SESION_INICIADA', 'SESION_CERRADA', 'BUSQUEDA_REALIZADA', 'DOCUMENTO_VISUALIZADO'];
+
+export const GRUPOS_DEL_HISTORIAL: { valor: GrupoDelHistorial; texto: string }[] = [
+  { valor: 'importante', texto: 'Lo importante' },
+  { valor: 'rutina', texto: 'Inicios de sesión, búsquedas y vistas' },
+  { valor: 'todo', texto: 'Todo' },
+];
+
+const esGrupo = (valor: string | null): valor is GrupoDelHistorial => GRUPOS_DEL_HISTORIAL.some((grupo) => grupo.valor === valor);
+
+/** El grupo que se está mirando: el de la URL o, sin él, lo importante. */
+export const grupoDeLaUrl = (parametros: URLSearchParams): GrupoDelHistorial => {
+  const grupo = parametros.get('grupo');
+  return esGrupo(grupo) ? grupo : 'importante';
+};
+
+/** Las acciones que se pueden elegir dentro de un grupo, con su nombre. */
+export function accionesDelGrupo(grupo: GrupoDelHistorial): [string, string][] {
+  return Object.entries(NOMBRES_DE_ACCIONES).filter(([accion]) =>
+    grupo === 'todo' || (grupo === 'rutina') === ACCIONES_DE_RUTINA.includes(accion));
+}
+
+/** Los filtros del historial que dice la URL, igual en la pantalla y en la hoja para imprimir. */
+export function filtrosDelHistorial(parametros: URLSearchParams): FiltrosHistorial {
+  const accion = parametros.get('accion') ?? undefined;
+  return {
+    usuarioId: parametros.get('usuarioId') ?? undefined,
+    accion,
+    // Una acción elegida manda: se muestra aunque sea de la rutina.
+    grupo: accion ? 'todo' : grupoDeLaUrl(parametros),
+    desde: parametros.get('desde') ?? undefined,
+    hasta: parametros.get('hasta') ?? undefined,
+    pagina: Number(parametros.get('pagina') ?? 1),
+  };
+}
 
 /** Los campos que aparecen en «cambios», como los entiende quien lee el historial. */
 const NOMBRES_DE_CAMPOS: Record<string, string> = {

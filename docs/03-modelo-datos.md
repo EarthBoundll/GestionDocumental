@@ -55,13 +55,14 @@ erDiagram
         uuid id PK
         uuid empresa_id FK "nulo solo para el Master"
         varchar nombre
-        varchar email UK "en minúsculas"
+        varchar email UK "en minúsculas; nulo solo si se eliminó"
         char dni "opcional, 8 dígitos"
         char clave_hash "bcrypt; nulo hasta aceptar la invitación"
         varchar rol "master, administrador o usuario"
         boolean activo
         varchar tema "sistema, claro u oscuro"
         timestamptz email_verificado_en "nulo hasta probar el buzón"
+        timestamptz eliminado_en "baja definitiva (D46)"
         timestamptz creado_en
         timestamptz actualizado_en
     }
@@ -199,18 +200,21 @@ erDiagram
 | id | uuid | no | PK | |
 | empresa_id | uuid | sí | FK → empresas; nulo si y solo si el rol es `master` | |
 | nombre | varchar(120) | no | | Nombre visible |
-| email | varchar(254) | no | único; en minúsculas | Correo de acceso, único en todo el sistema (RN02) |
+| email | varchar(254) | sí | único; en minúsculas; nulo solo en una cuenta eliminada | Correo de acceso, único en todo el sistema (RN02). Al eliminar la cuenta se borra y queda libre (RN42) |
 | dni | char(8) | sí | 8 dígitos | Dato del perfil; nunca una credencial |
 | clave_hash | char(60) | sí | | Hash bcrypt; la contraseña nunca se guarda. Nulo mientras la cuenta no acepta su invitación (RN35) |
 | rol | varchar(13) | no | `master`, `administrador` o `usuario`; un solo `master` | |
 | activo | boolean | no | por defecto, verdadero | |
 | tema | varchar(7) | no | `sistema`, `claro` u `oscuro`; por defecto, `sistema` | El de su interfaz, en cualquier dispositivo (RN32) |
 | email_verificado_en | timestamptz | sí | exige `clave_hash`; vuelve a nulo si cambia el correo | Cuándo probó su buzón con un enlace; sin él no hay sesión (RN36). Nadie de la aplicación la puede escribir (RN37) |
+| eliminado_en | timestamptz | sí | con él: inactiva y sin correo, DNI ni contraseña; nunca en el `master` | La baja definitiva (RN42, D46). La fila queda con su nombre porque sus documentos, solicitudes e historial la nombran; no se lista ni se reactiva |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
 Además, único (`id`, `empresa_id`), que necesitan las claves foráneas compuestas (M2), y un índice
-único parcial que admite una sola fila con rol `master` (RN22).
+único parcial que admite una sola fila con rol `master` (RN22). La aplicación no escribe `email` ni `eliminado_en`
+desde una empresa: la baja la hace `dar_de_baja_usuario()` (migración 016), que solo acepta a un administrador, en su
+empresa y nunca sobre sí mismo, y borra también sus permisos en categorías restringidas.
 
 ### sesiones
 

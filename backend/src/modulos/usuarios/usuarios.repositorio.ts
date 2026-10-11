@@ -30,8 +30,9 @@ const COLUMNAS = { nombre: 'nombre', email: 'email', dni: 'dni', rol: 'rol', cla
 const DEVUELTAS = `id, nombre, email, rol, dni, activo, ${COLUMNA_ESTADO}, creado_en AS "creadoEn"`;
 const SELECCION = `SELECT ${DEVUELTAS} FROM usuarios`;
 
+/** Las cuentas dadas de baja (D46) no se listan ni se buscan: para la empresa ya no existen, salvo en su traza. */
 export async function listarUsuarios(db: Consultor, empresaId: string, filtro: FiltroUsuarios): Promise<{ filas: Usuario[]; total: number }> {
-  const condiciones = ['empresa_id = $1'];
+  const condiciones = ['empresa_id = $1', 'eliminado_en IS NULL'];
   const parametros: unknown[] = [empresaId];
   const agregar = (condicion: (parametro: string) => string, valor: unknown) => {
     parametros.push(valor);
@@ -52,8 +53,17 @@ export async function listarUsuarios(db: Consultor, empresaId: string, filtro: F
 }
 
 export async function buscarUsuario(db: Consultor, empresaId: string, id: string): Promise<Usuario | null> {
-  const { rows } = await db.query<Usuario>(`${SELECCION} WHERE empresa_id = $1 AND id = $2`, [empresaId, id]);
+  const { rows } = await db.query<Usuario>(`${SELECCION} WHERE empresa_id = $1 AND id = $2 AND eliminado_en IS NULL`, [empresaId, id]);
   return rows[0] ?? null;
+}
+
+/**
+ * Da de baja una cuenta para siempre (D46): la decide la base, con la identidad de la transacción, y borra su
+ * correo, su DNI y su contraseña. Devuelve el nombre que tenía, o null si no hay tal cuenta en la empresa.
+ */
+export async function darDeBaja(db: Consultor, id: string): Promise<string | null> {
+  const { rows } = await db.query<{ nombre: string | null }>('SELECT dar_de_baja_usuario($1) AS nombre', [id]);
+  return rows[0]?.nombre ?? null;
 }
 
 /** Una cuenta nueva nace sin contraseña y sin verificar: la activa su dueño con la invitación (D41). */

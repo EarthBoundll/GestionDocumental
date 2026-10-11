@@ -259,12 +259,26 @@ describe('Plataforma: lo que hace el Administrador Master (CLAUDE.md v2)', () =>
     });
 
     it('desactiva a un administrador y lo deja fuera en ese momento', async () => {
-      const { usuario, token } = await registrarEmpresa(app);
+      const { usuario, token, empresa } = await registrarEmpresa(app);
+      await crearUsuarioEn(pool, empresa.id, 'administrador');
 
       const respuesta = await comoMaster().patch(`/administradores/${usuario.id}/estado`, { activo: false });
 
       expect(respuesta.status).toBe(200);
       expect((await yo(token)).status).toBe(401);
+    });
+
+    it('no deja a una empresa sin administrador activo: primero hay que agregar o reactivar otro (D46)', async () => {
+      const { usuario, token, empresa } = await registrarEmpresa(app);
+
+      const respuesta = await comoMaster().patch(`/administradores/${usuario.id}/estado`, { activo: false });
+
+      expect(respuesta.status).toBe(409);
+      expect(respuesta.body.error.codigo).toBe('ULTIMO_ADMINISTRADOR');
+      expect((await yo(token)).status).toBe(200);
+      // Con otro administrador activo, sí.
+      await crearUsuarioEn(pool, empresa.id, 'administrador');
+      expect((await comoMaster().patch(`/administradores/${usuario.id}/estado`, { activo: false })).status).toBe(200);
     });
 
     it('no alcanza a los usuarios que no son administradores: para el Master no existen', async () => {
