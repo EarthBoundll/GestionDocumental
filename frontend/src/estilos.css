@@ -59,7 +59,7 @@
   --animate-emerger: emerger 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-flotar: flotar 7s ease-in-out infinite;
   --animate-aurora: aurora 22s ease-in-out infinite alternate;
-  --animate-palabras: palabras 12s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  --animate-palabras: palabras 12.5s linear infinite both;
   /* Tres latidos al llegar algo nuevo a la campana, no un parpadeo sin fin. */
   --animate-latido: latido 1.4s ease-out 3;
 
@@ -99,14 +99,16 @@
     50% { transform: translate3d(10%, -8%, 0) scale(1.15); }
     100% { transform: translate3d(-8%, 6%, 0) scale(0.95); }
   }
-  /* Cinco palabras y la primera repetida al final: al volver a empezar no se nota el salto. */
+  /*
+   * Cada palabra del titular, en su quinta parte del ciclo: entra subiendo y frenando, se queda 1,6 s y sale
+   * subiendo y acelerando justo antes de que entre la siguiente, sin que se encimen. El resto del ciclo espera
+   * invisible.
+   */
   @keyframes palabras {
-    0%, 16% { transform: translateY(0); }
-    20%, 36% { transform: translateY(-16.6667%); }
-    40%, 56% { transform: translateY(-33.3333%); }
-    60%, 76% { transform: translateY(-50%); }
-    80%, 96% { transform: translateY(-66.6667%); }
-    100% { transform: translateY(-83.3333%); }
+    0% { opacity: 0; transform: translateY(0.4em); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+    4% { opacity: 1; transform: none; }
+    17% { opacity: 1; transform: none; animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0); }
+    20%, 100% { opacity: 0; transform: translateY(-0.4em); }
   }
   @keyframes latido {
     0% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0.55); }

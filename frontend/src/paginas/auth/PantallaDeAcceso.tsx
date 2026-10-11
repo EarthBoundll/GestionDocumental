@@ -11,8 +11,12 @@ const VENTAJAS = [
   { icono: History, texto: 'Cada acción queda en un historial que nadie puede modificar' },
 ];
 
-/** Las que rotan en el titular. La primera se repite al final para que la vuelta no se note (estilos.css). */
+/**
+ * Las que rotan en el titular, una cada 2,5 s. Son cinco porque la animación «palabras» (estilos.css) le da a
+ * cada una la quinta parte de su ciclo de 12,5 s: si cambia la cantidad, cambian también esos porcentajes.
+ */
 const PALABRAS = ['documentos,', 'facturas,', 'contratos,', 'guías,', 'planillas,'];
+const SEGUNDOS_POR_PALABRA = 2.5;
 
 /**
  * El marco de iniciar sesión, recuperar y restablecer la contraseña (D37, D40): la imagen y el mensaje ocupan la
@@ -80,6 +84,10 @@ export function PantallaDeAcceso({ titulo, subtitulo, children, pie }: { titulo:
 /**
  * «Tus documentos, en orden y a la mano», con la palabra cambiando: facturas, contratos, guías… Lo que se lee
  * con un lector de pantalla es la frase entera y quieta; con «reducir movimiento» se queda en «documentos».
+ *
+ * Las cinco palabras ocupan la misma celda y se relevan: la que sale sube y se desvanece, la que entra sube
+ * desde abajo. Nada las recorta, y cada una lleva un margen arriba y abajo para que el degradado, que solo
+ * pinta dentro de su caja, alcance las tildes y las colas de la g, la p y la coma.
  */
 function Titular() {
   return (
@@ -87,14 +95,17 @@ function Titular() {
       <span className="sr-only">Los documentos de tu empresa, en orden y a la mano</span>
       <span aria-hidden className="block">
         Tus{' '}
-        <span data-testid="palabras-que-rotan" className="inline-flex h-[1.25em] overflow-hidden align-bottom">
-          <span className="flex flex-col motion-safe:animate-palabras">
-            {[...PALABRAS, PALABRAS[0]].map((palabra, indice) => (
-              <span key={indice} className="block h-[1.25em] bg-linear-to-r from-teal-300 via-cyan-200 to-sky-300 bg-clip-text leading-[1.25] text-transparent">
-                {palabra}
-              </span>
-            ))}
-          </span>
+        <span data-testid="palabras-que-rotan" className="inline-grid">
+          {PALABRAS.map((palabra, indice) => (
+            <span
+              key={palabra}
+              // Medio segundo adelantadas: la primera ya está entera al abrir la pantalla.
+              style={{ animationDelay: `${indice * SEGUNDOS_POR_PALABRA - 0.5}s` }}
+              className={`col-start-1 row-start-1 -my-[0.15em] justify-self-start bg-linear-to-r from-teal-300 via-cyan-200 to-sky-300 bg-clip-text py-[0.15em] whitespace-nowrap text-transparent motion-safe:animate-palabras ${indice > 0 ? 'opacity-0' : ''}`}
+            >
+              {palabra}
+            </span>
+          ))}
         </span>
       </span>
       <span aria-hidden className="block">en orden y a la mano</span>
