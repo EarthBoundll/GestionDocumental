@@ -1,7 +1,7 @@
 import { api, descargar } from './cliente';
 import type {
   ActividadDeDocumento, Administrador, Asiento, Categoria, ConInvitacion, Documento, EstadoDeAprobacion, Sugerencia, TipoDeArchivo, DocumentoEnPapelera, DocumentoResumen, Empresa, EmpresaConMetricas, EstadoSolicitud, Marca,
-  MetricasDePlataforma, Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Tema, Usuario, Version,
+  MetricasDePlataforma, Notificacion, Pagina, Perfil, RolDeEmpresa, SesionIniciada, Solicitud, Tablero, Usuario, Version, EstiloDeZona, Esquinas, Preferencias,
 } from './tipos';
 
 // Una función por endpoint de docs/04-api.md, agrupadas por recurso.
@@ -17,7 +17,8 @@ export const auth = {
   solicitarRecuperacion: (email: string) => api<{ mensaje: string }>('/auth/recuperacion', { metodo: 'POST', cuerpo: { email } }),
   confirmarRecuperacion: (token: string, claveNueva: string) =>
     api<void>('/auth/recuperacion/confirmar', { metodo: 'POST', cuerpo: { token, claveNueva } }),
-  cambiarPreferencias: (tema: Tema) => api<{ tema: Tema }>('/auth/preferencias', { metodo: 'PUT', cuerpo: { tema } }),
+  /** RF32: solo lo que cambia; devuelve todas las preferencias de la cuenta. */
+  cambiarPreferencias: (cambios: Partial<Preferencias>) => api<Preferencias>('/auth/preferencias', { metodo: 'PUT', cuerpo: cambios }),
   /** D41: acepta la invitación con la contraseña que la persona elige; con eso queda verificado su correo. */
   activarCuenta: (token: string, claveNueva: string) =>
     api<{ email: string }>('/auth/activacion', { metodo: 'POST', cuerpo: { token, claveNueva } }),
@@ -157,6 +158,9 @@ export interface CambiosDeIdentidad {
   nombreComercial?: string;
   colorPrimario?: string;
   colorFondo?: string;
+  estiloMenu?: EstiloDeZona;
+  estiloBarra?: EstiloDeZona;
+  esquinas?: Esquinas;
 }
 
 /** Las dos imágenes de una empresa, cada una con su ruta: /logo y /fondo. */

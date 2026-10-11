@@ -17,8 +17,11 @@ type App = ReturnType<typeof crearAppDePruebas>;
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
 /** La cabecera de un WebP: «RIFF», el tamaño y «WEBP». La API mira los bytes, no la extensión. */
 const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.from([0x24, 0, 0, 0]), Buffer.from('WEBPVP8 ')]);
-/** Lo que devuelve la API de una empresa sin identidad: todo nulo, el de la plataforma. */
-const SIN_MARCA = { nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null };
+/** Lo que devuelve la API de una empresa sin identidad: todo nulo, el de la plataforma, y el estilo de siempre (D47). */
+const SIN_MARCA = {
+  nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null,
+  estiloMenu: 'claro', estiloBarra: 'claro', esquinas: 'suaves',
+};
 /** Donde guarda los archivos almacenamientoDePruebas(): para comprobar que un logo viejo se borra. */
 const CARPETA_DE_ARCHIVOS = join(tmpdir(), 'gestion-documental-archivos-de-prueba');
 
@@ -119,6 +122,7 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       expect((await subirLogo(usuario, PNG, 'logo.png')).status).toBe(403);
       expect((await request(app).delete('/api/v1/empresa/identidad/logo').set(conToken(usuario))).status).toBe(403);
       expect((await editar(usuario, { colorFondo: '#f1e4c8' })).status).toBe(403);
+      expect((await editar(usuario, { estiloMenu: 'marca', esquinas: 'rectas' })).status).toBe(403);
       expect((await subirFondo(usuario, WEBP, 'fondo.webp')).status).toBe(403);
       expect((await request(app).delete('/api/v1/empresa/identidad/fondo').set(conToken(usuario))).status).toBe(403);
       expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({ accion: 'ACCESO_DENEGADO', detalle: { permiso: 'GESTIONAR_IDENTIDAD' } });
@@ -134,6 +138,67 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
 
       expect((await perfil(a.token)).empresa.marca.colorPrimario).toBe('#7a1f1f');
       expect((await perfil(b.token)).empresa.marca.colorPrimario).toBeNull();
+    });
+  });
+
+  describe('el estilo (D47)', () => {
+    it('el menú, la barra y las esquinas se eligen entre opciones cerradas, quedan en el historial y el equipo los ve al entrar', async () => {
+      const { token: admin, empresa } = await registrarEmpresa(app);
+      const persona = await crearUsuarioEn(pool, empresa.id);
+
+      const respuesta = await editar(admin, { estiloMenu: 'marca', estiloBarra: 'marca', esquinas: 'redondeadas' });
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body).toEqual({ ...SIN_MARCA, estiloMenu: 'marca', estiloBarra: 'marca', esquinas: 'redondeadas' });
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({
+        accion: 'EMPRESA_EDITADA',
+        detalle: { cambios: {
+          estiloMenu: { antes: 'claro', despues: 'marca' }, estiloBarra: { antes: 'claro', despues: 'marca' },
+          esquinas: { antes: 'suaves', despues: 'redondeadas' },
+        } },
+      });
+      expect((await perfil(await iniciarSesion(app, persona.email))).empresa.marca)
+        .toMatchObject({ estiloMenu: 'marca', estiloBarra: 'marca', esquinas: 'redondeadas' });
+    });
+
+    it('rechaza lo que no es una de sus opciones: ni colores libres ni texto vacío', async () => {
+      const { token: admin, empresa } = await registrarEmpresa(app);
+
+      const color = await editar(admin, { estiloMenu: '#ffffff' });
+      const vacio = await editar(admin, { esquinas: '' });
+      const otra = await editar(admin, { estiloBarra: 'oscuro' });
+
+      expect([color.status, vacio.status, otra.status]).toEqual([400, 400, 400]);
+      expect(color.body.error.detalles[0]).toMatchObject({ campo: 'estiloMenu', mensaje: 'Elige claro o del color de la empresa' });
+      expect(vacio.body.error.detalles[0]).toMatchObject({ campo: 'esquinas', mensaje: 'Elige rectas, suaves o redondeadas' });
+      expect((await perfil(admin)).empresa.marca).toMatchObject({ estiloMenu: 'claro', estiloBarra: 'claro', esquinas: 'suaves' });
+      expect((await historialDe(pool, empresa.id)).some((a) => a.accion === 'EMPRESA_EDITADA')).toBe(false);
+    });
+
+    it('restablecer los colores y el estilo no toca el nombre comercial, el logo ni el fondo', async () => {
+      const { token: admin } = await registrarEmpresa(app);
+      await editar(admin, { nombreComercial: 'Textiles Andinos', colorPrimario: '#1f3a6f', colorFondo: '#f1e4c8', estiloMenu: 'marca', esquinas: 'rectas' });
+      await subirLogo(admin, PNG, 'logo.png');
+
+      // Lo que envía «Restablecer» de la pantalla de identidad: solo su parte, con los valores de la plataforma.
+      const respuesta = await editar(admin, { colorPrimario: '', estiloMenu: 'claro', estiloBarra: 'claro', esquinas: 'suaves' });
+
+      expect(respuesta.body).toMatchObject({
+        nombreComercial: 'Textiles Andinos', colorFondo: '#f1e4c8', logoUrl: expect.stringMatching(/\.png\?/),
+        colorPrimario: null, estiloMenu: 'claro', estiloBarra: 'claro', esquinas: 'suaves',
+      });
+    });
+
+    it('el Master también lo cambia desde la plataforma, y queda como suyo', async () => {
+      const master = await tokenDelMaster(app);
+      const { token: admin, empresa } = await registrarEmpresa(app);
+
+      const respuesta = await request(app).patch(`/api/v1/plataforma/empresas/${empresa.id}/identidad`).set(conToken(master))
+        .send({ estiloBarra: 'marca', esquinas: 'rectas' });
+
+      expect(respuesta.status).toBe(200);
+      expect((await perfil(admin)).empresa.marca).toMatchObject({ estiloMenu: 'claro', estiloBarra: 'marca', esquinas: 'rectas' });
+      expect((await historialDe(pool, empresa.id)).at(-1)).toMatchObject({ accion: 'EMPRESA_EDITADA', rol_usuario: 'master' });
     });
   });
 
@@ -296,6 +361,9 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
 
       expect(await intentar(a.empresa.id, { id: usuario.id, rol: 'usuario' }, "UPDATE empresas SET color_primario = '#000000'")).toBe(0);
       expect(await intentar(a.empresa.id, { id: usuario.id, rol: 'usuario' }, "UPDATE empresas SET color_fondo = '#000000'")).toBe(0);
+      expect(await intentar(a.empresa.id, { id: usuario.id, rol: 'usuario' }, "UPDATE empresas SET estilo_menu = 'marca'")).toBe(0);
+      expect(await intentar(a.empresa.id, { id: a.usuario.id, rol: 'administrador' },
+        `UPDATE empresas SET esquinas = 'rectas' WHERE id = '${b.empresa.id}'`)).toBe(0);
       expect(await intentar(a.empresa.id, { id: a.usuario.id, rol: 'administrador' },
         `UPDATE empresas SET color_primario = '#000000' WHERE id = '${b.empresa.id}'`)).toBe(0);
       expect(await intentar(a.empresa.id, { id: a.usuario.id, rol: 'administrador' }, "UPDATE empresas SET color_primario = '#000000'")).toBe(1);
@@ -308,6 +376,16 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       for (const sql of ["UPDATE empresas SET nombre = 'Otra'", "UPDATE empresas SET activa = false", "UPDATE empresas SET ruc = '20123456789'"]) {
         await expect(intentar(empresa.id, { id: usuario.id, rol: 'administrador' }, sql)).rejects.toMatchObject({ code: '42501' });
       }
+    });
+
+    it('el estilo solo admite sus opciones, aunque alguien escribiera en la base sin pasar por la API (D47)', async () => {
+      const { empresa, usuario } = await registrarEmpresa(app);
+      const admin = { id: usuario.id, rol: 'administrador' as const };
+
+      await expect(intentar(empresa.id, admin, "UPDATE empresas SET estilo_menu = 'gris'")).rejects.toMatchObject({ code: '23514' });
+      await expect(intentar(empresa.id, admin, "UPDATE empresas SET estilo_menu = '#ff0000'")).rejects.toMatchObject({ code: '22001' });
+      await expect(intentar(empresa.id, admin, "UPDATE empresas SET esquinas = 'url(javascript:1)'")).rejects.toMatchObject({ code: '22001' });
+      await expect(intentar(empresa.id, admin, "UPDATE empresas SET esquinas = 'circulares'")).rejects.toMatchObject({ code: '23514' });
     });
 
     it('un logo solo puede estar en la carpeta de su empresa', async () => {
@@ -342,7 +420,7 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       const respuesta = await request(app).put('/api/v1/auth/preferencias').set(conToken(token)).send({ tema: 'oscuro' });
 
       expect(respuesta.status).toBe(200);
-      expect(respuesta.body).toEqual({ tema: 'oscuro' });
+      expect(respuesta.body).toEqual({ tema: 'oscuro', tamanoTexto: 'normal' });
       expect((await perfil(token)).usuario.tema).toBe('oscuro');
       // Sigue a la persona: otra sesión, otro dispositivo, el mismo tema.
       const otra = await request(app).post('/api/v1/auth/login').send({ email: (await perfil(token)).usuario.email, clave: 'clave-de-prueba-1' });
@@ -362,6 +440,36 @@ describe('Identidad visual y tema (RF31, RF32)', () => {
       expect((await perfil(admin)).usuario.tema).toBe('claro');
       expect((await perfil(await iniciarSesion(app, persona.email))).usuario.tema).toBe('sistema');
       expect((await perfil(master)).usuario.tema).toBe('oscuro');
+    });
+  });
+
+  describe('el tamaño del texto de cada persona (RF32, D47)', () => {
+    const preferir = (token: string, cuerpo: object) => request(app).put('/api/v1/auth/preferencias').set(conToken(token)).send(cuerpo);
+
+    it('empieza en normal, se guarda en la cuenta, sigue a la persona y no toca su tema ni el historial', async () => {
+      const { token, empresa } = await registrarEmpresa(app);
+      expect((await perfil(token)).usuario).toMatchObject({ tema: 'sistema', tamanoTexto: 'normal' });
+      await preferir(token, { tema: 'oscuro' });
+      const sinSesiones = async () => (await historialDe(pool, empresa.id)).filter((a) => a.accion !== 'SESION_INICIADA').length;
+      const antes = await sinSesiones();
+
+      const respuesta = await preferir(token, { tamanoTexto: 'muy_grande' });
+
+      expect(respuesta.body).toEqual({ tema: 'oscuro', tamanoTexto: 'muy_grande' });
+      const otra = await request(app).post('/api/v1/auth/login').send({ email: (await perfil(token)).usuario.email, clave: 'clave-de-prueba-1' });
+      expect(otra.body.usuario).toMatchObject({ tema: 'oscuro', tamanoTexto: 'muy_grande' });
+      expect(await sinSesiones()).toBe(antes);
+    });
+
+    it('cada uno cambia solo el suyo; volver a lo predeterminado son ambos a la vez; lo que no existe es un 400', async () => {
+      const { token: admin, empresa } = await registrarEmpresa(app);
+      const persona = await iniciarSesion(app, (await crearUsuarioEn(pool, empresa.id)).email);
+      await preferir(admin, { tema: 'claro', tamanoTexto: 'grande' });
+
+      expect((await preferir(persona, { tamanoTexto: 'enorme' })).status).toBe(400);
+      expect((await preferir(persona, {})).status).toBe(400);
+      expect((await perfil(persona)).usuario).toMatchObject({ tema: 'sistema', tamanoTexto: 'normal' });
+      expect((await preferir(admin, { tema: 'sistema', tamanoTexto: 'normal' })).body).toEqual({ tema: 'sistema', tamanoTexto: 'normal' });
     });
   });
 });

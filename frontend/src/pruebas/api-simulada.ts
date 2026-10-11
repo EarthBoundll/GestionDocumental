@@ -67,9 +67,12 @@ export function sesionDe(rol: Rol, token = `token-${rol}`): SesionIniciada {
   return {
     token,
     expiraEn: new Date(Date.now() + 8 * 3600_000).toISOString(),
-    usuario: { id: `id-${rol}`, nombre: `Persona ${rol}`, email: `${rol}@ejemplo.pe`, rol, dni: null, tema: 'sistema' },
+    usuario: { id: `id-${rol}`, nombre: `Persona ${rol}`, email: `${rol}@ejemplo.pe`, rol, dni: null, tema: 'sistema', tamanoTexto: 'normal' },
     empresa: rol === 'master' ? null : {
-      id: 'empresa-a', nombre: 'Textiles Andinos SAC', marca: { nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null },
+      id: 'empresa-a', nombre: 'Textiles Andinos SAC', marca: {
+        nombreComercial: null, colorPrimario: null, colorFondo: null, logoUrl: null, fondoUrl: null,
+        estiloMenu: 'claro', estiloBarra: 'claro', esquinas: 'suaves',
+      },
     },
   };
 }

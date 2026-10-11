@@ -1,6 +1,6 @@
 import { esquemaClaveNueva } from '../../compartido/claves.js';
 import { z } from '../../compartido/validacion.js';
-import { TEMAS } from './auth.repositorio.js';
+import { TAMANOS_DE_TEXTO, TEMAS } from './auth.repositorio.js';
 
 export const email = z.string().trim().toLowerCase().pipe(z.email('Escribe un correo válido').max(254));
 // En el inicio de sesión no se aplican las reglas de una contraseña nueva: solo se compara.
@@ -26,4 +26,9 @@ export type DatosCambioClave = z.infer<typeof esquemaCambioClave>;
 export type DatosConfirmacionRecuperacion = z.infer<typeof esquemaConfirmacionRecuperacion>;
 export type DatosActivacion = z.infer<typeof esquemaActivacion>;
 
-export const esquemaPreferencias = z.object({ tema: z.enum(TEMAS, 'Elige sistema, claro u oscuro') });
+export const esquemaPreferencias = z
+  .object({
+    tema: z.enum(TEMAS, 'Elige sistema, claro u oscuro').optional(),
+    tamanoTexto: z.enum(TAMANOS_DE_TEXTO, 'Elige normal, grande o muy grande').optional(),
+  })
+  .refine((cambios) => Object.values(cambios).some((valor) => valor !== undefined), 'Indica al menos una preferencia');

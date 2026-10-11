@@ -48,6 +48,9 @@ erDiagram
         char color_fondo "opcional, #rrggbb"
         varchar logo_ruta "opcional, en su carpeta"
         varchar fondo_ruta "opcional, en su carpeta"
+        varchar estilo_menu "claro o marca"
+        varchar estilo_barra "claro o marca"
+        varchar esquinas "rectas, suaves o redondeadas"
         timestamptz creado_en
         timestamptz actualizado_en
     }
@@ -61,6 +64,7 @@ erDiagram
         varchar rol "master, administrador o usuario"
         boolean activo
         varchar tema "sistema, claro u oscuro"
+        varchar tamano_texto "normal, grande o muy_grande"
         timestamptz email_verificado_en "nulo hasta probar el buzón"
         timestamptz eliminado_en "baja definitiva (D46)"
         timestamptz creado_en
@@ -190,6 +194,9 @@ erDiagram
 | color_fondo | char(7) | sí | `#rrggbb` en minúsculas | Solo cuenta su tono: la interfaz fija la claridad en cada modo, así que no hay contraste que validar (RN31, D39) |
 | logo_ruta | varchar(255) | sí | `<empresa>/<uuid>.png` o `.jpg`, en la carpeta de esta empresa | En el bucket privado de los documentos (RN31) |
 | fondo_ruta | varchar(255) | sí | `<empresa>/<uuid>.webp` o `.jpg`, en la carpeta de esta empresa | La imagen de fondo, también en el bucket privado (RN31, D39) |
+| estilo_menu | varchar(5) | no | `claro` o `marca`; por defecto, `claro` | El menú lateral: claro o del color principal, con texto blanco (RN31, D47) |
+| estilo_barra | varchar(5) | no | `claro` o `marca`; por defecto, `claro` | La barra superior, igual que el menú (RN31, D47) |
+| esquinas | varchar(11) | no | `rectas`, `suaves` o `redondeadas`; por defecto, `suaves` | El redondeo de tarjetas, botones, campos y diálogos (RN31, D47) |
 | creado_en | timestamptz | no | ahora | |
 | actualizado_en | timestamptz | no | ahora | |
 
@@ -206,6 +213,7 @@ erDiagram
 | rol | varchar(13) | no | `master`, `administrador` o `usuario`; un solo `master` | |
 | activo | boolean | no | por defecto, verdadero | |
 | tema | varchar(7) | no | `sistema`, `claro` u `oscuro`; por defecto, `sistema` | El de su interfaz, en cualquier dispositivo (RN32) |
+| tamano_texto | varchar(10) | no | `normal`, `grande` o `muy_grande`; por defecto, `normal` | El tamaño de su interfaz, en cualquier dispositivo (RN32, D47) |
 | email_verificado_en | timestamptz | sí | exige `clave_hash`; vuelve a nulo si cambia el correo | Cuándo probó su buzón con un enlace; sin él no hay sesión (RN36). Nadie de la aplicación la puede escribir (RN37) |
 | eliminado_en | timestamptz | sí | con él: inactiva y sin correo, DNI ni contraseña; nunca en el `master` | La baja definitiva (RN42, D46). La fila queda con su nombre porque sus documentos, solicitudes e historial la nombran; no se lista ni se reactiva |
 | creado_en | timestamptz | no | ahora | |
@@ -403,7 +411,7 @@ No dependen de que el código se acuerde de comprobarlas.
 | Solo se autoriza a personas de la propia empresa (RN29) | Claves foráneas compuestas de `categoria_accesos` |
 | Una categoría restringida no se ve sin acceso (RN29) | Políticas RLS restrictivas: `puede_ver_categoria()` en `categorias` y `categorias_visibles()` en `documentos` (§3.1) |
 | Solo se purga lo que está en la papelera (RN28) | `purgado_en` exige `eliminado_en` |
-| Solo el administrador cambia la identidad de su empresa, y nada más de ella (RN31) | `app_empresa` solo puede actualizar `nombre_comercial`, `color_primario`, `color_fondo`, `logo_ruta` y `fondo_ruta`, y una política de UPDATE exige su empresa y el rol `administrador` (§3.1) |
+| Solo el administrador cambia la identidad de su empresa, y nada más de ella (RN31) | `app_empresa` solo puede actualizar `nombre_comercial`, `color_primario`, `color_fondo`, `logo_ruta`, `fondo_ruta`, `estilo_menu`, `estilo_barra` y `esquinas`, y una política de UPDATE exige su empresa y el rol `administrador` (§3.1) |
 | El logo y el fondo de una empresa están en su carpeta | `logo_ruta` y `fondo_ruta` deben empezar por el `id` de la empresa |
 | Una versión no cambia ni se borra (RN33) | `app_empresa` solo tiene SELECT e INSERT sobre `documento_versiones` |
 | Cada número de versión, una vez por documento | Único (`documento_id`, `numero`); el número lo decide la API con el documento bloqueado |
@@ -448,7 +456,8 @@ Ahora puede actualizar tres columnas de ella —`nombre_comercial`, `color_prima
 permiso de columna— y una política de UPDATE exige que sea su empresa y que quien actúa sea
 administrador. Un usuario que lo intente por debajo de la API cambia cero filas; el nombre, el RUC o el
 estado no los puede tocar nadie de la empresa (error 42501). La 012 (D39) suma a ese permiso las dos
-columnas del fondo, `color_fondo` y `fondo_ruta`, bajo la misma política.
+columnas del fondo, `color_fondo` y `fondo_ruta`, bajo la misma política, y la 017 (D47) las tres del estilo,
+`estilo_menu`, `estilo_barra` y `esquinas`, que además solo admiten sus opciones (`CHECK`).
 
 **Versiones (009, D30).** `documento_versiones` tiene la política de aislamiento por empresa y otra
 restrictiva que exige que su documento exista para quien pregunta. Esa subconsulta pasa a su vez por la

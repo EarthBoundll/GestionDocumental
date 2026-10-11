@@ -29,8 +29,26 @@ export const colorFondo = z.preprocess(
   z.string().trim().toLowerCase().regex(/^#[0-9a-f]{6}$/, 'Usa un color en formato #f1e4c8').nullable(),
 );
 
+/**
+ * El estilo (D47): opciones cerradas, no colores libres. El menú y la barra de arriba van claros o del color de la
+ * empresa, con el que el texto blanco ya se lee (4,5:1); así ninguna combinación queda ilegible, en ningún modo.
+ */
+export const ESTILOS_DE_ZONA = ['claro', 'marca'] as const;
+export const ESQUINAS = ['rectas', 'suaves', 'redondeadas'] as const;
+export type EstiloDeZona = (typeof ESTILOS_DE_ZONA)[number];
+export type Esquinas = (typeof ESQUINAS)[number];
+
+const estiloDeZona = z.enum(ESTILOS_DE_ZONA, 'Elige claro o del color de la empresa');
+
 export const esquemaIdentidad = z
-  .object({ nombreComercial: nombreComercial.optional(), colorPrimario: colorPrimario.optional(), colorFondo: colorFondo.optional() })
+  .object({
+    nombreComercial: nombreComercial.optional(),
+    colorPrimario: colorPrimario.optional(),
+    colorFondo: colorFondo.optional(),
+    estiloMenu: estiloDeZona.optional(),
+    estiloBarra: estiloDeZona.optional(),
+    esquinas: z.enum(ESQUINAS, 'Elige rectas, suaves o redondeadas').optional(),
+  })
   .refine((cambios) => Object.values(cambios).some((valor) => valor !== undefined), 'Indica al menos un cambio');
 
 export type CambiosIdentidad = z.infer<typeof esquemaIdentidad>;

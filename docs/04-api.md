@@ -92,7 +92,7 @@ Todas las respuestas de error tienen la misma forma:
 | POST | `/auth/login` | Público | `email`, `clave` | 200 `{ token, expiraEn, usuario, empresa }`: el usuario con su `tema`, y la empresa con su `marca` (nombre comercial, colores y enlaces firmados del logo y del fondo); `empresa` es nula para el Master | `SESION_INICIADA` o `SESION_FALLIDA` |
 | POST | `/auth/logout` | Sesión | — | 204; la sesión queda revocada con su hora | — (desde D46; antes, `SESION_CERRADA`) |
 | GET | `/auth/yo` | Sesión | — | 200 `{ usuario, empresa }`, como el inicio de sesión | — |
-| PUT | `/auth/preferencias` | Sesión | `tema`: `sistema`, `claro` u `oscuro` | 200 `{ tema }`; vale en todos sus dispositivos (RN32) | — (no es una acción sobre datos) |
+| PUT | `/auth/preferencias` | Sesión | `tema?`: `sistema`, `claro` u `oscuro`; `tamanoTexto?`: `normal`, `grande` o `muy_grande`; al menos uno | 200 `{ tema, tamanoTexto }`; valen en todos sus dispositivos (RN32, D47) | — (no es una acción sobre datos) |
 | PUT | `/auth/clave` | Sesión | `claveActual`, `claveNueva` | 204; cierra las demás sesiones. 400 si la actual no coincide o, para el Master, si la nueva no cumple sus reglas (RN23) | `CLAVE_CAMBIADA` |
 | POST | `/auth/recuperacion` | Público | `email` | 202 `{ mensaje }`, siempre el mismo exista o no el correo; si existe, envía el enlace, y a una cuenta que aún no aceptó su invitación, la invitación otra vez | `RECUPERACION_SOLICITADA` (y `INVITACION_ENVIADA`) |
 | POST | `/auth/recuperacion/confirmar` | Público | `token`, `claveNueva` | 204; cierra todas las sesiones y verifica el correo. 400 `ENLACE_INVALIDO` | `CLAVE_RESTABLECIDA` |
@@ -202,13 +202,14 @@ categoría no existe». Lo decide la base (D22).
 ### Identidad de la empresa
 
 La de la empresa de la sesión (RF31, D28, D39): la empresa sale de la sesión, nunca de la petición. `marca` es
-`{ nombreComercial, colorPrimario, colorFondo, logoUrl, fondoUrl }`; cada campo es nulo si la empresa no lo
-eligió, y `logoUrl` y `fondoUrl` son enlaces firmados que duran lo que la sesión.
+`{ nombreComercial, colorPrimario, colorFondo, logoUrl, fondoUrl, estiloMenu, estiloBarra, esquinas }`; los cinco
+primeros son nulos si la empresa no los eligió, y `logoUrl` y `fondoUrl` son enlaces firmados que duran lo que la
+sesión. Los tres del estilo (D47) siempre tienen valor: por defecto, `claro`, `claro` y `suaves`.
 
 | Método | Ruta | Quién | Entrada | Respuesta | Historial |
 |---|---|---|---|---|---|
 | GET | `/empresa/identidad` | Empresa | — | 200 con la `marca` | — |
-| PATCH | `/empresa/identidad` | Admin | `nombreComercial?` (2 a 60 caracteres), `colorPrimario?`, `colorFondo?` (`#rrggbb`); vacío lo quita; al menos uno | 200 con la `marca`. 400 si el color principal no da 4,5:1 con el texto blanco; el de fondo no se valida, solo cuenta su tono | `EMPRESA_EDITADA` con el antes y el después |
+| PATCH | `/empresa/identidad` | Admin | `nombreComercial?` (2 a 60 caracteres), `colorPrimario?`, `colorFondo?` (`#rrggbb`), vacío lo quita; `estiloMenu?`, `estiloBarra?` (`claro` o `marca`), `esquinas?` (`rectas`, `suaves` o `redondeadas`); al menos uno | 200 con la `marca`. 400 si el color principal no da 4,5:1 con el texto blanco; el de fondo no se valida, solo cuenta su tono | `EMPRESA_EDITADA` con el antes y el después |
 | PUT | `/empresa/identidad/logo` | Admin | `multipart/form-data` con `archivo`: PNG o JPG, por su contenido | 200 con la `marca`; reemplaza al anterior y lo borra. 415 si no es PNG ni JPG, 413 si supera 256 KB | `EMPRESA_EDITADA` (`logo` y el nombre del archivo) |
 | DELETE | `/empresa/identidad/logo` | Admin | — | 200 con la `marca` | `EMPRESA_EDITADA` |
 | PUT | `/empresa/identidad/fondo` | Admin | `multipart/form-data` con `archivo`: WebP o JPG, por su contenido; el navegador ya lo redujo y comprimió | 200 con la `marca`; reemplaza al anterior y lo borra. 415 si no es WebP ni JPG, 413 si supera 512 KB | `EMPRESA_EDITADA` (`fondo` y el nombre del archivo) |

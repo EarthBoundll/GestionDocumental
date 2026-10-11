@@ -1,6 +1,7 @@
 import type { UsuarioAutenticado } from '../../compartido/peticion.js';
 import type { Rol } from '../../compartido/permisos.js';
 import type { Credencial } from '../../compartido/tokens.js';
+import { clausulaSet } from '../../db/actualizacion.js';
 import { primeraFila } from '../../db/filas.js';
 import type { Consultor } from '../../db/pool.js';
 import { SELECT_IDENTIDAD, type FilaIdentidad } from '../identidad/identidad.repositorio.js';
@@ -28,10 +29,19 @@ export interface CuentaParaIniciarSesion extends UsuarioAutenticado {
 
 export const TEMAS = ['sistema', 'claro', 'oscuro'] as const;
 export type Tema = (typeof TEMAS)[number];
+/** RF32 (D47): toda la interfaz está en rem, así que el tamaño de la letra de la página la escala entera. */
+export const TAMANOS_DE_TEXTO = ['normal', 'grande', 'muy_grande'] as const;
+export type TamanoDeTexto = (typeof TAMANOS_DE_TEXTO)[number];
 
-/** Lo que la base sabe de alguien al entrar: su cuenta, su tema y su empresa con su identidad (008). */
+/** Lo que cada persona elige para sí y la sigue en cualquier dispositivo. */
+export interface Preferencias {
+  tema: Tema;
+  tamanoTexto: TamanoDeTexto;
+}
+
+/** Lo que la base sabe de alguien al entrar: su cuenta, sus preferencias y su empresa con su identidad (008). */
 export interface FilaPerfil {
-  usuario: { id: string; nombre: string; email: string; rol: Rol; dni: string | null; tema: Tema };
+  usuario: { id: string; nombre: string; email: string; rol: Rol; dni: string | null } & Preferencias;
   empresa: (Empresa & { identidad: FilaIdentidad }) | null;
 }
 
@@ -90,8 +100,8 @@ export async function buscarCuentaPorEmail(db: Consultor, email: string): Promis
 }
 
 export async function buscarPerfil(db: Consultor, usuarioId: string): Promise<FilaPerfil | null> {
-  const { rows } = await db.query<FilaUsuario & FilaIdentidad & { dni: string | null; tema: Tema; empresa_nombre: string | null }>(
-    `SELECT ${COLUMNAS_USUARIO}, u.dni, u.tema, e.nombre AS empresa_nombre, ${SELECT_IDENTIDAD}
+  const { rows } = await db.query<FilaUsuario & FilaIdentidad & Preferencias & { dni: string | null; empresa_nombre: string | null }>(
+    `SELECT ${COLUMNAS_USUARIO}, u.dni, u.tema, u.tamano_texto AS "tamanoTexto", e.nombre AS empresa_nombre, ${SELECT_IDENTIDAD}
      FROM usuarios u LEFT JOIN empresas e ON e.id = u.empresa_id
      WHERE u.id = $1`,
     [usuarioId],
@@ -99,21 +109,32 @@ export async function buscarPerfil(db: Consultor, usuarioId: string): Promise<Fi
   const fila = rows[0];
   if (!fila) return null;
   return {
-    usuario: { id: fila.id, nombre: fila.nombre, email: fila.email, rol: fila.rol, dni: fila.dni, tema: fila.tema },
+    usuario: {
+      id: fila.id, nombre: fila.nombre, email: fila.email, rol: fila.rol, dni: fila.dni, tema: fila.tema, tamanoTexto: fila.tamanoTexto,
+    },
     empresa: fila.empresa_id === null ? null : {
       id: fila.empresa_id,
       nombre: fila.empresa_nombre ?? '',
       identidad: {
         nombreComercial: fila.nombreComercial, colorPrimario: fila.colorPrimario, colorFondo: fila.colorFondo,
         logoRuta: fila.logoRuta, fondoRuta: fila.fondoRuta,
+        estiloMenu: fila.estiloMenu, estiloBarra: fila.estiloBarra, esquinas: fila.esquinas,
       },
     },
   };
 }
 
-/** El tema es de la persona: solo cambia el suyo, y no pasa por el historial (RF32). */
-export async function actualizarTema(db: Consultor, usuarioId: string, tema: Tema): Promise<void> {
-  await db.query('UPDATE usuarios SET tema = $2 WHERE id = $1', [usuarioId, tema]);
+/**
+ * Las preferencias son de la persona: solo cambia las suyas, y no pasan por el historial (RF32). Devuelve las
+ * que quedaron, también las que no se tocaron.
+ */
+export async function actualizarPreferencias(db: Consultor, usuarioId: string, cambios: Partial<Preferencias>): Promise<Preferencias> {
+  const { sql, parametros } = clausulaSet(cambios, { tema: 'tema', tamanoTexto: 'tamano_texto' }, 2);
+  const { rows } = await db.query<Preferencias>(
+    `UPDATE usuarios SET ${sql} WHERE id = $1 RETURNING tema, tamano_texto AS "tamanoTexto"`,
+    [usuarioId, ...parametros],
+  );
+  return primeraFila(rows);
 }
 
 export async function buscarClaveHash(db: Consultor, usuarioId: string): Promise<string | null> {
